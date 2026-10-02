@@ -30,7 +30,7 @@ struct Library {
 
   func listed(includePlugins: Bool) -> [Skill] {
     let enabled = Set(tools)
-    return skills.filter { (includePlugins || $0.isPersonal) && !$0.availableIn.isDisjoint(with: enabled) }
+    return skills.filter { $0.isVisible(in: enabled, includePlugins: includePlugins) }
   }
 
   func skill(named name: String) throws -> Skill {

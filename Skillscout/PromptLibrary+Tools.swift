@@ -181,4 +181,81 @@ extension PromptLibrary {
     }
     return (prompts, uses)
   }
+
+  // MARK: - Antigravity
+
+  func antigravityActivity(in data: Data, file: TranscriptFile) -> ([Prompt], [SkillUse]) {
+    var prompts: [Prompt] = []
+    var uses: [SkillUse] = []
+    let project = file.project.isEmpty ? "Unknown" : file.project
+
+    for line in Self.lines(containing: #""step_index""#, in: data) {
+      guard let object = Self.json(line) else { continue }
+      let date = isoDate(object["created_at"]) ?? file.modified
+
+      if object["type"] as? String == "USER_INPUT", let text = object["content"] as? String {
+        let cleanText = text.replacingOccurrences(of: "<USER_REQUEST>\n", with: "")
+                            .replacingOccurrences(of: "\n</USER_REQUEST>", with: "")
+        append(&prompts, tool: .antigravity, project: project, date: date, text: cleanText, key: file.chat)
+      }
+
+      if let toolCalls = object["tool_calls"] as? [[String: Any]] {
+        for call in toolCalls {
+          if call["name"] as? String == "default_api:view_file", let args = call["arguments"] as? [String: Any], let path = args["AbsolutePath"] as? String, path.hasSuffix("/SKILL.md") {
+            uses.append(SkillUse(tool: .antigravity, chat: file.chat, project: project, date: date, folder: Self.folder(of: path)))
+          }
+        }
+      }
+    }
+    return (prompts, uses)
+  }
+
+  // MARK: - GitHub Copilot
+
+  func copilotDatabase() -> (url: URL, size: Int, modified: Date)? {
+    let url = Paths.at(".copilot/session-store.db")
+    let keys: Set<URLResourceKey> = [.contentModificationDateKey, .fileSizeKey]
+    guard let values = try? url.resourceValues(forKeys: keys), let modified = values.contentModificationDate else { return nil }
+    let log = try? URL(fileURLWithPath: url.path + "-wal").resourceValues(forKeys: keys)
+    return (url, (values.fileSize ?? 0) + (log?.fileSize ?? 0), max(modified, log?.contentModificationDate ?? .distantPast))
+  }
+
+  func copilotActivity(in url: URL, since cutoff: Date) -> ([Prompt], [SkillUse]) {
+    var database: OpaquePointer?
+    defer { sqlite3_close(database) }
+    guard sqlite3_open_v2(url.path, &database, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else { return ([], []) }
+    sqlite3_busy_timeout(database, 2000)
+
+    let sql = """
+      SELECT s.id, s.cwd, t.timestamp, t.user_message, t.assistant_response
+      FROM turns t
+      JOIN sessions s ON s.id = t.session_id
+      WHERE t.timestamp >= datetime(?, 'unixepoch')
+      ORDER BY t.timestamp
+      """
+    var statement: OpaquePointer?
+    defer { sqlite3_finalize(statement) }
+    guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK else { return ([], []) }
+    sqlite3_bind_int64(statement, 1, Int64(cutoff.timeIntervalSince1970))
+
+    func text(_ column: Int32) -> String? {
+      sqlite3_column_text(statement, column).map { String(cString: $0) }
+    }
+
+    var prompts: [Prompt] = []
+    var uses: [SkillUse] = []
+    while sqlite3_step(statement) == SQLITE_ROW {
+      guard let session = text(0), let userMessage = text(3) else { continue }
+      let project = Self.projectName(text(1))
+      let date = isoDate(text(2)) ?? Date()
+
+      append(&prompts, tool: .copilot, project: project, date: date, text: userMessage, key: session)
+
+      let paths = Self.readSkillPaths(in: userMessage) + Self.readSkillPaths(in: text(4) ?? "")
+      for folder in paths.map({ Self.folder(of: $0) }) {
+        uses.append(SkillUse(tool: .copilot, chat: session, project: project, date: date, folder: folder))
+      }
+    }
+    return (prompts, uses)
+  }
 }

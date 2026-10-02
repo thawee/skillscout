@@ -7,6 +7,7 @@ enum SkillScanner {
     var descriptions: [String: String] = [:]
 
     for root in SkillRoot.all {
+      var copiesInRoot: [String: [SkillCopy]] = [:]
       var newestInRoot: [String: (copy: SkillCopy, modified: Date)] = [:]
 
       for folder in skillFolders(in: root) {
@@ -31,15 +32,21 @@ enum SkillScanner {
           contentHash: shortHash(text),
           created: (try? resolved.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? .distantPast
         )
-        let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
-
-        if let existing = newestInRoot[name], existing.modified >= modified { continue }
-        newestInRoot[name] = (copy, modified)
+        if root.kind == .managed {
+          copiesInRoot[name, default: []].append(copy)
+        } else {
+          let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+          if let existing = newestInRoot[name], existing.modified >= modified { continue }
+          newestInRoot[name] = (copy, modified)
+        }
         if descriptions[name] == nil, let description = meta["description"], !description.isEmpty {
           descriptions[name] = description
         }
       }
 
+      for (name, entries) in copiesInRoot {
+        copiesByName[name, default: []].append(contentsOf: entries.sorted { $0.folder.path < $1.folder.path })
+      }
       for (name, entry) in newestInRoot {
         copiesByName[name, default: []].append(entry.copy)
       }
@@ -55,7 +62,7 @@ enum SkillScanner {
   private static func skillFolders(in root: SkillRoot) -> [URL] {
     let fm = FileManager.default
 
-    if root.kind != .plugin {
+    if root.kind != .plugin && root.kind != .managed {
       let entries = (try? fm.contentsOfDirectory(at: root.url, includingPropertiesForKeys: [.isSymbolicLinkKey], options: [.skipsHiddenFiles])) ?? []
       return entries.filter { fm.fileExists(atPath: $0.appending(path: "SKILL.md").path) }
     }

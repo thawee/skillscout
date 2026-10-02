@@ -80,7 +80,9 @@ extension Tool {
     case .cursor: 99
     case .claude: 208
     case .codex: 37
+    case .copilot: 161
     case .gemini: 33
+    case .antigravity: 93
     case .opencode: 35
     case .droid: 130
     case .pi: 135
@@ -94,7 +96,9 @@ extension Tool {
     case .cursor: "Cu"
     case .claude: "Cl"
     case .codex: "Co"
+    case .copilot: "Cp"
     case .gemini: "Ge"
+    case .antigravity: "An"
     case .opencode: "Op"
     case .droid: "Dr"
     case .pi: "Pi"
@@ -102,13 +106,4 @@ extension Tool {
     }
   }
 
-  /// Accepts `claude`, `claude-code`, `"Claude Code"`, `gemini`, `gemini-cli` and so on.
-  init?(argument: String) {
-    let key = argument.lowercased().replacingOccurrences(of: " ", with: "-")
-    let match = Tool.allCases.first { tool in
-      [tool.rawValue, tool.name.lowercased().replacingOccurrences(of: " ", with: "-")].contains(key)
-    }
-    guard let match else { return nil }
-    self = match
-  }
 }

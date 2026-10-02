@@ -401,4 +401,46 @@ enum Commands {
     print(bold(skill.name))
     print(Terminal.wrap(explanation ?? ""))
   }
+
+  static func install(_ args: Arguments) async throws {
+    let source = try args.single("skill url or path")
+    var explicit: [Tool]? = nil
+    if let tool = try args.tool("to") {
+      explicit = [tool]
+    }
+
+    Terminal.status("Installing \(source)...")
+    do {
+      let destination = try await SkillInstaller.install(source: source, explicitTools: explicit)
+      Terminal.clearStatus()
+      print("Installed to \(Paths.abbreviate(destination))")
+    } catch {
+      Terminal.clearStatus()
+      throw error
+    }
+  }
+
+  static func update(_ args: Arguments) async throws {
+    let query = try args.single("skill")
+    let library = await Library.load(days: 1, readChats: false)
+    guard let skill = library.skills.first(where: { $0.name.localizedCaseInsensitiveCompare(query) == .orderedSame }) else {
+      throw CLIError(message: "Couldn't find a skill named \(query).")
+    }
+    guard let managed = skill.copies.first(where: { $0.root.kind == .managed }) else {
+      throw CLIError(message: "\(skill.name) is not a managed skill, so it can't be updated via git pull.")
+    }
+
+    Terminal.status("Updating \(skill.name)...")
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+    process.arguments = ["-C", managed.resolved.path, "pull"]
+    try process.run()
+    process.waitUntilExit()
+    Terminal.clearStatus()
+
+    guard process.terminationStatus == 0 else {
+      throw CLIError(message: "Failed to update \(skill.name) (git pull returned \(process.terminationStatus)).")
+    }
+    print("Updated \(skill.name).")
+  }
 }

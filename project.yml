@@ -12,7 +12,10 @@ targets:
   Skillscout:
     type: application
     platform: macOS
-    sources: [Skillscout]
+    sources:
+      - Skillscout
+      - path: registry.json
+        buildPhase: resources
     dependencies:
       - target: SkillscoutCLI
         embed: true
@@ -38,8 +41,10 @@ targets:
       - Skillscout/PromptLibrary.swift
       - Skillscout/PromptLibrary+Tools.swift
       - Skillscout/SkillInstaller.swift
+      - Skillscout/SkillsetInstaller.swift
       - Skillscout/Analyzer.swift
       - Skillscout/AIEngine.swift
+      - Skillscout/Registry.swift
     settings:
       base:
         PRODUCT_NAME: skillscout

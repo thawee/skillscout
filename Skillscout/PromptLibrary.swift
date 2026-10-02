@@ -9,7 +9,7 @@ actor PromptLibrary {
     "Briefly inform the user about the task result",
   ]
 
-  enum Source { case cursorChat, cursorSubagent, codex, claude, gemini, droid, pi, amp }
+  enum Source { case cursorChat, cursorSubagent, codex, claude, gemini, antigravity, droid, pi, amp }
 
   struct TranscriptFile {
     let url: URL
@@ -33,7 +33,7 @@ actor PromptLibrary {
   }
 
   /// Bump when a parser changes, so cached results from the old one get parsed again.
-  private static let cacheVersion = 1
+  private static let cacheVersion = 2
   private let cacheFile = Paths.appSupport.appending(path: "chats-cache.json")
   private var cache: [String: ParsedFile] = [:]
   private var cacheLoaded = false
@@ -80,6 +80,20 @@ actor PromptLibrary {
       if parsed?.size != database.size || parsed?.modified != database.modified {
         parsed = ParsedFile(size: database.size, modified: database.modified)
         (parsed!.prompts, parsed!.uses) = openCodeActivity(in: database.url, since: cutoff)
+        cache[key] = parsed
+        changed = true
+      }
+      prompts += parsed?.prompts ?? []
+      uses += parsed?.uses ?? []
+    }
+
+    if let database = copilotDatabase() {
+      let key = "\(database.url.path)#\(lookbackDays)"
+      livePaths.insert(key)
+      var parsed = cache[key]
+      if parsed?.size != database.size || parsed?.modified != database.modified {
+        parsed = ParsedFile(size: database.size, modified: database.modified)
+        (parsed!.prompts, parsed!.uses) = copilotActivity(in: database.url, since: cutoff)
         cache[key] = parsed
         changed = true
       }
@@ -182,6 +196,12 @@ actor PromptLibrary {
     for file in contents(Paths.at(".local/share/amp/threads")) {
       add(file, .amp, chat: file.deletingPathExtension().lastPathComponent, fileExtension: "json")
     }
+
+    for project in contents(Paths.at(".gemini/antigravity-cli/brain")) {
+      let file = project.appending(path: ".system_generated/logs/transcript.jsonl")
+      add(file, .antigravity, chat: project.lastPathComponent)
+    }
+
     return files
   }
 
@@ -219,6 +239,8 @@ actor PromptLibrary {
       parsed.uses = claudeUses(in: data, file: file)
     case .gemini:
       (parsed.prompts, parsed.uses) = geminiActivity(in: data, file: file)
+    case .antigravity:
+      (parsed.prompts, parsed.uses) = antigravityActivity(in: data, file: file)
     case .droid:
       (parsed.prompts, parsed.uses) = droidActivity(in: data, file: file)
     case .pi:

@@ -1,0 +1,39 @@
+{
+  "skills": [
+    {
+      "repo": "https://github.com/android/skills",
+      "name": "android-skills",
+      "description": "Official Android development skills covering Compose, testing, security, performance, and more.",
+      "tools": null,
+      "author": "Android"
+    },
+    {
+      "repo": "https://github.com/anthropics/skills",
+      "name": "anthropic-skills",
+      "description": "Official Claude skill examples for documents, design, development, and enterprise workflows.",
+      "tools": ["claude"],
+      "author": "Anthropic"
+    },
+    {
+      "repo": "https://github.com/vercel-labs/agent-skills",
+      "name": "vercel-agent-skills",
+      "description": "Official Vercel skills for React, Next.js, web design, and Vercel workflows.",
+      "tools": null,
+      "author": "Vercel"
+    },
+    {
+      "repo": "https://github.com/mattpocock/skills",
+      "name": "mattpocock-skills",
+      "description": "A collection of Claude and Cursor skills by Matt Pocock.",
+      "tools": ["claude", "cursor"],
+      "author": "Matt Pocock"
+    },
+    {
+      "repo": "https://github.com/ComposioHQ/awesome-claude-skills",
+      "name": "awesome-claude-skills",
+      "description": "A curated list of awesome Claude skills by ComposioHQ.",
+      "tools": ["claude"],
+      "author": "ComposioHQ"
+    }
+  ]
+}

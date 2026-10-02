@@ -7,7 +7,9 @@ extension Tool {
     case .cursor: "Cursor"
     case .claude: "Claude"
     case .codex: "Codex"
+    case .copilot: "Copilot"
     case .gemini: "Gemini"
+    case .antigravity: "Antigrav"
     case .opencode: "OpenCode"
     case .droid: "Droid"
     case .pi: "Pi"
@@ -20,7 +22,9 @@ extension Tool {
     case .cursor: .indigo
     case .claude: .orange
     case .codex: .teal
+    case .copilot: .red
     case .gemini: .blue
+    case .antigravity: .purple
     case .opencode: .green
     case .droid: .brown
     case .pi: .purple
@@ -33,7 +37,9 @@ extension Tool {
     case .cursor: "cursorarrow.rays"
     case .claude: "asterisk"
     case .codex: "terminal"
+    case .copilot: "airplane"
     case .gemini: "sparkle"
+    case .antigravity: "arrow.up.circle.fill"
     case .opencode: "chevron.left.forwardslash.chevron.right"
     case .droid: "cpu"
     case .pi: "pi"
@@ -49,6 +55,7 @@ struct ToolBadge: View {
   var body: some View {
     Text(tool.shortName)
       .font(.caption2.weight(.semibold))
+      .fixedSize(horizontal: true, vertical: false)
       .padding(.horizontal, 6)
       .padding(.vertical, 2)
       .foregroundStyle(active ? tool.color : Color.secondary.opacity(0.5))

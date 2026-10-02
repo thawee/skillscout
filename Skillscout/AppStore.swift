@@ -10,6 +10,14 @@ final class AppStore {
   /// The tools you use, in `Tool.allCases` order. Skillscout ignores the others.
   var tools: [Tool] = Tool.enabled
   var suggestions: [Suggestion] = []
+  var skillsets: [Skillset] = []
+  var skillsetAssignments: [SkillsetAssignment] = []
+  var skillsetEntries: [SkillsetEntry] = []
+  var skillsetIssues: [String: [String]] = [:]
+  var skillsetNotes: [String: [String]] = [:]
+  var preferredSources: [Skill.ID: String] = [:]
+  var isManagingSkillsets = false
+  var registrySkills: [RegistrySkill] = []
   var explanations: [String: String] = [:]
   var dismissed: [String] = []
   var analyzedIDs: Set<String> = []
@@ -40,8 +48,49 @@ final class AppStore {
     prompts.count(where: { !analyzedIDs.contains($0.id) })
   }
 
+  var managedRepos: [String] {
+    var repos: Set<String> = []
+    for skill in skills {
+      for repo in skill.managedRepos {
+        repos.insert(repo)
+      }
+    }
+    return Array(repos).sorted(by: { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending })
+  }
+
+  func loadRegistry() async {
+    do {
+      var allSkills = try await Registry.shared.fetch()
+      let defaultRepos = Set(allSkills.map(\.repo))
+      allSkills.append(contentsOf: CustomRegistry.shared.fetch().filter { !defaultRepos.contains($0.repo) })
+      registrySkills = allSkills
+    } catch {
+      errorMessage = "Failed to load skills from the registry: \(error.localizedDescription)"
+    }
+  }
+
   func skill(_ id: Skill.ID?) -> Skill? {
     skills.first { $0.id == id }
+  }
+
+  func preferredSource(for skill: Skill) -> SkillCopy? {
+    let candidates = SkillInstaller.installableSources(for: skill)
+    if let path = preferredSources[skill.id] {
+      return candidates.first { $0.resolved.path == path }
+    }
+    return SkillInstaller.defaultSource(for: skill)
+  }
+
+  @discardableResult
+  func setPreferredSource(_ source: SkillCopy, for skill: Skill) -> Bool {
+    guard SkillInstaller.installableSources(for: skill).contains(where: { $0.resolved.path == source.resolved.path }) else { return false }
+    let previous = preferredSources[skill.id]
+    preferredSources[skill.id] = source.resolved.path
+    guard saveState() else {
+      preferredSources[skill.id] = previous
+      return false
+    }
+    return true
   }
 
   func suggestion(_ id: Suggestion.ID?) -> Suggestion? {
@@ -58,7 +107,7 @@ final class AppStore {
     await refreshSkills()
     await refreshPrompts()
 
-    let folders = [".agents", ".config/agents"] + Tool.allCases.flatMap(\.homeFolders)
+    let folders = [".agents", ".config/agents", ".config/skillscout/skills", ".gemini/antigravity-cli"] + Tool.allCases.flatMap(\.homeFolders)
     let paths = folders.map { Paths.at($0).path }.filter { FileManager.default.fileExists(atPath: $0) }
     watcher = FileWatcher(paths: paths) { [weak self] changed in
       Task { @MainActor in self?.handle(changed) }
@@ -93,6 +142,7 @@ final class AppStore {
   private static let chatFolders = [
     "/agent-transcripts/", "/.codex/sessions/", "/.codex/archived_sessions/", "/.claude/projects/",
     "/.gemini/tmp/", "/.factory/sessions/", "/.pi/agent/sessions/", "/.local/share/amp/threads/", "/.local/share/opencode/opencode.db",
+    "/.gemini/antigravity-cli/brain/", "/.copilot/session-store.db",
   ]
 
   private func handle(_ changed: [String]) {
@@ -170,9 +220,10 @@ final class AppStore {
     }
   }
 
-  func add(_ skill: Skill, to tool: Tool) async {
+  func add(_ skill: Skill, to tool: Tool, from source: SkillCopy? = nil) async {
     do {
-      _ = try SkillInstaller.add(skill, to: tool)
+      _ = try SkillInstaller.add(skill, to: tool, from: source ?? preferredSource(for: skill))
+      if let source { setPreferredSource(source, for: skill) }
       await refreshSkills()
     } catch {
       errorMessage = error.localizedDescription
@@ -186,6 +237,15 @@ final class AppStore {
       errorMessage = error.localizedDescription
     }
     await refreshSkills()
+  }
+
+  func moveToCentral(_ skill: Skill) async {
+    do {
+      _ = try SkillInstaller.moveToCentral(skill)
+      await refreshSkills()
+    } catch {
+      errorMessage = error.localizedDescription
+    }
   }
 
   func draft(_ id: Suggestion.ID) async {
@@ -226,6 +286,18 @@ final class AppStore {
     saveState()
   }
 
+  // MARK: - Skillsets
+
+  func createSkillset(name: String) {
+    skillsets.append(Skillset(name: name))
+    saveState()
+  }
+
+  func toggleSkillInSkillset(skill: Skill, skillsetID: UUID) {
+    guard let set = skillsets.first(where: { $0.id == skillsetID }) else { return }
+    setSkillMembership([skill.id], in: skillsetID, included: !set.skills.contains(skill.id))
+  }
+
   // MARK: - Persistence
 
   private struct SavedState: Codable {
@@ -234,6 +306,11 @@ final class AppStore {
     var explanations: [String: String]
     var analyzedIDs: [String]
     var lastAnalysis: Date?
+    var skillsets: [Skillset]?
+    var skillsetAssignments: [SkillsetAssignment]?
+    var skillsetEntries: [SkillsetEntry]?
+    var skillsetIssues: [String: [String]]?
+    var preferredSources: [Skill.ID: String]?
   }
 
   private func loadState() {
@@ -245,9 +322,15 @@ final class AppStore {
     explanations = state.explanations
     analyzedIDs = Set(state.analyzedIDs)
     lastAnalysis = state.lastAnalysis
+    if let loaded = state.skillsets { skillsets = loaded }
+    skillsetAssignments = state.skillsetAssignments ?? []
+    skillsetEntries = state.skillsetEntries ?? []
+    skillsetIssues = state.skillsetIssues ?? [:]
+    preferredSources = state.preferredSources ?? [:]
   }
 
-  private func saveState() {
+  @discardableResult
+  func saveState() -> Bool {
     saveTask?.cancel()
     saveTask = nil
     let state = SavedState(
@@ -255,10 +338,21 @@ final class AppStore {
       dismissed: dismissed,
       explanations: explanations,
       analyzedIDs: Array(analyzedIDs),
-      lastAnalysis: lastAnalysis
+      lastAnalysis: lastAnalysis,
+      skillsets: skillsets,
+      skillsetAssignments: skillsetAssignments,
+      skillsetEntries: skillsetEntries,
+      skillsetIssues: skillsetIssues,
+      preferredSources: preferredSources
     )
-    guard let data = try? JSONEncoder().encode(state) else { return }
-    try? data.write(to: stateFile, options: .atomic)
+    do {
+      let data = try JSONEncoder().encode(state)
+      try data.write(to: stateFile, options: .atomic)
+      return true
+    } catch {
+      errorMessage = "Couldn't save Skillscout's state: \(error.localizedDescription)"
+      return false
+    }
   }
 
   private func scheduleSave() {
@@ -268,5 +362,156 @@ final class AppStore {
       guard !Task.isCancelled else { return }
       saveState()
     }
+  }
+
+  func addRepoToLibrary(source: String, token: String? = nil) async throws -> URL {
+    let destination = try await SkillInstaller.install(source: source, explicitTools: [], token: token)
+    await refreshSkills()
+    return destination
+  }
+
+  func deleteRepo(name: String) async {
+    do {
+      try SkillInstaller.removeRepo(name: name)
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+    await refreshSkills()
+  }
+
+  @discardableResult
+  func redownloadRepo(name: String) async throws -> [URL] {
+    guard !name.isEmpty, name == SkillInstaller.slug(name) else { throw SkillInstaller.InstallFailure.notFound }
+    let managedRoot = SkillRoot.all.first { $0.kind == .managed }!.url
+    let repoFolder = managedRoot.appending(path: name)
+    let localSource = repoFolder.appending(path: ".skillscout-local-source")
+    let source: String
+    if let path = try? String(contentsOf: localSource, encoding: .utf8), !path.isEmpty {
+      source = path
+    } else {
+      let gitConfig = repoFolder.appending(path: ".git/config")
+      guard let configStr = try? String(contentsOf: gitConfig, encoding: .utf8),
+            let range = configStr.range(of: "url = ") else {
+        throw SkillInstaller.InstallFailure.notFound
+      }
+      source = String(configStr[range.upperBound...].split(separator: "\n").first!.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    let fm = FileManager.default
+    let nonce = UUID().uuidString
+    let staged = managedRoot.appending(path: ".\(name)-staged-\(nonce)")
+    let backup = managedRoot.appending(path: ".\(name)-backup-\(nonce)")
+    defer { if fm.fileExists(atPath: staged.path) { try? fm.removeItem(at: staged) } }
+    _ = try await SkillInstaller.install(source: source, explicitTools: [], stagingAt: staged)
+
+    // Existing links keep their target path when the new repository replaces the old one.
+    // Refuse an update that would leave any of those paths broken.
+    for root in SkillRoot.all where root.kind == .user || root.kind == .shared {
+      guard fm.fileExists(atPath: root.url.path) else { continue }
+      for link in try fm.contentsOfDirectory(at: root.url, includingPropertiesForKeys: [.isSymbolicLinkKey]) {
+        guard (try link.resourceValues(forKeys: [.isSymbolicLinkKey])).isSymbolicLink == true else { continue }
+        let target = link.resolvingSymlinksInPath().path
+        guard target == repoFolder.path || target.hasPrefix(repoFolder.path + "/") else { continue }
+        let relative = String(target.dropFirst(repoFolder.path.count))
+        let replacement = URL(fileURLWithPath: staged.path + relative)
+        guard fm.fileExists(atPath: replacement.appending(path: "SKILL.md").path) else {
+          throw SkillInstaller.InstallFailure.linkedSkillMissing(Paths.abbreviate(link))
+        }
+      }
+    }
+
+    try fm.moveItem(at: repoFolder, to: backup)
+    do {
+      try fm.moveItem(at: staged, to: repoFolder)
+      var result: NSURL?
+      try fm.trashItem(at: backup, resultingItemURL: &result)
+      await refreshSkills()
+      return result.map { [$0 as URL] } ?? []
+    } catch {
+      // Roll back while the old repository is still in its hidden backup folder.
+      if fm.fileExists(atPath: repoFolder.path) { try? fm.moveItem(at: repoFolder, to: staged) }
+      if fm.fileExists(atPath: backup.path) && !fm.fileExists(atPath: repoFolder.path) {
+        try fm.moveItem(at: backup, to: repoFolder)
+      }
+      throw error
+    }
+  }
+
+  func repairLibrary() async -> String {
+    var fixedSymlinks = 0
+    var renamedRepos = 0
+    var deletedSymlinks = 0
+    let fm = FileManager.default
+
+    // 1. Rename incorrectly named managed repos
+    let managedRoot = SkillRoot.all.first { $0.kind == .managed }!.url
+    if let enumerator = fm.enumerator(at: managedRoot, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles, .skipsPackageDescendants]) {
+      while let folder = enumerator.nextObject() as? URL {
+        enumerator.skipDescendants()
+        let gitConfig = folder.appending(path: ".git/config")
+        if let configStr = try? String(contentsOf: gitConfig, encoding: .utf8) {
+          if let range = configStr.range(of: "url = ") {
+            let urlStr = String(configStr[range.upperBound...].split(separator: "\n").first!.trimmingCharacters(in: .whitespacesAndNewlines))
+            let expectedName: String
+            if urlStr.hasPrefix("http"), let url = URL(string: urlStr) {
+               expectedName = SkillInstaller.slug(url.path.replacingOccurrences(of: ".git", with: ""))
+            } else if urlStr.hasPrefix("git@") {
+               let path = urlStr.components(separatedBy: ":").last?.replacingOccurrences(of: ".git", with: "") ?? urlStr
+               expectedName = SkillInstaller.slug(path)
+            } else {
+               expectedName = SkillInstaller.slug(URL(string: urlStr)?.lastPathComponent.replacingOccurrences(of: ".git", with: "") ?? urlStr)
+            }
+            if folder.lastPathComponent != expectedName {
+               let newFolder = managedRoot.appending(path: expectedName)
+               if !fm.fileExists(atPath: newFolder.path) {
+                 try? fm.moveItem(at: folder, to: newFolder)
+                 renamedRepos += 1
+                 // Now update all symlinks pointing to `folder`
+                 for root in SkillRoot.all.filter({ $0.kind != .managed && $0.kind != .plugin }) {
+                   if let entries = try? fm.contentsOfDirectory(at: root.url, includingPropertiesForKeys: [.isSymbolicLinkKey], options: [.skipsHiddenFiles]) {
+                     for entry in entries {
+                       if let isSymlink = (try? entry.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink, isSymlink {
+                         if let target = try? fm.destinationOfSymbolicLink(atPath: entry.path) {
+                           let absoluteTarget = URL(fileURLWithPath: target, relativeTo: entry.deletingLastPathComponent()).standardizedFileURL
+                           if absoluteTarget.path.hasPrefix(folder.path) {
+                             let remainder = absoluteTarget.path.dropFirst(folder.path.count)
+                             let newTarget = newFolder.path + remainder
+                             try? fm.removeItem(at: entry)
+                             try? fm.createSymbolicLink(at: entry, withDestinationURL: URL(fileURLWithPath: newTarget))
+                             fixedSymlinks += 1
+                           }
+                         }
+                       }
+                     }
+                   }
+                 }
+               }
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Delete broken symlinks
+    for root in SkillRoot.all.filter({ $0.kind != .managed && $0.kind != .plugin }) {
+      if let entries = try? fm.contentsOfDirectory(at: root.url, includingPropertiesForKeys: [.isSymbolicLinkKey], options: [.skipsHiddenFiles]) {
+        for entry in entries {
+          if let isSymlink = (try? entry.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink, isSymlink {
+            if !fm.fileExists(atPath: entry.appending(path: "SKILL.md").path) && !fm.fileExists(atPath: entry.resolvingSymlinksInPath().path) {
+              try? fm.removeItem(at: entry)
+              deletedSymlinks += 1
+            }
+          }
+        }
+      }
+    }
+
+    await refreshSkills()
+
+    var msgs: [String] = []
+    if renamedRepos > 0 { msgs.append("Renamed \(renamedRepos) repos") }
+    if fixedSymlinks > 0 { msgs.append("Fixed \(fixedSymlinks) links") }
+    if deletedSymlinks > 0 { msgs.append("Deleted \(deletedSymlinks) broken links") }
+    return msgs.isEmpty ? "No issues found." : msgs.joined(separator: ", ") + "."
   }
 }

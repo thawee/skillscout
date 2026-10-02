@@ -1,10 +1,10 @@
 # Skillscout
 
-A SwiftUI macOS app, plus a `skillscout` command-line tool, that lists the skills of 8 coding agents, counts their use from local chats, and asks AI for new skill ideas. No dependencies, no tests yet.
+A SwiftUI macOS app, plus a `skillscout` command-line tool, that lists the skills of 10 coding agents, counts their use from local chats, and asks AI for new skill ideas. No dependencies, no tests yet.
 
 The app and the command share these core files, which only import Foundation, CryptoKit and SQLite3:
 
-- `Skillscout/Models.swift`: `Paths`, `Tool` (the 8 agents, their skills folders, and which folders each one reads), `Skill`, `SkillCopy`, `SkillSort`, `Prompt`, `SkillUse`, `SkillUsage` and `Suggestion`.
+- `Skillscout/Models.swift`: `Paths`, `Tool` (the 10 agents, their skills folders, and which folders each one reads), `Skill`, `SkillCopy`, `SkillSort`, `Prompt`, `SkillUse`, `SkillUsage` and `Suggestion`.
 - `Skillscout/SkillScanner.swift`: finds every `SKILL.md` in the agents' folders and plugin caches, reads the frontmatter, and groups the copies of a skill.
 - `Skillscout/PromptLibrary.swift`: finds and parses the chats of Cursor, Claude Code and Codex, detects when an agent loads a skill, and caches parsed files in `chats-cache.json`.
 - `Skillscout/PromptLibrary+Tools.swift`: the parsers for Gemini CLI, Droid, Pi, Amp and OpenCode's SQLite database.

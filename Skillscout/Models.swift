@@ -32,7 +32,7 @@ func shortHash(_ string: String) -> String {
 }
 
 enum Tool: String, CaseIterable, Codable, Identifiable, Sendable {
-  case cursor, claude, codex, gemini, opencode, droid, pi, amp
+  case cursor, claude, codex, copilot, gemini, antigravity, opencode, droid, pi, amp
 
   var id: String { rawValue }
 
@@ -41,7 +41,9 @@ enum Tool: String, CaseIterable, Codable, Identifiable, Sendable {
     case .cursor: "Cursor"
     case .claude: "Claude Code"
     case .codex: "Codex"
+    case .copilot: "GitHub Copilot"
     case .gemini: "Gemini CLI"
+    case .antigravity: "Antigravity"
     case .opencode: "OpenCode"
     case .droid: "Droid"
     case .pi: "Pi"
@@ -54,7 +56,9 @@ enum Tool: String, CaseIterable, Codable, Identifiable, Sendable {
     case .cursor: Paths.at(".cursor/skills")
     case .claude: Paths.at(".claude/skills")
     case .codex: Paths.at(".codex/skills")
+    case .copilot: Paths.at(".copilot/skills")
     case .gemini: Paths.at(".gemini/skills")
+    case .antigravity: Paths.at(".gemini/antigravity/skills")
     case .opencode: Paths.at(".config/opencode/skills")
     case .droid: Paths.at(".factory/skills")
     case .pi: Paths.at(".pi/agent/skills")
@@ -68,7 +72,9 @@ enum Tool: String, CaseIterable, Codable, Identifiable, Sendable {
     case .cursor: [".cursor"]
     case .claude: [".claude"]
     case .codex: [".codex"]
+    case .copilot: [".copilot"]
     case .gemini: [".gemini"]
+    case .antigravity: [".gemini/antigravity"]
     case .opencode: [".config/opencode", ".local/share/opencode"]
     case .droid: [".factory"]
     case .pi: [".pi/agent"]
@@ -89,10 +95,20 @@ enum Tool: String, CaseIterable, Codable, Identifiable, Sendable {
   static var enabled: [Tool] {
     UserDefaults.standard.stringArray(forKey: "tools")?.compactMap(Tool.init(rawValue:)) ?? installed
   }
+
+  /// Accepts `claude`, `claude-code`, `"Claude Code"`, `gemini`, `gemini-cli` and so on.
+  init?(argument: String) {
+    let key = argument.lowercased().replacingOccurrences(of: " ", with: "-")
+    let match = Tool.allCases.first { tool in
+      [tool.rawValue, tool.name.lowercased().replacingOccurrences(of: " ", with: "-")].contains(key)
+    }
+    guard let match else { return nil }
+    self = match
+  }
 }
 
 struct SkillRoot: Sendable, Hashable {
-  enum Kind: Sendable { case shared, user, builtIn, plugin }
+  enum Kind: Sendable { case shared, user, builtIn, plugin, managed }
 
   let label: String
   let url: URL
@@ -101,11 +117,14 @@ struct SkillRoot: Sendable, Hashable {
   let readBy: Set<Tool>
 
   static let all: [SkillRoot] = [
-    SkillRoot(label: "Shared", url: Paths.at(".agents/skills"), kind: .shared, owner: nil, readBy: [.cursor, .codex, .gemini, .opencode, .droid, .pi]),
+    SkillRoot(label: "Shared", url: Paths.at(".agents/skills"), kind: .shared, owner: nil, readBy: [.cursor, .codex, .copilot, .gemini, .antigravity, .opencode, .droid, .pi]),
+    SkillRoot(label: "Skillscout Managed", url: Paths.at(".config/skillscout/skills"), kind: .managed, owner: nil, readBy: []),
     SkillRoot(label: "Cursor", url: Paths.at(".cursor/skills"), kind: .user, owner: .cursor, readBy: [.cursor]),
     SkillRoot(label: "Claude Code", url: Paths.at(".claude/skills"), kind: .user, owner: .claude, readBy: [.claude, .cursor, .opencode]),
     SkillRoot(label: "Codex", url: Paths.at(".codex/skills"), kind: .user, owner: .codex, readBy: [.codex, .cursor]),
+    SkillRoot(label: "GitHub Copilot", url: Paths.at(".copilot/skills"), kind: .user, owner: .copilot, readBy: [.copilot]),
     SkillRoot(label: "Gemini CLI", url: Paths.at(".gemini/skills"), kind: .user, owner: .gemini, readBy: [.gemini]),
+    SkillRoot(label: "Antigravity", url: Paths.at(".gemini/antigravity/skills"), kind: .user, owner: .antigravity, readBy: [.antigravity]),
     SkillRoot(label: "OpenCode", url: Paths.at(".config/opencode/skills"), kind: .user, owner: .opencode, readBy: [.opencode]),
     SkillRoot(label: "Droid", url: Paths.at(".factory/skills"), kind: .user, owner: .droid, readBy: [.droid]),
     SkillRoot(label: "Pi", url: Paths.at(".pi/agent/skills"), kind: .user, owner: .pi, readBy: [.pi]),
@@ -131,6 +150,17 @@ struct SkillCopy: Identifiable, Sendable, Hashable {
   var id: String { folder.path }
 
   var sourceLabel: String {
+    if root.kind == .managed {
+      let managedURL = Paths.at(".config/skillscout/skills").path
+      let path = resolved.path
+      if path.hasPrefix(managedURL) {
+        let relative = String(path.dropFirst(managedURL.count))
+        let components = relative.split(separator: "/")
+        if let first = components.first, !first.isEmpty {
+          return "From \(String(first))"
+        }
+      }
+    }
     guard let pluginName, let owner = root.owner else { return root.label }
     return "\(pluginName) plugin for \(owner.name)"
   }
@@ -161,9 +191,16 @@ struct Skill: Identifiable, Sendable, Hashable {
   func created(usage: SkillUsage?) -> Date { min(folderCreated, usage?.firstUsed ?? .distantFuture) }
 
   /// The copies in your own skills folders. Plugins and tools manage the others.
-  var removableCopies: [SkillCopy] { copies.filter { $0.root.kind == .user || $0.root.kind == .shared } }
+  var removableCopies: [SkillCopy] { copies.filter { $0.root.kind == .user || $0.root.kind == .shared || $0.root.kind == .managed } }
 
   var isPersonal: Bool { !removableCopies.isEmpty }
+
+  var isManaged: Bool { copies.contains { $0.root.kind == .managed } }
+
+  /// Installed library skills remain visible before they are linked to an enabled agent.
+  func isVisible(in tools: Set<Tool>, includePlugins: Bool) -> Bool {
+    (includePlugins || isPersonal) && (isManaged || !availableIn.isDisjoint(with: tools))
+  }
 
   /// Removing a folder takes the links to it along, since they'd point to nothing.
   func copiesGoing(with copy: SkillCopy) -> [SkillCopy] {
@@ -189,6 +226,19 @@ struct Skill: Identifiable, Sendable, Hashable {
 
   func provider(for tool: Tool) -> SkillCopy? {
     copies.first { $0.root.readBy.contains(tool) }
+  }
+
+  var managedRepos: [String] {
+    let managedURL = Paths.at(".config/skillscout/skills").path
+    let repos = copies.filter { $0.root.kind == .managed }.compactMap { copy -> String? in
+      let path = copy.resolved.path
+      guard path.hasPrefix(managedURL) else { return nil }
+      let relative = String(path.dropFirst(managedURL.count))
+      let components = relative.split(separator: "/")
+      guard let first = components.first, !first.isEmpty else { return nil }
+      return String(first)
+    }
+    return Array(Set(repos))
   }
 }
 
@@ -282,4 +332,25 @@ struct Suggestion: Codable, Identifiable, Hashable, Sendable {
   var tools: [Tool] { Tool.allCases.filter { tool in examples.contains { $0.tool == tool } } }
 
   var projects: [String] { Array(Set(examples.map(\.project))).sorted() }
+}
+
+struct Skillset: Identifiable, Codable, Hashable, Sendable {
+  var id = UUID()
+  var name: String
+  var skills: Set<String> = []
+}
+
+struct SkillsetAssignment: Codable, Hashable, Sendable {
+  let skillsetID: UUID
+  let tool: Tool
+  var members: Set<Skill.ID>
+}
+
+/// A receipt for an entry created by applying skillsets, never for an existing installation.
+struct SkillsetEntry: Codable, Hashable, Sendable {
+  let skillID: Skill.ID
+  let tool: Tool
+  let path: String
+  let linkDestination: String?
+  let fingerprint: String?
 }

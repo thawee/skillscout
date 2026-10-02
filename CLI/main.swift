@@ -97,7 +97,7 @@ struct Arguments {
 }
 
 enum Command: String, CaseIterable {
-  case list, show, usage, tools, add, uninstall, suggest, explain
+  case list, show, usage, tools, add, uninstall, suggest, explain, install, update
 
   var synopsis: String {
     switch self {
@@ -109,6 +109,8 @@ enum Command: String, CaseIterable {
     case .uninstall: "uninstall <skill> [--from <tool>]"
     case .suggest: "suggest [options]"
     case .explain: "explain <skill> [options]"
+    case .install: "install <url_or_path> [--to <tool>]"
+    case .update: "update <skill>"
     }
   }
 
@@ -122,6 +124,8 @@ enum Command: String, CaseIterable {
     case .uninstall: "Move a skill to the Trash"
     case .suggest: "Ask AI for skill ideas based on requests you repeat"
     case .explain: "Ask AI what a skill does"
+    case .install: "Install a skill from GitHub or a local path"
+    case .update: "Update an installed skill via git pull"
     }
   }
 
@@ -143,6 +147,10 @@ enum Command: String, CaseIterable {
       "Sends your recent messages to the Codex or Claude Code CLI and asks for skill ideas: requests you keep typing that a skill could handle. The run isn't saved to your chat history."
     case .explain:
       "Asks AI what a skill does, when the agent uses it, and what it needs to work. If the app already explained this skill, you get that answer right away."
+    case .install:
+      "Installs a skill from a GitHub URL or a local path. If the skill's SKILL.md specifies supported tools, it will only be linked to them, otherwise you can specify --to <tool>."
+    case .update:
+      "Updates a skill installed from GitHub by running git pull in its managed folder."
     }
   }
 
@@ -176,6 +184,10 @@ enum Command: String, CaseIterable {
       return engine + [days, json]
     case .explain:
       return [("--fresh", "Ask again, even if the app saved an explanation")] + engine + [json]
+    case .install:
+      return [("--to <tool>", "The tool to link it to (overrides SKILL.md frontmatter)")]
+    case .update:
+      return []
     }
   }
 
@@ -193,6 +205,8 @@ enum Command: String, CaseIterable {
     case .uninstall: try await Commands.uninstall(args)
     case .suggest: try await Commands.suggest(args)
     case .explain: try await Commands.explain(args)
+    case .install: try await Commands.install(args)
+    case .update: try await Commands.update(args)
     }
   }
 }

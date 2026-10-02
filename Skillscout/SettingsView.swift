@@ -8,6 +8,7 @@ struct SettingsView: View {
   @AppStorage("lookbackDays") private var lookbackDays = 60
   @AppStorage("autoAnalyze") private var autoAnalyze = true
   @AppStorage("autoThreshold") private var autoThreshold = 40
+  @State private var repairMessage: String?
 
   var body: some View {
     Form {
@@ -60,6 +61,23 @@ struct SettingsView: View {
         Text("Analysis")
       } footer: {
         Text("Automatic analysis starts after your first manual one, and runs at most every 30 minutes.")
+      }
+
+      Section {
+        Button("Repair Library") {
+          Task {
+            repairMessage = await store.repairLibrary()
+          }
+        }
+        if let repairMessage {
+          Text(repairMessage)
+            .foregroundStyle(.secondary)
+            .font(.caption)
+        }
+      } header: {
+        Text("Maintenance")
+      } footer: {
+        Text("Fixes folder names for older downloaded repositories and removes broken symlinks.")
       }
     }
     .formStyle(.grouped)
