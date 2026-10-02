@@ -36,14 +36,6 @@
       "author": "ComposioHQ"
     },
     {
-      "repo": "https://github.com/Graphify-Labs/graphify",
-      "name": "graphify",
-      "description": "Builds a queryable knowledge graph from a codebase and its documentation.",
-      "tools": null,
-      "author": "Graphify Labs",
-      "manualInstall": "Graphify creates its SKILL.md during installation. Install the graphifyy package, then follow the repository's agent setup instructions."
-    },
-    {
       "repo": "https://github.com/humanlayer/skills",
       "name": "humanlayer-skills",
       "description": "Claude Code skills for diagrams, iterative agent workflows, and development reviews.",

@@ -227,15 +227,14 @@ enum FunctionalCheck {
       "https://github.com/android/skills",
       "https://github.com/anthropics/skills",
       "https://github.com/vercel-labs/agent-skills",
-      "https://github.com/Graphify-Labs/graphify",
       "https://github.com/humanlayer/skills",
       "https://github.com/cursor/plugins",
       "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
       "https://github.com/tt-a1i/archify",
       "https://github.com/addyosmani/agent-skills",
     ]), "Discover includes verified default skill sources")
-    try check(store.registrySkills.first { $0.repo == "https://github.com/Graphify-Labs/graphify" }?.manualInstall != nil,
-      "Graphify shows manual installation instead of a broken Library import")
+    try check(!store.registrySkills.contains { $0.repo == "https://github.com/Graphify-Labs/graphify" },
+      "Graphify is absent from the default registry")
     try check(store.registrySkills.filter { $0.repo == "https://github.com/android/skills" }.count == 1
       && store.registrySkills.first { $0.repo == "https://github.com/android/skills" }?.author == "Android",
       "bundled sources take precedence over duplicate custom entries")
@@ -252,10 +251,15 @@ enum FunctionalCheck {
     await store.loadRegistry()
     try check(store.registrySkills.contains { $0.repo == localSource.path && $0.description == "Local skills folder" },
       "Discover shows the local folder")
+    try check(store.registeredLocalSources.contains { $0.repo == localSource.path },
+      "Sources shows a registered local folder before import")
     let localLibrary = try await store.addRepoToLibrary(source: localSource.path)
     try check(fm.fileExists(atPath: localLibrary.appending(path: "nested/SKILL.md").path)
       && fm.fileExists(atPath: localLibrary.appending(path: ".skillscout-local-source").path),
       "Add to Library copies local skills and remembers their source")
+    try check(!store.registeredLocalSources.contains { $0.repo == localSource.path }
+      && store.managedRepos.contains(SkillInstaller.repoName(for: localSource.path)),
+      "Sources switches to the imported local folder's skill list")
     let localSkill = store.skills.first { $0.name == localSkillName }!
     await store.add(localSkill, to: .codex)
     let localSkillFile = localSource.appending(path: "nested/SKILL.md")
@@ -290,16 +294,19 @@ enum FunctionalCheck {
       repo: libraryOnlySource.path, tools: nil, author: "Custom")
     let pendingLocalSource = home.appending(path: "fixtures/pending-local-folder")
     try writeSkill(pendingLocalSource, name: "pending-local-skill")
+    try CustomRegistry.shared.add(repoURL: pendingLocalSource.path)
+    await store.loadRegistry()
+    try check(store.registeredLocalSources.contains { $0.repo == pendingLocalSource.path },
+      "Sources keeps another registered local folder visible without importing it")
     let discoverLocalAvailable = RegistrySkill(name: "Pending local folder", description: "Made-up local skills for UI verification",
       repo: pendingLocalSource.path, tools: nil, author: "Custom")
-    let manualSource = store.registrySkills.first { $0.repo == "https://github.com/Graphify-Labs/graphify" }!
     let scenes: [(String, AnyView)] = [
       ("library", AnyView(ContentView(skill: prefix).environment(store))),
       ("library-light", AnyView(ContentView(skill: prefix).environment(store))),
       ("discover", AnyView(ContentView(sidebar: .discover).environment(store))),
       ("discover-available", AnyView(DiscoverDetail(skill: discoverAvailable).environment(store))),
-      ("discover-manual", AnyView(DiscoverDetail(skill: manualSource).environment(store))),
       ("discover-local-available", AnyView(DiscoverDetail(skill: discoverLocalAvailable).environment(store))),
+      ("local-source-sidebar", AnyView(ContentView(sidebar: .localSource(pendingLocalSource.path)).environment(store))),
       ("discover-in-library", AnyView(DiscoverDetail(skill: discoverInLibrary).environment(store))),
       ("discover-in-library-light", AnyView(DiscoverDetail(skill: discoverInLibrary).environment(store))),
       ("unlinked-source", AnyView(ContentView(sidebar: .repo(unlinkedName), skill: unlinkedName).environment(store))),

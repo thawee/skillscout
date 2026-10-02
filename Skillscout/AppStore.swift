@@ -69,6 +69,15 @@ final class AppStore {
     return Array(repos).sorted(by: { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending })
   }
 
+  var registeredLocalSources: [RegistrySkill] {
+    registrySkills.filter { source in
+      guard source.repo.hasPrefix("/") else { return false }
+      let repo = SkillInstaller.repoName(for: source.repo)
+      let marker = Paths.at(".config/skillscout/skills/\(repo)/.skillscout-local-source")
+      return (try? String(contentsOf: marker, encoding: .utf8)) != source.repo
+    }
+  }
+
   func loadRegistry() async {
     do {
       var allSkills = try await Registry.shared.fetch()

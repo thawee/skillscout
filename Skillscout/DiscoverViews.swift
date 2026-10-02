@@ -83,6 +83,7 @@ struct AddSourceView: View {
 struct DiscoverDetail: View {
   let skill: RegistrySkill
   var onBrowseRepo: (String) -> Void = { _ in }
+  var onAddedToLibrary: (String) -> Void = { _ in }
   @Environment(AppStore.self) private var store
   @State private var isWorking = false
   @State private var libraryPath: String?
@@ -115,16 +116,7 @@ struct DiscoverDetail: View {
           }
         }
 
-        if let manualInstall = skill.manualInstall {
-          DetailSection("Installation") {
-            Text(manualInstall)
-              .font(.callout)
-              .foregroundStyle(.secondary)
-            if let url = URL(string: skill.repo) {
-              Link("Open installation guide", destination: url)
-            }
-          }
-        } else if libraryPath != nil {
+        if libraryPath != nil {
           Label("In Library", systemImage: "checkmark.circle.fill")
             .font(.callout.weight(.semibold))
             .foregroundStyle(.green)
@@ -270,7 +262,10 @@ struct DiscoverDetail: View {
     let destination = managedRoot.appending(path: name)
 
     var isDir: ObjCBool = false
-    if FileManager.default.fileExists(atPath: destination.path, isDirectory: &isDir), isDir.boolValue {
+    let localMarker = destination.appending(path: ".skillscout-local-source")
+    let matchesLocalSource = !skill.repo.hasPrefix("/")
+      || (try? String(contentsOf: localMarker, encoding: .utf8)) == skill.repo
+    if FileManager.default.fileExists(atPath: destination.path, isDirectory: &isDir), isDir.boolValue, matchesLocalSource {
       libraryPath = Paths.abbreviate(destination)
     } else {
       libraryPath = nil
@@ -283,6 +278,7 @@ struct DiscoverDetail: View {
       do {
         let destination = try await store.addRepoToLibrary(source: skill.repo, token: token)
         libraryPath = Paths.abbreviate(destination)
+        onAddedToLibrary(SkillInstaller.repoName(for: skill.repo))
         isWorking = false
       } catch SkillInstaller.InstallFailure.authRequired {
         isWorking = false

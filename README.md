@@ -65,11 +65,12 @@ defaults write com.thawee.skillscout AppUpdaterAutomaticChecks -bool false
 
 ## Discover and Library
 
-Discover includes repositories from Android, Anthropic, Vercel, Matt Pocock, ComposioHQ, HumanLayer, Cursor, Next Level Builder, tt-a1i, Addy Osmani, and Graphify Labs by default. These are browsing suggestions; nothing is downloaded until you choose **Add to Library**. Graphify creates its skill during installation, so its Discover entry links to the project's installation guide instead of offering a Library import.
+Discover includes repositories from Android, Anthropic, Vercel, Matt Pocock, ComposioHQ, HumanLayer, Cursor, Next Level Builder, tt-a1i, and Addy Osmani by default. These are browsing suggestions; nothing is downloaded until you choose **Add to Library**.
 
 Choose **Add to Library** in Discover to download a repository into `~/.config/skillscout/skills`. Its skills appear in the library and under Sources; Discover creates no new AI-tool links. Choose **Browse skills** to open its source list, then use **Add to tool…** on a skill or put it in a skillset. A repository can contain many skills, so you choose which ones each tool gets.
 
 Use **Add Custom Source** to save a Git repository URL or choose a local folder containing one or more `SKILL.md` files. Adding a local source to Library copies the folder; **Refresh from Folder** updates that copy after you edit the original. Existing links to skills in the Library copy stay in place.
+Registered local folders also appear under **Sources** before import, where you can open their Discover details and choose **Add to Library**. After import, the Source row browses the copied skills.
 
 **Re-download** or **Refresh from Folder** stages a replacement before changing the library copy. If the source is missing or the replacement would break an existing tool link, the current copy stays. **Remove from Library…** moves the repository and links into it to the Trash after confirmation; independent copies stay. Adding a custom source to Discover only saves its address or path until you choose **Add to Library**. The CLI's `skillscout-mod install` still links skills to enabled or supported tools by default.
 

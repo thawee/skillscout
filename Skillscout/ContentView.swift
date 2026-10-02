@@ -10,9 +10,15 @@ enum SidebarItem: Hashable {
   case suggestions
   case skillset(UUID)
   case repo(String)
+  case localSource(String)
   case similar
 
-  var listsSkills: Bool { self != .discover && self != .suggestions && self != .similar }
+  var listsSkills: Bool { self != .discover && self != .suggestions && self != .similar && !isLocalSource }
+
+  private var isLocalSource: Bool {
+    if case .localSource = self { return true }
+    return false
+  }
 }
 
 enum SkillSource: String {
@@ -132,12 +138,19 @@ struct ContentView: View {
     }
   }
 
+  private func showRepo(_ repo: String) {
+    sidebar = .repo(repo)
+    selectedSkills.removeAll()
+  }
+
   var body: some View {
     NavigationSplitView {
       sidebarList
     } content: {
       if sidebar == .discover {
         DiscoverList(skills: listedRegistrySkills, selection: $selectedRegistrySkill)
+      } else if case .localSource = sidebar {
+        ContentUnavailableView("Local folder", systemImage: "folder", description: Text("Add this folder to Library to browse its skills here."))
       } else if sidebar == .suggestions {
         SuggestionList(suggestions: listedSuggestions, selection: $selectedSuggestion)
       } else if sidebar == .similar {
@@ -157,12 +170,15 @@ struct ContentView: View {
     } detail: {
       if sidebar == .discover {
         if let skill = store.registrySkills.first(where: { $0.id == selectedRegistrySkill }) {
-          DiscoverDetail(skill: skill) { repo in
-            sidebar = .repo(repo)
-            selectedSkills.removeAll()
-          }
+          DiscoverDetail(skill: skill, onBrowseRepo: showRepo)
         } else {
           ContentUnavailableView("Pick a community skill", systemImage: "globe")
+        }
+      } else if case .localSource(let path) = sidebar {
+        if let source = store.registrySkills.first(where: { $0.repo == path }) {
+          DiscoverDetail(skill: source, onBrowseRepo: showRepo, onAddedToLibrary: showRepo)
+        } else {
+          ContentUnavailableView("Local folder unavailable", systemImage: "folder.badge.questionmark")
         }
       } else if sidebar == .suggestions {
         if let suggestion = store.suggestion(selectedSuggestion) {
@@ -321,7 +337,7 @@ struct ContentView: View {
           sidebarRow(tool.name, symbol: tool.symbol, color: tool.color, count: librarySkills.count(where: { $0.availableIn.contains(tool) }), item: .tool(tool))
         }
       }
-      if !store.managedRepos.isEmpty {
+      if !store.managedRepos.isEmpty || !store.registeredLocalSources.isEmpty {
         Section("Sources") {
           ForEach(store.managedRepos, id: \.self) { repo in
             sidebarRow(repo, symbol: "shippingbox", count: librarySkills.count(where: { $0.managedRepos.contains(repo) }), item: .repo(repo))
@@ -336,6 +352,10 @@ struct ContentView: View {
                   repoToRemove = repo
                 }
               }
+          }
+          ForEach(store.registeredLocalSources) { source in
+            sidebarRow(source.name, symbol: "folder", count: 0, item: .localSource(source.repo))
+              .help(source.repo)
           }
         }
       }
