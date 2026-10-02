@@ -115,7 +115,16 @@ struct DiscoverDetail: View {
           }
         }
 
-        if libraryPath != nil {
+        if let manualInstall = skill.manualInstall {
+          DetailSection("Installation") {
+            Text(manualInstall)
+              .font(.callout)
+              .foregroundStyle(.secondary)
+            if let url = URL(string: skill.repo) {
+              Link("Open installation guide", destination: url)
+            }
+          }
+        } else if libraryPath != nil {
           Label("In Library", systemImage: "checkmark.circle.fill")
             .font(.callout.weight(.semibold))
             .foregroundStyle(.green)

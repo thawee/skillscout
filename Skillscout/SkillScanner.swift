@@ -78,6 +78,17 @@ enum SkillScanner {
         folders.append(url.deletingLastPathComponent())
       }
     }
+    if root.kind == .managed {
+      let repos = (try? fm.contentsOfDirectory(at: root.url, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])) ?? []
+      for repo in repos {
+        let hiddenSkills = repo.appending(path: ".claude/skills")
+        if let hiddenEnumerator = fm.enumerator(at: hiddenSkills, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
+          for case let url as URL in hiddenEnumerator where url.lastPathComponent == "SKILL.md" {
+            folders.append(url.deletingLastPathComponent())
+          }
+        }
+      }
+    }
     return folders
   }
 

@@ -65,7 +65,7 @@ defaults write com.thawee.skillscout AppUpdaterAutomaticChecks -bool false
 
 ## Discover and Library
 
-Discover includes repositories from Android, Anthropic, Vercel, Matt Pocock, and ComposioHQ by default. These are browsing suggestions; nothing is downloaded until you choose **Add to Library**.
+Discover includes repositories from Android, Anthropic, Vercel, Matt Pocock, ComposioHQ, HumanLayer, Cursor, Next Level Builder, tt-a1i, Addy Osmani, and Graphify Labs by default. These are browsing suggestions; nothing is downloaded until you choose **Add to Library**. Graphify creates its skill during installation, so its Discover entry links to the project's installation guide instead of offering a Library import.
 
 Choose **Add to Library** in Discover to download a repository into `~/.config/skillscout/skills`. Its skills appear in the library and under Sources; Discover creates no new AI-tool links. Choose **Browse skills** to open its source list, then use **Add to tool…** on a skill or put it in a skillset. A repository can contain many skills, so you choose which ones each tool gets.
 

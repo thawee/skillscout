@@ -95,6 +95,13 @@ enum FunctionalCheck {
     try check(visible.contains { $0.id == unlinkedName }, "unlinked managed skills stay visible in the library")
     try check(visible.count { $0.managedRepos.contains(unlinkedName) } == 1, "source count includes unlinked nested skills")
 
+    let hiddenName = prefix + "-hidden"
+    let hiddenSource = home.appending(path: "fixtures/\(hiddenName)")
+    try writeSkill(hiddenSource.appending(path: ".claude/skills/\(hiddenName)"), name: hiddenName)
+    _ = try await SkillInstaller.install(source: hiddenSource.path, explicitTools: [])
+    try check(SkillScanner.scan().contains { $0.name == hiddenName && $0.isManaged },
+      "managed repositories include hidden Claude skill folders")
+
     let explicit = home.appending(path: "fixtures/\(prefix)-explicit")
     try writeSkill(explicit, name: prefix + "-explicit", tools: "[claude]")
     _ = try await SkillInstaller.install(source: explicit.path, explicitTools: [.copilot])
@@ -220,7 +227,15 @@ enum FunctionalCheck {
       "https://github.com/android/skills",
       "https://github.com/anthropics/skills",
       "https://github.com/vercel-labs/agent-skills",
+      "https://github.com/Graphify-Labs/graphify",
+      "https://github.com/humanlayer/skills",
+      "https://github.com/cursor/plugins",
+      "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+      "https://github.com/tt-a1i/archify",
+      "https://github.com/addyosmani/agent-skills",
     ]), "Discover includes verified default skill sources")
+    try check(store.registrySkills.first { $0.repo == "https://github.com/Graphify-Labs/graphify" }?.manualInstall != nil,
+      "Graphify shows manual installation instead of a broken Library import")
     try check(store.registrySkills.filter { $0.repo == "https://github.com/android/skills" }.count == 1
       && store.registrySkills.first { $0.repo == "https://github.com/android/skills" }?.author == "Android",
       "bundled sources take precedence over duplicate custom entries")
@@ -277,11 +292,13 @@ enum FunctionalCheck {
     try writeSkill(pendingLocalSource, name: "pending-local-skill")
     let discoverLocalAvailable = RegistrySkill(name: "Pending local folder", description: "Made-up local skills for UI verification",
       repo: pendingLocalSource.path, tools: nil, author: "Custom")
+    let manualSource = store.registrySkills.first { $0.repo == "https://github.com/Graphify-Labs/graphify" }!
     let scenes: [(String, AnyView)] = [
       ("library", AnyView(ContentView(skill: prefix).environment(store))),
       ("library-light", AnyView(ContentView(skill: prefix).environment(store))),
       ("discover", AnyView(ContentView(sidebar: .discover).environment(store))),
       ("discover-available", AnyView(DiscoverDetail(skill: discoverAvailable).environment(store))),
+      ("discover-manual", AnyView(DiscoverDetail(skill: manualSource).environment(store))),
       ("discover-local-available", AnyView(DiscoverDetail(skill: discoverLocalAvailable).environment(store))),
       ("discover-in-library", AnyView(DiscoverDetail(skill: discoverInLibrary).environment(store))),
       ("discover-in-library-light", AnyView(DiscoverDetail(skill: discoverInLibrary).environment(store))),

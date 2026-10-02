@@ -7,6 +7,7 @@ struct RegistrySkill: Codable, Identifiable, Hashable, Sendable {
   let repo: String
   let tools: [String]?
   let author: String
+  var manualInstall: String? = nil
 }
 
 actor Registry {

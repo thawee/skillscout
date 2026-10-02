@@ -441,6 +441,14 @@ enum SkillInstaller {
         }
       }
     }
+    let hiddenSkills = destination.appending(path: ".claude/skills")
+    if let enumerator = fm.enumerator(at: hiddenSkills, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
+      while let url = enumerator.nextObject() as? URL {
+        if url.lastPathComponent == "SKILL.md" {
+          skillDirs.append(url.deletingLastPathComponent())
+        }
+      }
+    }
 
     guard !skillDirs.isEmpty else {
        try? fm.removeItem(at: destination)

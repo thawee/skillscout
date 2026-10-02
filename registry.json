@@ -34,6 +34,49 @@
       "description": "A curated list of awesome Claude skills by ComposioHQ.",
       "tools": ["claude"],
       "author": "ComposioHQ"
+    },
+    {
+      "repo": "https://github.com/Graphify-Labs/graphify",
+      "name": "graphify",
+      "description": "Builds a queryable knowledge graph from a codebase and its documentation.",
+      "tools": null,
+      "author": "Graphify Labs",
+      "manualInstall": "Graphify creates its SKILL.md during installation. Install the graphifyy package, then follow the repository's agent setup instructions."
+    },
+    {
+      "repo": "https://github.com/humanlayer/skills",
+      "name": "humanlayer-skills",
+      "description": "Claude Code skills for diagrams, iterative agent workflows, and development reviews.",
+      "tools": ["claude"],
+      "author": "HumanLayer"
+    },
+    {
+      "repo": "https://github.com/cursor/plugins",
+      "name": "cursor-plugins",
+      "description": "Cursor's official plugin marketplace, including agent skills and supporting assets.",
+      "tools": ["cursor"],
+      "author": "Cursor"
+    },
+    {
+      "repo": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+      "name": "ui-ux-pro-max-skill",
+      "description": "UI and UX design skills, including UI/UX Pro Max, with design-system guidance and search tools.",
+      "tools": null,
+      "author": "Next Level Builder"
+    },
+    {
+      "repo": "https://github.com/tt-a1i/archify",
+      "name": "archify",
+      "description": "Creates verifiable architecture, workflow, and sequence diagrams as interactive HTML.",
+      "tools": ["claude", "codex", "opencode"],
+      "author": "tt-a1i"
+    },
+    {
+      "repo": "https://github.com/addyosmani/agent-skills",
+      "name": "addyosmani-agent-skills",
+      "description": "Engineering workflow skills for planning, implementation, testing, review, and shipping.",
+      "tools": null,
+      "author": "Addy Osmani"
     }
   ]
 }
