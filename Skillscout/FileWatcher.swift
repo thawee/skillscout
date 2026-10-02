@@ -3,7 +3,7 @@ import Foundation
 
 final class FileWatcher: @unchecked Sendable {
   private let handler: @Sendable ([String]) -> Void
-  private let queue = DispatchQueue(label: "com.flaviocopes.skillscout.watcher")
+  private let queue = DispatchQueue(label: "com.thawee.skillscout.watcher")
   private var stream: FSEventStreamRef?
 
   init(paths: [String], latency: TimeInterval = 2, handler: @escaping @Sendable ([String]) -> Void) {

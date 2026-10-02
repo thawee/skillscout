@@ -14,17 +14,20 @@
 		27C9E2A4A6BC1AD429CDF52B /* SkillsetInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAD0529B4BB35B1D34A4149E /* SkillsetInstaller.swift */; };
 		2F6073BEADFE16809A96C720 /* FileWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89D396BDA8C7A8F808C390DC /* FileWatcher.swift */; };
 		3057845395C604BF88151C8A /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64E4526107B440152D6AB925 /* Components.swift */; };
+		31F0312A63C31BCB33D669D0 /* SkillSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2F1910B2F3AC4B72EA3830 /* SkillSimilarity.swift */; };
 		378AA334FB694C25962B9245 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEA41E1474F7BE423B56D346 /* ContentView.swift */; };
 		4A585E671547357F3699831A /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E1EA96200BEB72A33D6E38 /* Models.swift */; };
 		5F85019D7561BB0D7566001B /* SuggestionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076A549C0CCE0367FE4D11D0 /* SuggestionViews.swift */; };
 		62C88BC3E3B945945C3EA296 /* PromptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53B6FF6B0D5A3694C197EBC0 /* PromptLibrary.swift */; };
 		681E32575030D0E0B2D761D0 /* Analyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B18AC56992256E677133D35C /* Analyzer.swift */; };
+		6A3DB35F25B28E6CC9B0D70C /* SkillSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2F1910B2F3AC4B72EA3830 /* SkillSimilarity.swift */; };
 		6CA7602CF7C5E86F4D8442D7 /* SkillsetInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAD0529B4BB35B1D34A4149E /* SkillsetInstaller.swift */; };
 		7200E247BDF839C1210920BD /* SkillScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E76FCD9E9E2549A3682D8F84 /* SkillScanner.swift */; };
 		723294FB0DDBB211E9C5C3EE /* SkillInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1D7A86C6C2F6A665C94583 /* SkillInstaller.swift */; };
 		7428972CE87CBDC6CA0A4568 /* SkillscoutApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBC9224FFE73C8083ADF7A81 /* SkillscoutApp.swift */; };
 		769B6AB81AA5DB52B5C8E72B /* SkillInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1D7A86C6C2F6A665C94583 /* SkillInstaller.swift */; };
 		7D1ED7DC185BDC28054F80F3 /* SkillscoutCLI in Embed Dependencies */ = {isa = PBXBuildFile; fileRef = E26D1D5FD710CB617FB08F62 /* SkillscoutCLI */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		84E808F8E0F83C19CC874971 /* SimilarViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E76D5137A9F0049E8AC4D8E /* SimilarViews.swift */; };
 		84F02E4790C165F04AD7A63B /* DiscoverViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B2204DD544E18EC3E164284 /* DiscoverViews.swift */; };
 		87C08B6B099E31DE98657B1B /* AIEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEF9DD364F39E0F1EC34650C /* AIEngine.swift */; };
 		8849E62C41F7A32518FB6B67 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 50C6B03A08C5B5CE4FA655E2 /* AppIcon.icon */; };
@@ -79,6 +82,7 @@
 		0FAA2265543363EFFE7362C0 /* SkillViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillViews.swift; sourceTree = "<group>"; };
 		13E320FCE90C51C4EA51E9B6 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		1A5CBBA64E4A150D837018A9 /* Skillscout.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Skillscout.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1B2F1910B2F3AC4B72EA3830 /* SkillSimilarity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillSimilarity.swift; sourceTree = "<group>"; };
 		1F37839C6B57A808494AC4C7 /* SkillsetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillsetViews.swift; sourceTree = "<group>"; };
 		365039D37C939DF6EA1C6600 /* AppUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdater.swift; sourceTree = "<group>"; };
 		36B6744572DF35BB435E8324 /* CommandLineTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandLineTool.swift; sourceTree = "<group>"; };
@@ -92,6 +96,7 @@
 		756AC6D1B9CA7B46984721E7 /* Registry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Registry.swift; sourceTree = "<group>"; };
 		76CC09375ECB6FC9E16C667E /* registry.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = registry.json; sourceTree = "<group>"; };
 		89D396BDA8C7A8F808C390DC /* FileWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileWatcher.swift; sourceTree = "<group>"; };
+		9E76D5137A9F0049E8AC4D8E /* SimilarViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimilarViews.swift; sourceTree = "<group>"; };
 		A2CF8B954622C1B06777D365 /* Terminal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Terminal.swift; sourceTree = "<group>"; };
 		AEA41E1474F7BE423B56D346 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		B18AC56992256E677133D35C /* Analyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analyzer.swift; sourceTree = "<group>"; };
@@ -138,11 +143,13 @@
 				C06BC03210D288EFFD8FC48F /* PromptLibrary+Tools.swift */,
 				756AC6D1B9CA7B46984721E7 /* Registry.swift */,
 				13E320FCE90C51C4EA51E9B6 /* SettingsView.swift */,
+				9E76D5137A9F0049E8AC4D8E /* SimilarViews.swift */,
 				CA1D7A86C6C2F6A665C94583 /* SkillInstaller.swift */,
 				E76FCD9E9E2549A3682D8F84 /* SkillScanner.swift */,
 				CBC9224FFE73C8083ADF7A81 /* SkillscoutApp.swift */,
 				EAD0529B4BB35B1D34A4149E /* SkillsetInstaller.swift */,
 				1F37839C6B57A808494AC4C7 /* SkillsetViews.swift */,
+				1B2F1910B2F3AC4B72EA3830 /* SkillSimilarity.swift */,
 				0FAA2265543363EFFE7362C0 /* SkillViews.swift */,
 				076A549C0CCE0367FE4D11D0 /* SuggestionViews.swift */,
 			);
@@ -272,6 +279,7 @@
 				9D3695DC64486D9ED2CEC606 /* Registry.swift in Sources */,
 				723294FB0DDBB211E9C5C3EE /* SkillInstaller.swift in Sources */,
 				7200E247BDF839C1210920BD /* SkillScanner.swift in Sources */,
+				6A3DB35F25B28E6CC9B0D70C /* SkillSimilarity.swift in Sources */,
 				27C9E2A4A6BC1AD429CDF52B /* SkillsetInstaller.swift in Sources */,
 				AE698F92528A6290BFBA78D7 /* Terminal.swift in Sources */,
 				C3040FC3DE85AD54F35F5AB5 /* main.swift in Sources */,
@@ -298,8 +306,10 @@
 				DD6BE7DE0CE5849AC0A467D9 /* PromptLibrary.swift in Sources */,
 				B2BC44AB7EADA260F6CCEF2F /* Registry.swift in Sources */,
 				11E7DF1CFFE0D2991E331A43 /* SettingsView.swift in Sources */,
+				84E808F8E0F83C19CC874971 /* SimilarViews.swift in Sources */,
 				769B6AB81AA5DB52B5C8E72B /* SkillInstaller.swift in Sources */,
 				A8E5EF8255CE60720E91CC0F /* SkillScanner.swift in Sources */,
+				31F0312A63C31BCB33D669D0 /* SkillSimilarity.swift in Sources */,
 				BD66695BCC8D9CC8ED4ECECB /* SkillViews.swift in Sources */,
 				7428972CE87CBDC6CA0A4568 /* SkillscoutApp.swift in Sources */,
 				6CA7602CF7C5E86F4D8442D7 /* SkillsetInstaller.swift in Sources */,
@@ -327,13 +337,14 @@
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Skillscout;
+				INFOPLIST_KEY_CFBundleDisplayName = "Skillscout Thawee";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.flaviocopes.skillscout;
+				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.skillscout;
+				PRODUCT_NAME = "Skillscout Thawee";
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -350,8 +361,8 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.flaviocopes.skillscout.cli;
-				PRODUCT_NAME = skillscout;
+				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.skillscout.cli;
+				PRODUCT_NAME = "skillscout-thawee";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 			};
@@ -391,7 +402,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 4;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -404,7 +415,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.3.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -423,13 +434,14 @@
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Skillscout;
+				INFOPLIST_KEY_CFBundleDisplayName = "Skillscout Thawee";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.flaviocopes.skillscout;
+				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.skillscout;
+				PRODUCT_NAME = "Skillscout Thawee";
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -446,8 +458,8 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.flaviocopes.skillscout.cli;
-				PRODUCT_NAME = skillscout;
+				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.skillscout.cli;
+				PRODUCT_NAME = "skillscout-thawee";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 			};
@@ -487,7 +499,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 4;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -506,7 +518,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.3.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

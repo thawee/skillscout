@@ -138,6 +138,35 @@ enum Frontmatter {
     return result
   }
 
+  /// The text after the frontmatter, or all of it when there's none.
+  static func body(of text: String) -> String {
+    let lines = text.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n")
+    guard let end = closingLine(lines) else { return text }
+    return lines[(end + 1)...].joined(separator: "\n")
+  }
+
+  /// The text with `name` as the frontmatter name. Without frontmatter, the folder name is the skill name,
+  /// so the text stays as it is.
+  static func setting(name: String, in text: String) -> String {
+    var lines = text.components(separatedBy: "\n")
+    guard let end = closingLine(lines) else { return text }
+    let ending = lines[0].hasSuffix("\r") ? "\r" : ""
+    if let start = lines[1..<end].firstIndex(where: { $0.hasPrefix("name:") }) {
+      var next = start + 1
+      while next < end, lines[next].hasPrefix(" ") || lines[next].hasPrefix("\t") { next += 1 }
+      lines.replaceSubrange(start..<next, with: ["name: \(name)\(ending)"])
+    } else {
+      lines.insert("name: \(name)\(ending)", at: 1)
+    }
+    return lines.joined(separator: "\n")
+  }
+
+  /// The index of the line that closes the frontmatter.
+  private static func closingLine(_ lines: [String]) -> Int? {
+    guard lines.first?.trimmingCharacters(in: .whitespacesAndNewlines) == "---" else { return nil }
+    return lines.dropFirst().firstIndex { $0.trimmingCharacters(in: .whitespacesAndNewlines) == "---" }
+  }
+
   private static func unquote(_ value: String) -> String {
     guard value.count >= 2, let first = value.first, first == value.last, first == "\"" || first == "'" else { return value }
     return String(value.dropFirst().dropLast())

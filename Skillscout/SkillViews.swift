@@ -23,6 +23,10 @@ struct SkillList: View {
             .disabled(store.isManagingSkillsets)
         }
       }
+      if ids.count == 1, let skill = store.skill(ids.first), skill.isPersonal {
+        Button("Edit SKILL.md…") { store.editing = skill }
+        Button("Rename…") { store.renaming = skill }
+      }
       if let removal = removal(for: ids) {
         Button(ids.count == 1 ? "Uninstall" : "Uninstall selected skills…", role: .destructive) {
           store.removal = removal
@@ -294,6 +298,7 @@ struct SkillDetail: View {
           .foregroundStyle(.orange)
       }
       if skill.isPersonal {
+        Button("Rename…") { store.renaming = skill }
         if skill.removableCopies.count > 1 {
           Button("Remove all user copies", role: .destructive) { store.removal = .uninstall(skill) }
         }
@@ -350,8 +355,13 @@ struct SkillDetail: View {
 
   private var file: some View {
     VStack(alignment: .leading, spacing: 8) {
-      Button("Open in editor") { Finder.open(skill.skillFile) }
-        .buttonStyle(.link)
+      HStack(spacing: 14) {
+        if skill.isPersonal {
+          Button("Edit") { store.editing = skill }
+        }
+        Button("Open in editor") { Finder.open(skill.skillFile) }
+      }
+      .buttonStyle(.link)
       Text(content)
         .font(.system(.callout, design: .monospaced))
         .textSelection(.enabled)
@@ -432,5 +442,165 @@ struct Removal {
       )
     }
     return sentences.joined(separator: " ")
+  }
+}
+
+struct RenameSheet: View {
+  @Environment(AppStore.self) private var store
+  @Environment(\.dismiss) private var dismiss
+  let skill: Skill
+  @State private var name: String
+
+  init(skill: Skill) {
+    self.skill = skill
+    _name = State(initialValue: skill.name)
+  }
+
+  private var problem: String? {
+    name == skill.name ? nil : SkillInstaller.renameProblem(skill, to: name, among: store.skills)
+  }
+
+  private var note: String {
+    let folders = skill.removableCopies.count(where: { !$0.isSymlink })
+    let links = skill.removableCopies.count(where: \.isSymlink)
+    var what: [String] = []
+    if folders > 0 { what.append(folders == 1 ? "its folder" : "its \(folders) folders") }
+    if links > 0 { what.append(links == 1 ? "the link to it" : "the \(links) links to it") }
+    var sentences = ["Skillscout renames \(what.formatted(.list(type: .and))), and changes the name in SKILL.md."]
+
+    let targets = skill.linkTargetsKept(skill.removableCopies)
+    if !targets.isEmpty {
+      sentences.append("\(targets.map(Paths.abbreviate).formatted(.list(type: .and))), where the links point, \(targets.count == 1 ? "keeps its" : "keep their") folder name.")
+    }
+    if let plugin = skill.copies.first(where: { $0.root.kind == .plugin }) {
+      sentences.append("The copy from the \(plugin.sourceLabel) keeps the old name.")
+    }
+    sentences.append("Chats that used \(skill.name) still count.")
+    return sentences.joined(separator: " ")
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 14) {
+      Text("Rename \(skill.name)")
+        .font(.headline)
+      TextField("Name", text: $name)
+        .textFieldStyle(.roundedBorder)
+        .onSubmit(rename)
+      if let problem {
+        Text(problem)
+          .font(.callout)
+          .foregroundStyle(.red)
+      }
+      Text(note)
+        .font(.callout)
+        .foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
+      HStack {
+        Spacer()
+        Button("Cancel", role: .cancel) { dismiss() }
+          .keyboardShortcut(.cancelAction)
+        Button("Rename", action: rename)
+          .keyboardShortcut(.defaultAction)
+          .disabled(name == skill.name || problem != nil)
+      }
+    }
+    .padding(20)
+    .frame(width: 440)
+  }
+
+  private func rename() {
+    guard name != skill.name, problem == nil else { return }
+    dismiss()
+    Task { await store.rename(skill, to: name) }
+  }
+}
+
+struct EditSheet: View {
+  @Environment(AppStore.self) private var store
+  @Environment(\.dismiss) private var dismiss
+  let skill: Skill
+  @State private var edit: SkillInstaller.Edit?
+  @State private var text = ""
+  @State private var failure: String?
+  @State private var changedOnDisk = false
+  @State private var discarding = false
+
+  private var problem: String? { edit.flatMap { SkillInstaller.editProblem($0, text: text) } }
+  private var isChanged: Bool { edit.map { text != $0.original } ?? false }
+
+  private var note: String {
+    guard let edit else { return "" }
+    var sentences = ["Skillscout saves it to \(edit.files.map(Paths.abbreviate).formatted(.list(type: .and)))."]
+    if !edit.otherFiles.isEmpty {
+      let one = edit.otherFiles.count == 1
+      sentences.append("\(edit.otherFiles.map(Paths.abbreviate).formatted(.list(type: .and))) \(one ? "has" : "have") other text, so \(one ? "it stays as it is" : "they stay as they are").")
+    }
+    if let plugin = skill.copies.first(where: { $0.root.kind == .plugin }) {
+      sentences.append("The copy from the \(plugin.sourceLabel) stays as it is.")
+    }
+    return sentences.joined(separator: " ")
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("Edit \(skill.name)")
+        .font(.headline)
+      PlainTextEditor(text: $text)
+        .padding(8)
+        .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.5)))
+        .disabled(edit == nil)
+      if let message = failure ?? problem {
+        Text(message)
+          .font(.callout)
+          .foregroundStyle(.red)
+      } else if changedOnDisk {
+        Text("SKILL.md changed since you opened it, maybe from an agent. Save anyway to replace those changes with yours.")
+          .font(.callout)
+          .foregroundStyle(.orange)
+      }
+      Text(note)
+        .font(.callout)
+        .foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
+      HStack {
+        Spacer()
+        Button("Cancel", role: .cancel) {
+          if isChanged { discarding = true } else { dismiss() }
+        }
+        .keyboardShortcut(.cancelAction)
+        Button(changedOnDisk ? "Save anyway" : "Save", action: save)
+          .keyboardShortcut("s")
+          .buttonStyle(.borderedProminent)
+          .disabled(!isChanged || problem != nil)
+      }
+    }
+    .padding(20)
+    .frame(minWidth: 640, idealWidth: 760, minHeight: 480, idealHeight: 640)
+    .task {
+      do {
+        let edit = try SkillInstaller.edit(skill)
+        text = edit.original
+        self.edit = edit
+      } catch {
+        failure = error.localizedDescription
+      }
+    }
+    .confirmationDialog("Discard your changes to \(skill.name)?", isPresented: $discarding) {
+      Button("Discard", role: .destructive) { dismiss() }
+    }
+  }
+
+  private func save() {
+    guard let edit, isChanged, problem == nil else { return }
+    Task {
+      do {
+        try await store.save(edit, text: text, overwrite: changedOnDisk)
+        dismiss()
+      } catch SkillInstaller.Failure.changedOnDisk {
+        changedOnDisk = true
+      } catch {
+        failure = error.localizedDescription
+      }
+    }
   }
 }

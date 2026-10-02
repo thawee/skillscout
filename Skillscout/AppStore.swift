@@ -20,6 +20,12 @@ final class AppStore {
   var registrySkills: [RegistrySkill] = []
   var explanations: [String: String] = [:]
   var dismissed: [String] = []
+  /// Pairs of your skills that read alike, most alike first.
+  var similar: [SimilarPair] = []
+  /// The pairs you said aren't alike, by `SimilarPair.id`.
+  var dismissedPairs: [String] = []
+  /// Merged SKILL.md drafts, by `MergePlan.id`.
+  var mergeDrafts: [String: String] = [:]
   var analyzedIDs: Set<String> = []
   var lastAnalysis: Date?
 
@@ -30,6 +36,11 @@ final class AppStore {
   var searchRequests = 0
   /// Copies waiting for you to confirm, before they go to the Trash.
   var removal: Removal?
+  /// The skill whose new name you're typing.
+  var renaming: Skill?
+  var editing: Skill?
+  /// A skill to select once it has a new name, or once a merge made it.
+  var revealRequest: Skill.ID?
 
   @ObservationIgnored private let library = PromptLibrary()
   @ObservationIgnored private var allPrompts: [Prompt] = []
@@ -121,7 +132,11 @@ final class AppStore {
   }
 
   func refreshSkills() async {
-    skills = await Task.detached { SkillScanner.scan() }.value
+    let dismissed = Set(dismissedPairs)
+    (skills, similar) = await Task.detached {
+      let skills = SkillScanner.scan()
+      return (skills, SkillSimilarity.pairs(in: skills, dismissed: dismissed))
+    }.value
     applyTools()
   }
 
@@ -136,7 +151,7 @@ final class AppStore {
   private func applyTools() {
     let enabled = Set(tools)
     prompts = allPrompts.filter { enabled.contains($0.tool) }
-    usage = SkillUsage.tally(uses.filter { enabled.contains($0.tool) }, skills: skills)
+    usage = SkillUsage.tally(uses.filter { enabled.contains($0.tool) }, skills: skills, aliases: SkillAliases.load())
   }
 
   private static let chatFolders = [
@@ -248,6 +263,53 @@ final class AppStore {
     }
   }
 
+  func rename(_ skill: Skill, to name: String) async {
+    do {
+      try SkillInstaller.rename(skill, to: name, among: skills)
+      await refreshSkills()
+      revealRequest = name
+    } catch {
+      errorMessage = error.localizedDescription
+      await refreshSkills()
+    }
+  }
+
+  /// Throws instead of showing an alert, so the editor stays open with your text.
+  func save(_ edit: SkillInstaller.Edit, text: String, overwrite: Bool) async throws {
+    try SkillInstaller.save(edit, text: text, overwrite: overwrite)
+    await refreshSkills()
+  }
+
+  func dismissPair(_ pair: SimilarPair) {
+    dismissedPairs.append(pair.id)
+    similar.removeAll { $0.id == pair.id }
+    saveState()
+  }
+
+  func draftMerge(_ plan: SkillInstaller.MergePlan) async {
+    let busyKey = "merge:\(plan.id)"
+    busy.insert(busyKey)
+    defer { busy.remove(busyKey) }
+    do {
+      mergeDrafts[plan.id] = try await Analyzer.mergeSkills(plan, engine: .current)
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
+  func merge(_ plan: SkillInstaller.MergePlan) async {
+    guard let draft = mergeDrafts[plan.id] else { return }
+    do {
+      try SkillInstaller.merge(plan, markdown: draft)
+      mergeDrafts[plan.id] = nil
+      await refreshSkills()
+      revealRequest = plan.kept.id
+    } catch {
+      errorMessage = error.localizedDescription
+      await refreshSkills()
+    }
+  }
+
   func draft(_ id: Suggestion.ID) async {
     guard let suggestion = suggestion(id) else { return }
     let busyKey = "draft:\(id)"
@@ -311,6 +373,7 @@ final class AppStore {
     var skillsetEntries: [SkillsetEntry]?
     var skillsetIssues: [String: [String]]?
     var preferredSources: [Skill.ID: String]?
+    var dismissedPairs: [String]?
   }
 
   private func loadState() {
@@ -327,6 +390,7 @@ final class AppStore {
     skillsetEntries = state.skillsetEntries ?? []
     skillsetIssues = state.skillsetIssues ?? [:]
     preferredSources = state.preferredSources ?? [:]
+    dismissedPairs = state.dismissedPairs ?? []
   }
 
   @discardableResult
@@ -343,7 +407,8 @@ final class AppStore {
       skillsetAssignments: skillsetAssignments,
       skillsetEntries: skillsetEntries,
       skillsetIssues: skillsetIssues,
-      preferredSources: preferredSources
+      preferredSources: preferredSources,
+      dismissedPairs: dismissedPairs
     )
     do {
       let data = try JSONEncoder().encode(state)

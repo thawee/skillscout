@@ -116,9 +116,7 @@ struct SuggestionDetail: View {
   private var draftSection: some View {
     if let draft = suggestion.draft {
       VStack(alignment: .leading, spacing: 10) {
-        TextEditor(text: Binding(get: { draft }, set: { store.updateDraft(suggestion.id, $0) }))
-          .font(.system(.callout, design: .monospaced))
-          .scrollContentBackground(.hidden)
+        PlainTextEditor(text: Binding(get: { draft }, set: { store.updateDraft(suggestion.id, $0) }))
           .frame(minHeight: 380)
           .padding(8)
           .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.5)))

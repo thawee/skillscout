@@ -1,7 +1,7 @@
 import Foundation
 
 // Read the app's settings: enabled tools, lookback window and AI engine.
-UserDefaults.standard.addSuite(named: "com.flaviocopes.skillscout")
+UserDefaults.standard.addSuite(named: "com.thawee.skillscout")
 
 struct Arguments {
   var command: String?
@@ -59,9 +59,16 @@ struct Arguments {
   }
 
   func single(_ what: String) throws -> String {
-    guard let value = positional.first else { throw CLIError(message: "Tell me which \(what), like: skillscout \(command ?? "") release-notes", usage: true) }
+    guard let value = positional.first else { throw CLIError(message: "Tell me which \(what), like: skillscout-thawee \(command ?? "") release-notes", usage: true) }
     guard positional.count == 1 else { throw CLIError(message: "Pass one \(what) at a time.", usage: true) }
     return value
+  }
+
+  func two(_ first: String, _ second: String, example: String) throws -> (String, String) {
+    guard positional.count == 2 else {
+      throw CLIError(message: "Pass the \(first) and the \(second), like: skillscout-thawee \(command ?? "") \(example)", usage: true)
+    }
+    return (positional[0], positional[1])
   }
 
   func tool(_ option: String) throws -> Tool? {
@@ -97,7 +104,7 @@ struct Arguments {
 }
 
 enum Command: String, CaseIterable {
-  case list, show, usage, tools, add, uninstall, suggest, explain, install, update
+  case list, show, usage, tools, similar, add, rename, merge, uninstall, suggest, explain, install, update
 
   var synopsis: String {
     switch self {
@@ -105,7 +112,10 @@ enum Command: String, CaseIterable {
     case .show: "show <skill> [options]"
     case .usage: "usage [options]"
     case .tools: "tools [options]"
+    case .similar: "similar [options]"
     case .add: "add <skill> --to <tool> | --all"
+    case .rename: "rename <skill> <new-name>"
+    case .merge: "merge <skill> <other> [options]"
     case .uninstall: "uninstall <skill> [--from <tool>]"
     case .suggest: "suggest [options]"
     case .explain: "explain <skill> [options]"
@@ -120,7 +130,10 @@ enum Command: String, CaseIterable {
     case .show: "Where a skill lives, which tools see it, and its usage"
     case .usage: "Rank skills by how many chats used them"
     case .tools: "The agent tools Skillscout knows about"
+    case .similar: "Pairs of skills that read alike"
     case .add: "Add a skill to another tool"
+    case .rename: "Give a skill a new name"
+    case .merge: "Merge another skill into this one with AI"
     case .uninstall: "Move a skill to the Trash"
     case .suggest: "Ask AI for skill ideas based on requests you repeat"
     case .explain: "Ask AI what a skill does"
@@ -139,6 +152,12 @@ enum Command: String, CaseIterable {
       "Ranks skills by the number of chats that used them. A use is a chat where the agent read the skill's SKILL.md, or where you attached or invoked the skill yourself."
     case .tools:
       "Lists the agent tools Skillscout knows, whether they're on, and where each one keeps its skills. Turn tools on or off in the app's settings."
+    case .similar:
+      "Compares the words your skills use, on your Mac and without AI, and lists the pairs that read alike, so you can merge them. Pairs you dismissed in the app stay hidden."
+    case .rename:
+      "Renames a skill's folders and links in your skills folders, and the name in its SKILL.md. Folders that links point to outside your skills folders keep their name, and plugin copies keep the old name. Chats that used the old name still count."
+    case .merge:
+      "Asks AI to write one SKILL.md from two skills, and makes it the SKILL.md of the first one. The old SKILL.md and the other skill go to the Trash, and the first skill gets linked wherever the other one was, so no tool loses it. The other skill's files come along, unless the first one has a file at the same path."
     case .add:
       "Makes a skill available in another tool. Skillscout links the skill folder into that tool's skills folder, so an edit shows up everywhere. Plugin skills get copied instead, since plugin updates replace their folders."
     case .uninstall:
@@ -173,6 +192,12 @@ enum Command: String, CaseIterable {
       ]
     case .show, .usage, .tools:
       return [days, json]
+    case .similar:
+      return [json]
+    case .rename:
+      return []
+    case .merge:
+      return [("--dry-run", "Print the merged SKILL.md and change nothing")] + engine
     case .add:
       return [
         ("--to <tool>", "The tool to add it to"),
@@ -201,7 +226,10 @@ enum Command: String, CaseIterable {
     case .show: try await Commands.show(args)
     case .usage: try await Commands.usage(args)
     case .tools: try await Commands.tools(args)
+    case .similar: try await Commands.similar(args)
     case .add: try await Commands.add(args)
+    case .rename: try await Commands.rename(args)
+    case .merge: try await Commands.merge(args)
     case .uninstall: try await Commands.uninstall(args)
     case .suggest: try await Commands.suggest(args)
     case .explain: try await Commands.explain(args)
@@ -216,7 +244,7 @@ func printHelp(_ command: Command?) {
   guard let command else {
     print(Terminal.wrap("Skillscout finds the skills your coding agents load, shows which tools can use each one, and counts how often you use them."))
     print()
-    print("\(bold("Usage:")) skillscout [command] [options]")
+    print("\(bold("Usage:")) skillscout-thawee [command] [options]")
     print()
     print(bold("Commands:"))
     for command in Command.allCases {
@@ -224,14 +252,14 @@ func printHelp(_ command: Command?) {
       print("  \(Terminal.pad(name, 17)) \(command.summary)")
     }
     print()
-    print("Run skillscout with no command for a summary.")
-    print("Run skillscout help <command> to see its options.")
+    print("Run skillscout-thawee with no command for a summary.")
+    print("Run skillscout-thawee help <command> to see its options.")
     print()
     print("\(bold("Tools:")) \(Tool.allCases.map(\.rawValue).joined(separator: ", "))")
     return
   }
 
-  print("\(bold("Usage:")) skillscout \(command.synopsis)")
+  print("\(bold("Usage:")) skillscout-thawee \(command.synopsis)")
   print()
   print(Terminal.wrap(command.details))
   print()
@@ -250,7 +278,7 @@ do {
   if args.flag("no-color") { Terminal.colors = false }
 
   if args.flag("version") {
-    print("skillscout \(version)")
+    print("skillscout-thawee \(version)")
   } else if args.command == "help" {
     let name = args.positional.first
     guard let command = name.map(Command.init(rawValue:)) ?? .some(nil) else {
@@ -274,7 +302,7 @@ do {
 } catch {
   Terminal.clearStatus()
   let usage = (error as? CLIError)?.usage == true
-  Terminal.note("skillscout: \(error.localizedDescription)")
-  if usage { Terminal.note("Run skillscout help for usage.") }
+  Terminal.note("skillscout-thawee: \(error.localizedDescription)")
+  if usage { Terminal.note("Run skillscout-thawee help for usage.") }
   exit(usage ? 2 : 1)
 }

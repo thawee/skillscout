@@ -1,15 +1,15 @@
 import AppKit
 
-/// Links the `skillscout` command bundled in the app into /usr/local/bin.
+/// Links the fork's command bundled in the app into /usr/local/bin.
 enum CommandLineTool {
-  static let link = URL(fileURLWithPath: "/usr/local/bin/skillscout")
-  static let bundled = Bundle.main.bundleURL.appending(path: "Contents/Helpers/skillscout")
+  static let link = URL(fileURLWithPath: "/usr/local/bin/skillscout-thawee")
+  static let bundled = Bundle.main.bundleURL.appending(path: "Contents/Helpers/skillscout-thawee")
 
   @MainActor
   static func install() {
     let fm = FileManager.default
     if (try? fm.destinationOfSymbolicLink(atPath: link.path)) == bundled.path {
-      show("The skillscout command is already installed.", detail: "Run skillscout help in your terminal to see what it does.")
+      show("The skillscout-thawee command is already installed.", detail: "Run skillscout-thawee help in your terminal to see what it does.")
       return
     }
 
@@ -26,7 +26,7 @@ enum CommandLineTool {
         return
       }
     }
-    show("Installed the skillscout command.", detail: "Open a new terminal window and run skillscout help to get started.")
+    show("Installed the skillscout-thawee command.", detail: "Open a new terminal window and run skillscout-thawee help to get started.")
   }
 
   @MainActor

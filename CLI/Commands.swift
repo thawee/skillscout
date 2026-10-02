@@ -54,10 +54,10 @@ enum Commands {
       print()
     }
 
-    print("\(Terminal.pad("Missing somewhere", 18)) \(Terminal.padLeft("\(missing.count)", 4))  \(dim("skillscout list --missing"))")
-    print("\(Terminal.pad("Unused", 18)) \(Terminal.padLeft("\(unused.count)", 4))  \(dim("skillscout list --unused"))")
+    print("\(Terminal.pad("Missing somewhere", 18)) \(Terminal.padLeft("\(missing.count)", 4))  \(dim("skillscout-thawee list --missing"))")
+    print("\(Terminal.pad("Unused", 18)) \(Terminal.padLeft("\(unused.count)", 4))  \(dim("skillscout-thawee list --unused"))")
     print()
-    print(dim("Run skillscout help to see every command."))
+    print(dim("Run skillscout-thawee help to see every command."))
   }
 
   static func list(_ args: Arguments) async throws {
@@ -126,7 +126,7 @@ enum Commands {
       } else if skill.isBuiltInOnly {
         print("  \(dim("·")) \(label)  \(dim("built into \(skill.primary.root.owner?.name ?? "another tool")"))")
       } else {
-        print("  \(dim("·")) \(label)  \(Terminal.warn("missing"))  \(dim("skillscout add \(skill.name) --to \(tool.rawValue)"))")
+        print("  \(dim("·")) \(label)  \(Terminal.warn("missing"))  \(dim("skillscout-thawee add \(skill.name) --to \(tool.rawValue)"))")
       }
     }
     print()
@@ -236,6 +236,39 @@ enum Commands {
     }
   }
 
+  static func similar(_ args: Arguments) async throws {
+    let library = await Library.load(days: args.days, readChats: false)
+    let listed = Set(library.listed(includePlugins: false).map(\.id))
+    let pairs = SkillSimilarity.pairs(in: library.skills, dismissed: Set(AppState.load().dismissedPairs ?? []))
+      .filter { listed.contains($0.first) && listed.contains($0.second) }
+
+    if args.json {
+      struct Pair: Encodable {
+        let skills: [String]
+        let score: Double
+        let sharedWords: [String]
+      }
+      try printJSON(pairs.map { Pair(skills: [$0.first, $0.second], score: ($0.score * 100).rounded() / 100, sharedWords: $0.sharedWords) })
+      return
+    }
+    guard !pairs.isEmpty else {
+      print("No two skills read alike.")
+      return
+    }
+
+    let names = pairs.map { "\($0.first) + \($0.second)" }
+    let width = min(names.map(\.count).max() ?? 0, 60)
+    print("\(bold(Terminal.pad("SKILLS", width)))  \(bold("ALIKE"))  \(bold("BOTH MENTION"))")
+    for (pair, name) in zip(pairs, names) {
+      let score = Terminal.padLeft("\(Int((pair.score * 100).rounded()))%", 5)
+      print("\(Terminal.pad(Terminal.truncate(name, width), width))  \(score)  \(dim(pair.sharedWords.joined(separator: ", ")))")
+    }
+    if Terminal.isTTY {
+      print()
+      print(dim("Merge two with skillscout-thawee merge <skill> <other>, or in the app's Similar skills."))
+    }
+  }
+
   static func add(_ args: Arguments) async throws {
     let name = try args.single("skill")
     let library = await Library.load(days: args.days, readChats: false)
@@ -308,6 +341,62 @@ enum Commands {
     } else {
       print("\(Terminal.list(losing.map { Terminal.tint($0.name, $0) })) no longer \(losing.count == 1 ? "loads" : "load") it.")
     }
+  }
+
+  static func rename(_ args: Arguments) async throws {
+    let (name, newName) = try args.two("skill", "new name", example: "release-notes changelog")
+    let library = await Library.load(days: args.days, readChats: false)
+    let skill = try library.skill(named: name)
+    guard skill.isPersonal else { throw leftAlone(skill) }
+
+    try SkillInstaller.rename(skill, to: newName, among: library.skills)
+    print("Renamed \(skill.name) to \(bold(newName)) in \(Terminal.list(skill.removableCopies.map { Paths.abbreviate($0.root.url) }))")
+    let targets = skill.linkTargetsKept(skill.removableCopies).map(Paths.abbreviate)
+    if !targets.isEmpty {
+      print(dim("\(Terminal.list(targets)), where the links point, \(targets.count == 1 ? "keeps its" : "keep their") folder name."))
+    }
+    if let plugin = skill.copies.first(where: { $0.root.kind == .plugin }) {
+      print(dim("The copy from the \(plugin.sourceLabel) keeps the old name."))
+    }
+  }
+
+  static func merge(_ args: Arguments) async throws {
+    let (keptName, mergedName) = try args.two("skill to keep", "skill to merge into it", example: "writing-style email-style")
+    let engine = try args.engine()
+    let library = await Library.load(days: args.days, readChats: false)
+    let kept = try library.skill(named: keptName)
+    let merged = try library.skill(named: mergedName)
+    for skill in [kept, merged] where !skill.isPersonal { throw leftAlone(skill) }
+    let plan = try SkillInstaller.planMerge(merged, into: kept)
+
+    Terminal.status("Asking \(engine.kind.name) to merge \(merged.name) into \(kept.name)…")
+    let markdown = try await Analyzer.mergeSkills(plan, engine: engine)
+    Terminal.clearStatus()
+    if args.flag("dry-run") {
+      print(markdown, terminator: "")
+      Terminal.note("Nothing changed. Run it again without --dry-run to merge.")
+      return
+    }
+
+    try SkillInstaller.merge(plan, markdown: markdown)
+    print("Wrote the merged SKILL.md into \(Terminal.list(plan.folders.map(Paths.abbreviate)))")
+    if !plan.copiedFiles.isEmpty {
+      print("Copied \(plural(plan.copiedFiles.count, "file")) from \(merged.name)")
+    }
+    if !plan.skippedFiles.isEmpty {
+      print(dim("\(plural(plan.skippedFiles.count, "file")) from \(merged.name) stayed out, because \(kept.name) has files at the same paths."))
+    }
+    print("Moved \(merged.name) to the Trash from \(Terminal.list(merged.removableCopies.map { Paths.abbreviate($0.root.url) }))")
+    for link in plan.links {
+      print("Linked \(kept.name) into \(Paths.abbreviate(link.deletingLastPathComponent()))")
+    }
+    print(dim("The old SKILL.md is in the Trash too."))
+  }
+
+  /// The error for a skill that a plugin or a tool manages.
+  private static func leftAlone(_ skill: Skill) -> CLIError {
+    let owner = skill.isBuiltInOnly ? skill.primary.root.owner?.name ?? "its tool" : "the \(skill.primary.sourceLabel)"
+    return CLIError(message: "\(skill.name) belongs to \(owner), so Skillscout leaves it alone.")
   }
 
   static func suggest(_ args: Arguments) async throws {

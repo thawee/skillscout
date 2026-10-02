@@ -1,13 +1,13 @@
 name: Skillscout
 options:
-  bundleIdPrefix: com.flaviocopes
+  bundleIdPrefix: com.thawee
   deploymentTarget:
     macOS: "15.0"
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    MARKETING_VERSION: "1.1.0"
-    CURRENT_PROJECT_VERSION: "2"
+    MARKETING_VERSION: "1.3.0"
+    CURRENT_PROJECT_VERSION: "4"
 targets:
   Skillscout:
     type: application
@@ -24,10 +24,11 @@ targets:
           subpath: Contents/Helpers
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.flaviocopes.skillscout
+        PRODUCT_NAME: "Skillscout Thawee"
+        PRODUCT_BUNDLE_IDENTIFIER: com.thawee.skillscout
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: Skillscout
+        INFOPLIST_KEY_CFBundleDisplayName: "Skillscout Thawee"
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual
@@ -38,6 +39,7 @@ targets:
       - CLI
       - Skillscout/Models.swift
       - Skillscout/SkillScanner.swift
+      - Skillscout/SkillSimilarity.swift
       - Skillscout/PromptLibrary.swift
       - Skillscout/PromptLibrary+Tools.swift
       - Skillscout/SkillInstaller.swift
@@ -47,8 +49,8 @@ targets:
       - Skillscout/Registry.swift
     settings:
       base:
-        PRODUCT_NAME: skillscout
-        PRODUCT_BUNDLE_IDENTIFIER: com.flaviocopes.skillscout.cli
+        PRODUCT_NAME: skillscout-thawee
+        PRODUCT_BUNDLE_IDENTIFIER: com.thawee.skillscout.cli
         GENERATE_INFOPLIST_FILE: YES
         CREATE_INFOPLIST_SECTION_IN_BINARY: YES
         SKIP_INSTALL: YES

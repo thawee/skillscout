@@ -21,9 +21,9 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>CFBundleExecutable</key>
   <string>Screenshot</string>
   <key>CFBundleIdentifier</key>
-  <string>com.flaviocopes.skillscout.screenshot</string>
+  <string>com.thawee.skillscout.screenshot</string>
   <key>CFBundleName</key>
-  <string>Skillscout</string>
+  <string>Skillscout Thawee Screenshot</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>NSHighResolutionCapable</key>

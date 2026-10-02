@@ -5,11 +5,17 @@ struct SkillscoutApp: App {
   @State private var store = AppStore()
 
   init() {
-    AppUpdater.shared.start(repository: "flaviocopes/skillscout")
+    let oldSettings = UserDefaults(suiteName: "com.flaviocopes.skillscout")
+    for key in ["tools", "skillSort", "skillSource", "engine", "codexModel", "claudeModel", "lookbackDays", "autoAnalyze", "autoThreshold"] {
+      if UserDefaults.standard.object(forKey: key) == nil, let value = oldSettings?.object(forKey: key) {
+        UserDefaults.standard.set(value, forKey: key)
+      }
+    }
+    AppUpdater.shared.start(repository: "thawee/skillscout")
   }
 
   var body: some Scene {
-    Window("Skillscout", id: "main") {
+    Window("Skillscout Thawee", id: "main") {
       ContentView()
         .environment(store)
         .task { await store.start() }

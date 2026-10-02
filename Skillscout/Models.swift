@@ -19,7 +19,11 @@ enum Paths {
   }
 
   static let appSupport: URL = {
-    let url = at("Library/Application Support/Skillscout")
+    let url = at("Library/Application Support/Skillscout Thawee")
+    let previous = at("Library/Application Support/Skillscout")
+    if !FileManager.default.fileExists(atPath: url.path), FileManager.default.fileExists(atPath: previous.path) {
+      try? FileManager.default.copyItem(at: previous, to: url)
+    }
     try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return url
   }()
@@ -286,7 +290,8 @@ struct SkillUsage: Sendable {
     projects.sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }.prefix(3).map(\.key)
   }
 
-  static func tally(_ uses: [SkillUse], skills: [Skill]) -> [Skill.ID: SkillUsage] {
+  /// `aliases` maps old skill names to new ones, so a chat that used a skill before a rename or a merge still counts.
+  static func tally(_ uses: [SkillUse], skills: [Skill], aliases: [String: String] = [:]) -> [Skill.ID: SkillUsage] {
     var byFolder: [String: Skill.ID] = [:]
     var byName: [String: Skill.ID] = [:]
     for skill in skills {
@@ -298,6 +303,14 @@ struct SkillUsage: Sendable {
     }
     for skill in skills {
       byName[skill.name] = skill.id
+    }
+    for (old, new) in aliases where byName[old] == nil {
+      var name = new
+      for _ in 0..<10 {
+        guard byName[name] == nil, let next = aliases[name] else { break }
+        name = next
+      }
+      byName[old] = byName[name]
     }
 
     var usage: [Skill.ID: SkillUsage] = [:]
@@ -315,6 +328,22 @@ struct SkillUsage: Sendable {
       usage[id] = entry
     }
     return usage
+  }
+}
+
+/// The names skills had before you renamed or merged them, and the names they go by now.
+enum SkillAliases {
+  static let file = Paths.appSupport.appending(path: "aliases.json")
+
+  static func load() -> [String: String] {
+    (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode([String: String].self, from: $0) } ?? [:]
+  }
+
+  static func record(_ old: String, as new: String) {
+    var aliases = load()
+    aliases[old] = new
+    aliases[new] = nil
+    if let data = try? JSONEncoder().encode(aliases) { try? data.write(to: file, options: .atomic) }
   }
 }
 

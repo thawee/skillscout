@@ -117,6 +117,53 @@ enum Analyzer {
     return stripFences(try await engine.run(prompt))
   }
 
+  static func mergeSkills(_ plan: SkillInstaller.MergePlan, engine: AIEngine) async throws -> String {
+    let kept = plan.kept.name
+    let merged = plan.merged.name
+    let keptText = (try? String(contentsOf: plan.kept.skillFile, encoding: .utf8)) ?? ""
+    let mergedText = (try? String(contentsOf: plan.merged.skillFile, encoding: .utf8)) ?? ""
+
+    func list(_ paths: [String]) -> String {
+      let shown = paths.prefix(40).joined(separator: ", ")
+      return paths.count > 40 ? "\(shown), and \(paths.count - 40) more" : shown
+    }
+    var files = ["The merged skill keeps the name \(kept) and lives in its folder."]
+    if !plan.keptFiles.isEmpty { files.append("Besides SKILL.md, that folder has: \(list(plan.keptFiles)).") }
+    if !plan.copiedFiles.isEmpty { files.append("These files from \(merged) get copied into it, at the same paths: \(list(plan.copiedFiles)).") }
+    if !plan.skippedFiles.isEmpty {
+      files.append("These files from \(merged) stay out, because \(kept) has its own file at the same path: \(list(plan.skippedFiles)).")
+    }
+
+    let prompt = """
+    Merge two Agent Skills into one SKILL.md. They overlap, and the developer wants a single skill that does what both do.
+
+    Rules:
+    - Keep every instruction, step, convention and example from both, and say each thing once.
+    - When they disagree, keep the more specific instruction. If you can't tell, keep both and say when each one applies.
+    - Keep commands, paths, links and file references exactly as written.
+    - Keep the other frontmatter fields of either file.
+    - Match the tone and structure of the originals. Don't add instructions of your own.
+
+    \(files.joined(separator: " "))
+
+    Start with this frontmatter:
+
+    ---
+    name: \(kept)
+    description: What the merged skill does and when to use it, covering both skills, in one or two sentences, under 300 characters.
+    ---
+
+    Reply with only the SKILL.md content, no code fences.
+
+    SKILL.md of \(kept):
+    \(keptText.prefix(40_000))
+
+    SKILL.md of \(merged):
+    \(mergedText.prefix(40_000))
+    """
+    return stripFences(try await engine.run(prompt))
+  }
+
   static func explain(name: String, skillText: String, engine: AIEngine) async throws -> String {
     let prompt = """
     Explain the Agent Skill "\(name)" to a developer who has never seen it. Plain text, no markdown, under 120 words. Cover what it does, when the agent uses it, and what it needs to work (CLIs, accounts, API keys, specific tools).

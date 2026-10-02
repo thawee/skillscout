@@ -22,7 +22,7 @@ struct Library {
       let (prompts, uses) = await PromptLibrary().load(lookbackDays: days)
       let enabled = Set(library.tools)
       library.prompts = prompts.filter { enabled.contains($0.tool) }
-      library.usage = SkillUsage.tally(uses.filter { enabled.contains($0.tool) }, skills: library.skills)
+      library.usage = SkillUsage.tally(uses.filter { enabled.contains($0.tool) }, skills: library.skills, aliases: SkillAliases.load())
     }
     Terminal.clearStatus()
     return library
@@ -38,7 +38,7 @@ struct Library {
       return skill
     }
     let close = skills.map(\.name).filter { $0.localizedCaseInsensitiveContains(name) }.sorted().prefix(5)
-    if close.isEmpty { throw CLIError(message: "There's no skill called \(name). Run skillscout list to see them all.") }
+    if close.isEmpty { throw CLIError(message: "There's no skill called \(name). Run skillscout-thawee list to see them all.") }
     throw CLIError(message: "There's no skill called \(name). Did you mean \(close.formatted(.list(type: .or)))?")
   }
 
@@ -49,6 +49,7 @@ struct Library {
 struct AppState: Decodable {
   var explanations: [String: String]?
   var dismissed: [String]?
+  var dismissedPairs: [String]?
 
   static func load() -> AppState {
     (try? Data(contentsOf: Paths.stateFile)).flatMap { try? JSONDecoder().decode(AppState.self, from: $0) }

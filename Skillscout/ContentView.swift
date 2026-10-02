@@ -10,6 +10,22 @@ enum SidebarItem: Hashable {
   case suggestions
   case skillset(UUID)
   case repo(String)
+  case similar
+
+  var listsSkills: Bool { self != .discover && self != .suggestions && self != .similar }
+}
+
+enum SkillSource: String {
+  case yours, plugin, builtIn, all
+
+  func includes(_ skill: Skill) -> Bool {
+    switch self {
+    case .yours: skill.isPersonal
+    case .plugin: !skill.isPersonal && skill.copies.contains { $0.root.kind == .plugin }
+    case .builtIn: !skill.isPersonal && skill.copies.contains { $0.root.kind == .builtIn }
+    case .all: true
+    }
+  }
 }
 
 struct ContentView: View {
@@ -18,18 +34,20 @@ struct ContentView: View {
   @State private var selectedSkills: Set<Skill.ID> = []
   @State private var selectedSuggestion: Suggestion.ID?
   @State private var selectedRegistrySkill: RegistrySkill.ID?
+  @State private var selectedPair: SimilarPair.ID?
   @State private var search = ""
   @FocusState private var isSearchFocused: Bool
-  @AppStorage("showPluginSkills") private var showPluginSkills = false
+  @AppStorage("skillSource") private var source = SkillSource.yours
   @AppStorage("skillSort") private var sort = SkillSort.newest
   @State private var showingNewSkillset = false
   @State private var newSkillsetName = ""
   @State private var repoToRemove: String?
 
-  init(sidebar: SidebarItem = .allSkills, skill: Skill.ID? = nil, suggestion: Suggestion.ID? = nil) {
+  init(sidebar: SidebarItem = .allSkills, skill: Skill.ID? = nil, suggestion: Suggestion.ID? = nil, pair: SimilarPair.ID? = nil) {
     _sidebar = State(initialValue: sidebar)
     _selectedSkills = State(initialValue: Set(skill.map { [$0] } ?? []))
     _selectedSuggestion = State(initialValue: suggestion)
+    _selectedPair = State(initialValue: pair)
   }
 
   private var selectedSkill: Skill.ID? { selectedSkills.count == 1 ? selectedSkills.first : nil }
@@ -39,10 +57,12 @@ struct ContentView: View {
     return nil
   }
 
-  private var librarySkills: [Skill] {
+  private var enabledSkills: [Skill] {
     let tools = Set(store.tools)
-    return store.skills.filter { $0.isVisible(in: tools, includePlugins: showPluginSkills) }
+    return store.skills.filter { $0.isVisible(in: tools, includePlugins: true) }
   }
+
+  private var librarySkills: [Skill] { enabledSkills.filter(source.includes) }
 
   private func isMissing(_ skill: Skill) -> Bool {
     skill.isPersonal && !skill.missing(from: store.tools).isEmpty
@@ -75,6 +95,26 @@ struct ContentView: View {
     return skills.sorted { sort.inOrder($0, $1) { store.usage[$0.id] } }
   }
 
+  private var listedPairs: [SimilarPair] {
+    let listed = Set(enabledSkills.map(\.id))
+    return store.similar.filter { pair in
+      listed.contains(pair.first) && listed.contains(pair.second)
+        && (search.isEmpty || pair.first.localizedCaseInsensitiveContains(search) || pair.second.localizedCaseInsensitiveContains(search))
+    }
+  }
+
+  /// The selected skill, when it's yours to rename or uninstall.
+  private var actionSkill: Skill? {
+    guard sidebar?.listsSkills ?? true, let skill = store.skill(selectedSkill), skill.isPersonal else { return nil }
+    return skill
+  }
+
+  /// Merging keeps the skill you use more, or the one more tools load.
+  private func suggestedKeep(_ pair: SimilarPair) -> Skill.ID {
+    func weight(_ id: Skill.ID) -> (Int, Int) { (store.usage[id]?.chats ?? 0, store.skill(id)?.availableIn.count ?? 0) }
+    return weight(pair.second) > weight(pair.first) ? pair.second : pair.first
+  }
+
   private var listedSuggestions: [Suggestion] {
     guard !search.isEmpty else { return store.suggestions }
     return store.suggestions.filter {
@@ -100,6 +140,8 @@ struct ContentView: View {
         DiscoverList(skills: listedRegistrySkills, selection: $selectedRegistrySkill)
       } else if sidebar == .suggestions {
         SuggestionList(suggestions: listedSuggestions, selection: $selectedSuggestion)
+      } else if sidebar == .similar {
+        SimilarList(pairs: listedPairs, selection: $selectedPair)
       } else {
         VStack(spacing: 0) {
           if case .skillset(let id) = sidebar {
@@ -128,6 +170,12 @@ struct ContentView: View {
         } else {
           ContentUnavailableView("Pick a suggestion", systemImage: "lightbulb")
         }
+      } else if sidebar == .similar {
+        if let pair = listedPairs.first(where: { $0.id == selectedPair }) {
+          SimilarDetail(pair: pair, keep: suggestedKeep(pair)).id(pair.id)
+        } else {
+          ContentUnavailableView("Pick two similar skills", systemImage: "arrow.triangle.merge")
+        }
       } else if let skill = store.skill(selectedSkill) {
         SkillDetail(skill: skill)
       } else if selectedSkills.count > 1 {
@@ -146,44 +194,14 @@ struct ContentView: View {
     .onChange(of: store.tools) {
       if case .tool(let tool) = sidebar, !store.tools.contains(tool) { sidebar = .allSkills }
     }
-    .toolbar {
-      if sidebar != .discover && sidebar != .suggestions {
-        ToolbarItem {
-          Picker("Sort", selection: $sort) {
-            Text("Newest first").tag(SkillSort.newest)
-            Text("Sort by name").tag(SkillSort.name)
-            Text("Sort by use").tag(SkillSort.use)
-          }
-          .pickerStyle(.menu)
-          .help("Sort skills by when you created them, by name, or by how often they're used")
-        }
-        ToolbarItem {
-          Toggle(isOn: $showPluginSkills) {
-            Label("Plugin and built-in skills", systemImage: "puzzlepiece.extension")
-          }
-          .help("Show plugin and built-in skills too")
-        }
-      }
-      if sidebar == .suggestions {
-        ToolbarItem {
-        Button {
-          Task { await store.analyze() }
-        } label: {
-          Label("Find repeated tasks", systemImage: "sparkle.magnifyingglass")
-        }
-        .disabled(store.isAnalyzing || store.prompts.isEmpty)
-        .help("Analyze your recent chats and suggest new skills")
-        }
-      }
+    .onChange(of: store.revealRequest) {
+      guard let id = store.revealRequest else { return }
+      if !(sidebar?.listsSkills ?? false) { sidebar = .allSkills }
+      selectedSkills = [id]
+      store.revealRequest = nil
     }
-    .alert("Something went wrong", isPresented: Binding(
-      get: { store.errorMessage != nil },
-      set: { if !$0 { store.errorMessage = nil } }
-    )) {
-      Button("OK") {}
-    } message: {
-      Text(store.errorMessage ?? "")
-    }
+    .toolbar { toolbar }
+    .modifier(Presentations(store: store))
     .confirmationDialog("Remove \(repoToRemove ?? "repository") from Library?", isPresented: Binding(
       get: { repoToRemove != nil },
       set: { if !$0 { repoToRemove = nil } }
@@ -195,32 +213,76 @@ struct ContentView: View {
     } message: {
       Text("This moves the repository and any links into it from AI tool folders to the Trash. Independent copies stay.")
     }
-    .confirmationDialog(
-      store.removal?.title ?? "",
-      isPresented: Binding(
-        get: { store.removal != nil },
-        set: { if !$0 { store.removal = nil } }
-      ),
-      presenting: store.removal
-    ) { removal in
-      Button("Move to Trash", role: .destructive) {
-        Task { await store.remove(removal.copies) }
-      }
-    } message: { removal in
-      Text(removal.message(tools: store.tools))
-    }
     .alert("New Skillset", isPresented: $showingNewSkillset) {
       TextField("Skillset Name", text: $newSkillsetName)
       Button("Cancel", role: .cancel) { newSkillsetName = "" }
       Button("Create") {
         let name = newSkillsetName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !name.isEmpty {
-          store.createSkillset(name: name)
-        }
+        if !name.isEmpty { store.createSkillset(name: name) }
         newSkillsetName = ""
       }
     } message: {
       Text("Enter a name for the new skillset.")
+    }
+  }
+
+  @ToolbarContentBuilder
+  private var toolbar: some ToolbarContent {
+    if sidebar?.listsSkills ?? true {
+      ToolbarItemGroup {
+        Button {
+          store.editing = actionSkill
+        } label: {
+          Label("Edit", systemImage: "square.and.pencil")
+        }
+        .disabled(actionSkill == nil)
+        .help("Edit the selected skill's SKILL.md")
+        Button {
+          store.renaming = actionSkill
+        } label: {
+          Label("Rename", systemImage: "character.cursor.ibeam")
+        }
+        .disabled(actionSkill == nil)
+        .help("Rename the selected skill")
+        Button {
+          if let skill = actionSkill { store.removal = .uninstall(skill) }
+        } label: {
+          Label("Uninstall", systemImage: "trash")
+        }
+        .disabled(actionSkill == nil)
+        .help("Uninstall the selected skill from every tool, by moving it to the Trash")
+      }
+      ToolbarItem {
+        Picker("Show", selection: $source) {
+          Text("Your skills").tag(SkillSource.yours)
+          Text("Plugin skills").tag(SkillSource.plugin)
+          Text("Built-in skills").tag(SkillSource.builtIn)
+          Divider()
+          Text("All skills").tag(SkillSource.all)
+        }
+        .pickerStyle(.menu)
+        .help("Show your own skills, the ones from plugins, the ones built into the agents, or all of them")
+      }
+      ToolbarItem {
+        Picker("Sort", selection: $sort) {
+          Text("Newest first").tag(SkillSort.newest)
+          Text("Sort by name").tag(SkillSort.name)
+          Text("Sort by use").tag(SkillSort.use)
+        }
+        .pickerStyle(.menu)
+        .help("Sort skills by when you created them, by name, or by how often they're used")
+      }
+    }
+    if sidebar == .suggestions {
+      ToolbarItem {
+      Button {
+        Task { await store.analyze() }
+      } label: {
+        Label("Find repeated tasks", systemImage: "sparkle.magnifyingglass")
+      }
+      .disabled(store.isAnalyzing || store.prompts.isEmpty)
+      .help("Analyze your recent chats and suggest new skills")
+      }
     }
   }
 
@@ -279,6 +341,7 @@ struct ContentView: View {
       }
       Section("Ideas") {
         sidebarRow("Suggestions", symbol: "lightbulb", count: store.suggestions.count, item: .suggestions)
+        sidebarRow("Similar skills", symbol: "arrow.triangle.merge", count: listedPairs.count, item: .similar)
       }
     }
     .navigationSplitViewColumnWidth(min: 210, ideal: 230)
@@ -347,5 +410,38 @@ struct StatusPanel: View {
     }
     .padding(12)
     .frame(maxWidth: .infinity, alignment: .leading)
+  }
+}
+
+/// The error alert, the uninstall confirmation and the sheets.
+private struct Presentations: ViewModifier {
+  @Bindable var store: AppStore
+
+  func body(content: Content) -> some View {
+    content
+      .alert("Something went wrong", isPresented: Binding(
+        get: { store.errorMessage != nil },
+        set: { if !$0 { store.errorMessage = nil } }
+      )) {
+        Button("OK") {}
+      } message: {
+        Text(store.errorMessage ?? "")
+      }
+      .confirmationDialog(
+        store.removal?.title ?? "",
+        isPresented: Binding(
+          get: { store.removal != nil },
+          set: { if !$0 { store.removal = nil } }
+        ),
+        presenting: store.removal
+      ) { removal in
+        Button("Move to Trash", role: .destructive) {
+          Task { await store.remove(removal.copies) }
+        }
+      } message: { removal in
+        Text(removal.message(tools: store.tools))
+      }
+      .sheet(item: $store.renaming) { RenameSheet(skill: $0) }
+      .sheet(item: $store.editing) { EditSheet(skill: $0) }
   }
 }

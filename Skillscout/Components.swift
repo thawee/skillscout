@@ -113,6 +113,54 @@ struct DetailSection<Content: View>: View {
   }
 }
 
+/// A monospaced editor for SKILL.md files. SwiftUI's TextEditor follows the system's smart quotes and dashes,
+/// which turn the commands in a skill into curly quotes and em dashes, so this one turns every substitution off.
+struct PlainTextEditor: NSViewRepresentable {
+  @Binding var text: String
+
+  func makeNSView(context: Context) -> NSScrollView {
+    let scrollView = NSTextView.scrollableTextView()
+    scrollView.drawsBackground = false
+    scrollView.autohidesScrollers = true
+    let textView = scrollView.documentView as! NSTextView
+    textView.delegate = context.coordinator
+    textView.font = .monospacedSystemFont(ofSize: NSFont.preferredFont(forTextStyle: .callout).pointSize, weight: .regular)
+    textView.drawsBackground = false
+    textView.isRichText = false
+    textView.allowsUndo = true
+    textView.isAutomaticQuoteSubstitutionEnabled = false
+    textView.isAutomaticDashSubstitutionEnabled = false
+    textView.isAutomaticTextReplacementEnabled = false
+    textView.isAutomaticSpellingCorrectionEnabled = false
+    textView.isAutomaticLinkDetectionEnabled = false
+    textView.isContinuousSpellCheckingEnabled = false
+    textView.smartInsertDeleteEnabled = false
+    textView.string = text
+    return scrollView
+  }
+
+  func updateNSView(_ scrollView: NSScrollView, context: Context) {
+    context.coordinator.text = $text
+    let textView = scrollView.documentView as! NSTextView
+    if textView.string != text { textView.string = text }
+    textView.isEditable = context.environment.isEnabled
+    textView.textColor = context.environment.isEnabled ? .textColor : .secondaryLabelColor
+  }
+
+  func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+
+  final class Coordinator: NSObject, NSTextViewDelegate {
+    var text: Binding<String>
+
+    init(text: Binding<String>) { self.text = text }
+
+    func textDidChange(_ notification: Notification) {
+      guard let textView = notification.object as? NSTextView else { return }
+      text.wrappedValue = textView.string
+    }
+  }
+}
+
 enum Finder {
   static func reveal(_ url: URL) {
     NSWorkspace.shared.activateFileViewerSelecting([url])

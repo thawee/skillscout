@@ -20,7 +20,7 @@ if "--run-only" not in sys.argv:
     (resources / "registry.json").write_bytes((root / "registry.json").read_bytes())
     (app / "Contents/Info.plist").write_bytes(plistlib.dumps({
         "CFBundleExecutable": "FunctionalCheck",
-        "CFBundleIdentifier": "com.flaviocopes.skillscout.functional-check",
+        "CFBundleIdentifier": "com.thawee.skillscout.functional-check",
         "CFBundleName": "Skillscout Functional Check",
         "CFBundlePackageType": "APPL",
         "NSHighResolutionCapable": True,
