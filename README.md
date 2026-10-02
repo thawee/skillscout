@@ -1,6 +1,6 @@
 <img src="docs/banner.png" alt="Skillscout, your agent skills in one place, and the ones you keep asking for" />
 
-Skillscout Thawee is an independent fork of [Flavio Copes's Skillscout](https://github.com/flaviocopes/skillscout). It finds every skill on your Mac, shows which coding agents can see each one, and counts how often you use them. This fork adds a managed Library, Discover sources, skillsets, and support for more agents while keeping upstream's editing, renaming, and similar-skills features.
+Skillscout Mod is an independent fork of [Flavio Copes's Skillscout](https://github.com/flaviocopes/skillscout). It finds every skill on your Mac, shows which coding agents can see each one, and counts how often you use them. This fork adds a managed Library, Discover sources, skillsets, and support for more agents while keeping upstream's editing, renaming, and similar-skills features.
 
 It knows 10 agents: Cursor, Claude Code, Codex, GitHub Copilot, Gemini CLI, Antigravity, OpenCode, Droid, Pi and Amp. Each one reads skills from its own folders, and some also read the folders of the others. So a skill you wrote for Claude Code can load in Cursor but not in Codex. Skillscout maps all of it, and adds a skill to the agents that miss it with one click.
 
@@ -12,7 +12,7 @@ Read [Flavio's original announcement and watch his 1-minute demo](https://flavio
 
 ## Download
 
-This fork has no downloadable release yet. Build it from source using the instructions below. Future releases will be published at [thawee/skillscout releases](https://github.com/thawee/skillscout/releases) as `Skillscout-Thawee-<version>.zip`. It runs on macOS 15 Sequoia or later, on Apple silicon and Intel Macs.
+This fork has no downloadable release yet. Build it from source using the instructions below. Future releases will be published at [thawee/skillscout releases](https://github.com/thawee/skillscout/releases) as `Skillscout-Mod-<version>.zip`. It runs on macOS 15 Sequoia or later, on Apple silicon and Intel Macs.
 
 ### Opening it the first time
 
@@ -23,16 +23,16 @@ In System Settings, open **Privacy & Security** and scroll down to the message a
 In Terminal, remove the quarantine flag macOS adds to downloaded files, then open the app:
 
 ```sh
-xattr -dr com.apple.quarantine "/Applications/Skillscout Thawee.app"
+xattr -dr com.apple.quarantine "/Applications/Skillscout Mod.app"
 ```
 
 The same command fixes a message saying Skillscout is damaged. You don't need to turn off Gatekeeper for either option.
 
-On a work laptop you might not be able to install apps in `/Applications`. You can keep the app in the `Applications` folder inside your home folder, and run the command on `~/Applications/Skillscout Thawee.app`. If your company blocks apps that aren't notarized, ask your IT team.
+On a work laptop you might not be able to install apps in `/Applications`. You can keep the app in the `Applications` folder inside your home folder, and run the command on `~/Applications/Skillscout Mod.app`. If your company blocks apps that aren't notarized, ask your IT team.
 
 ### Updates
 
-Once a day, Skillscout Thawee checks [this fork's releases](https://github.com/thawee/skillscout/releases) for a newer version. When there is one, **Install and Relaunch** puts it in place. **Skillscout Thawee → Check for Updates…** checks right away. The `skillscout-thawee` command lives inside the app, so it updates too.
+Once a day, Skillscout Mod checks [this fork's releases](https://github.com/thawee/skillscout/releases) for a newer version. When there is one, **Install and Relaunch** puts it in place. **Skillscout Mod → Check for Updates…** checks right away. The `skillscout-mod` command lives inside the app, so it updates too.
 
 To turn off the daily check, run this in Terminal:
 
@@ -59,7 +59,7 @@ defaults write com.thawee.skillscout AppUpdaterAutomaticChecks -bool false
 - Plugin and built-in skills from Cursor, Claude Code and Codex, with a filter in the toolbar to show your skills, the plugin ones, the built-in ones, or all of them
 - Every copy of a skill on disk, with a warning when two copies have different content
 - The list and the counts update while you work, as skills and chats change on disk
-- A `skillscout-thawee` command for your terminal that reads the same data
+- A `skillscout-mod` command for your terminal that reads the same data
 - Updates from inside the app: it checks GitHub once a day, and **Install and Relaunch** puts the new version in place
 - Light and dark appearance following the macOS setting
 
@@ -71,7 +71,7 @@ Choose **Add to Library** in Discover to download a repository into `~/.config/s
 
 Use **Add Custom Source** to save a Git repository URL or choose a local folder containing one or more `SKILL.md` files. Adding a local source to Library copies the folder; **Refresh from Folder** updates that copy after you edit the original. Existing links to skills in the Library copy stay in place.
 
-**Re-download** or **Refresh from Folder** stages a replacement before changing the library copy. If the source is missing or the replacement would break an existing tool link, the current copy stays. **Remove from Library…** moves the repository and links into it to the Trash after confirmation; independent copies stay. Adding a custom source to Discover only saves its address or path until you choose **Add to Library**. The CLI's `skillscout-thawee install` still links skills to enabled or supported tools by default.
+**Re-download** or **Refresh from Folder** stages a replacement before changing the library copy. If the source is missing or the replacement would break an existing tool link, the current copy stays. **Remove from Library…** moves the repository and links into it to the Trash after confirmation; independent copies stay. Adding a custom source to Discover only saves its address or path until you choose **Add to Library**. The CLI's `skillscout-mod install` still links skills to enabled or supported tools by default.
 
 ## Skillsets
 
@@ -189,32 +189,32 @@ After your first run, Skillscout analyzes again on its own once you've sent 40 n
 
 ## The command line tool
 
-Skillscout Thawee comes with a `skillscout-thawee` command. To install it, open the app menu and choose **Install Command Line Tool…**. It links the command inside the app into `/usr/local/bin`, and asks for your password if that folder needs it.
+Skillscout Mod comes with a `skillscout-mod` command. To install it, open the app menu and choose **Install Command Line Tool…**. It links the command inside the app into `/usr/local/bin`, and asks for your password if that folder needs it.
 
 The command reads the same skills and chats as the app, and follows its settings, like which agents are on and how many days of chats to read.
 
 | Command | What it does |
 | --- | --- |
-| `skillscout-thawee list` | Lists your skills and the agents that load them |
-| `skillscout-thawee show <skill>` | Where a skill lives, which agents see it, and its usage |
-| `skillscout-thawee usage` | Ranks skills by how many chats used them |
-| `skillscout-thawee tools` | The agents Skillscout knows, and where each one keeps its skills |
-| `skillscout-thawee similar` | Lists the pairs of skills that read alike |
-| `skillscout-thawee add <skill> --to <tool>` | Adds a skill to another agent |
-| `skillscout-thawee install <url_or_path>` | Adds a repository or local skill to the managed Library |
-| `skillscout-thawee update <skill>` | Refreshes a managed Git repository |
-| `skillscout-thawee rename <skill> <new-name>` | Gives a skill a new name |
-| `skillscout-thawee merge <skill> <other>` | Merges the other skill into the first one with AI |
-| `skillscout-thawee uninstall <skill>` | Moves a skill to the Trash |
-| `skillscout-thawee suggest` | Asks AI for skill ideas based on requests you repeat |
-| `skillscout-thawee explain <skill>` | Asks AI what a skill does |
+| `skillscout-mod list` | Lists your skills and the agents that load them |
+| `skillscout-mod show <skill>` | Where a skill lives, which agents see it, and its usage |
+| `skillscout-mod usage` | Ranks skills by how many chats used them |
+| `skillscout-mod tools` | The agents Skillscout knows, and where each one keeps its skills |
+| `skillscout-mod similar` | Lists the pairs of skills that read alike |
+| `skillscout-mod add <skill> --to <tool>` | Adds a skill to another agent |
+| `skillscout-mod install <url_or_path>` | Adds a repository or local skill to the managed Library |
+| `skillscout-mod update <skill>` | Refreshes a managed Git repository |
+| `skillscout-mod rename <skill> <new-name>` | Gives a skill a new name |
+| `skillscout-mod merge <skill> <other>` | Merges the other skill into the first one with AI |
+| `skillscout-mod uninstall <skill>` | Moves a skill to the Trash |
+| `skillscout-mod suggest` | Asks AI for skill ideas based on requests you repeat |
+| `skillscout-mod explain <skill>` | Asks AI what a skill does |
 
-Run `skillscout-thawee` alone for a summary, and `skillscout-thawee help <command>` for the options of each command.
+Run `skillscout-mod` alone for a summary, and `skillscout-mod help <command>` for the options of each command.
 
 `list` shows a column for each agent. A dot means that agent can't see the skill:
 
 ```sh
-skillscout-thawee list
+skillscout-mod list
 ```
 
 ```
@@ -231,7 +231,7 @@ Add `--missing` to see only the skills some agent can't load, `--unused` for the
 `show` tells you what's missing and prints the command that fixes it:
 
 ```sh
-skillscout-thawee show release-notes
+skillscout-mod show release-notes
 ```
 
 ```
@@ -241,19 +241,19 @@ language.
 
 Available in
   ● Cursor       ~/.agents/skills
-  · Claude Code  missing  skillscout-thawee add release-notes --to claude
+  · Claude Code  missing  skillscout-mod add release-notes --to claude
   ● Codex        ~/.agents/skills
   ● Gemini CLI   ~/.agents/skills
   ● OpenCode     ~/.agents/skills
   ● Droid        ~/.agents/skills
   ● Pi           ~/.agents/skills
-  · Amp          missing  skillscout-thawee add release-notes --to amp
+  · Amp          missing  skillscout-mod add release-notes --to amp
 ```
 
 `usage` ranks your skills, with the chats from each agent:
 
 ```sh
-skillscout-thawee usage
+skillscout-mod usage
 ```
 
 ```
@@ -268,25 +268,25 @@ release-notes         12  4 days ago   Cursor 8, Gemini CLI 4
 `add` works like the button in the app. Pass `--to` with one agent, or `--all` for every agent you use that's missing the skill:
 
 ```sh
-skillscout-thawee add release-notes --all
+skillscout-mod add release-notes --all
 ```
 
 `uninstall` moves every copy of a skill to the Trash. Pass `--from` with one agent to remove only the copy in that agent's skills folder, which undoes an `add`:
 
 ```sh
-skillscout-thawee uninstall release-notes --from amp
+skillscout-mod uninstall release-notes --from amp
 ```
 
 `rename` takes the skill and its new name:
 
 ```sh
-skillscout-thawee rename release-notes changelog
+skillscout-mod rename release-notes changelog
 ```
 
 `similar` lists the same pairs as the app, without the ones you dismissed there:
 
 ```sh
-skillscout-thawee similar
+skillscout-mod similar
 ```
 
 ```
@@ -297,7 +297,7 @@ email-style + writing-style    34%  tone, short, sentences, friendly
 `merge` keeps the first skill and merges the other one into it. Add `--dry-run` to read the merged `SKILL.md` before anything changes:
 
 ```sh
-skillscout-thawee merge writing-style email-style --dry-run
+skillscout-mod merge writing-style email-style --dry-run
 ```
 
 `suggest`, `explain` and `merge` take `--engine codex` or `--engine claude`, and `--model` to pick the model. `explain` returns the app's saved explanation when there is one, and `--fresh` asks again.
@@ -305,7 +305,7 @@ skillscout-thawee merge writing-style email-style --dry-run
 Most commands take `--json`, so you can use Skillscout from scripts:
 
 ```sh
-skillscout-thawee list --unused --json
+skillscout-mod list --unused --json
 ```
 
 ## Privacy
@@ -318,7 +318,7 @@ Your chats leave your Mac only through the AI features. **Explain with AI**, **F
 
 Skillscout runs Codex with `--ephemeral` in a read-only sandbox, and Claude Code with `--no-session-persistence` and no tools. These runs don't show up in your chat history.
 
-Skillscout Thawee keeps its own data in `~/Library/Application Support/Skillscout Thawee`. On first launch it copies existing Skillscout data if the fork has no data yet. The folder contains a cache of parsed chats, saved explanations, ideas and drafts, and old skill names used to count earlier chats.
+Skillscout Mod keeps its own data in `~/Library/Application Support/Skillscout Mod`. On first launch it copies data from the previous `Skillscout Thawee` folder, or from the original `Skillscout` folder if the fork had no data. The folder contains a cache of parsed chats, saved explanations, ideas and drafts, and old skill names used to count earlier chats.
 
 ## Build it from source
 
@@ -330,9 +330,9 @@ Open `Skillscout.xcodeproj` and press `⌘R`. To build the release zip from the 
 scripts/build-release.sh
 ```
 
-It builds a universal app in `build/release/Release/Skillscout Thawee.app`, checks its signature, and zips it into `dist/`. The app is ad-hoc signed. A copy you build yourself opens without a warning.
+It builds a universal app in `build/release/Release/Skillscout Mod.app`, checks its signature, and zips it into `dist/`. The app is ad-hoc signed. A copy you build yourself opens without a warning.
 
-The `skillscout-thawee` command is its own target, `SkillscoutCLI`, and the app embeds it in `Contents/Helpers`. To build only the command:
+The `skillscout-mod` command is its own target, `SkillscoutCLI`, and the app embeds it in `Contents/Helpers`. To build only the command:
 
 ```sh
 xcodebuild -project Skillscout.xcodeproj -target SkillscoutCLI -configuration Release build

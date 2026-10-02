@@ -15,7 +15,7 @@ struct SkillscoutApp: App {
   }
 
   var body: some Scene {
-    Window("Skillscout Thawee", id: "main") {
+    Window("Skillscout Mod", id: "main") {
       ContentView()
         .environment(store)
         .task { await store.start() }

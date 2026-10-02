@@ -337,14 +337,14 @@
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Skillscout Thawee";
+				INFOPLIST_KEY_CFBundleDisplayName = "Skillscout Mod";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.skillscout;
-				PRODUCT_NAME = "Skillscout Thawee";
+				PRODUCT_NAME = "Skillscout Mod";
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -362,7 +362,7 @@
 					"@executable_path/../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.skillscout.cli;
-				PRODUCT_NAME = "skillscout-thawee";
+				PRODUCT_NAME = "skillscout-mod";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 			};
@@ -434,14 +434,14 @@
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Skillscout Thawee";
+				INFOPLIST_KEY_CFBundleDisplayName = "Skillscout Mod";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.skillscout;
-				PRODUCT_NAME = "Skillscout Thawee";
+				PRODUCT_NAME = "Skillscout Mod";
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -459,7 +459,7 @@
 					"@executable_path/../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.skillscout.cli;
-				PRODUCT_NAME = "skillscout-thawee";
+				PRODUCT_NAME = "skillscout-mod";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 			};

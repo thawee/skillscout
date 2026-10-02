@@ -54,10 +54,10 @@ enum Commands {
       print()
     }
 
-    print("\(Terminal.pad("Missing somewhere", 18)) \(Terminal.padLeft("\(missing.count)", 4))  \(dim("skillscout-thawee list --missing"))")
-    print("\(Terminal.pad("Unused", 18)) \(Terminal.padLeft("\(unused.count)", 4))  \(dim("skillscout-thawee list --unused"))")
+    print("\(Terminal.pad("Missing somewhere", 18)) \(Terminal.padLeft("\(missing.count)", 4))  \(dim("skillscout-mod list --missing"))")
+    print("\(Terminal.pad("Unused", 18)) \(Terminal.padLeft("\(unused.count)", 4))  \(dim("skillscout-mod list --unused"))")
     print()
-    print(dim("Run skillscout-thawee help to see every command."))
+    print(dim("Run skillscout-mod help to see every command."))
   }
 
   static func list(_ args: Arguments) async throws {
@@ -126,7 +126,7 @@ enum Commands {
       } else if skill.isBuiltInOnly {
         print("  \(dim("·")) \(label)  \(dim("built into \(skill.primary.root.owner?.name ?? "another tool")"))")
       } else {
-        print("  \(dim("·")) \(label)  \(Terminal.warn("missing"))  \(dim("skillscout-thawee add \(skill.name) --to \(tool.rawValue)"))")
+        print("  \(dim("·")) \(label)  \(Terminal.warn("missing"))  \(dim("skillscout-mod add \(skill.name) --to \(tool.rawValue)"))")
       }
     }
     print()
@@ -265,7 +265,7 @@ enum Commands {
     }
     if Terminal.isTTY {
       print()
-      print(dim("Merge two with skillscout-thawee merge <skill> <other>, or in the app's Similar skills."))
+      print(dim("Merge two with skillscout-mod merge <skill> <other>, or in the app's Similar skills."))
     }
   }
 

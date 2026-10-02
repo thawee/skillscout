@@ -38,7 +38,7 @@ struct Library {
       return skill
     }
     let close = skills.map(\.name).filter { $0.localizedCaseInsensitiveContains(name) }.sorted().prefix(5)
-    if close.isEmpty { throw CLIError(message: "There's no skill called \(name). Run skillscout-thawee list to see them all.") }
+    if close.isEmpty { throw CLIError(message: "There's no skill called \(name). Run skillscout-mod list to see them all.") }
     throw CLIError(message: "There's no skill called \(name). Did you mean \(close.formatted(.list(type: .or)))?")
   }
 

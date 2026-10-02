@@ -19,10 +19,12 @@ enum Paths {
   }
 
   static let appSupport: URL = {
-    let url = at("Library/Application Support/Skillscout Thawee")
-    let previous = at("Library/Application Support/Skillscout")
-    if !FileManager.default.fileExists(atPath: url.path), FileManager.default.fileExists(atPath: previous.path) {
-      try? FileManager.default.copyItem(at: previous, to: url)
+    let url = at("Library/Application Support/Skillscout Mod")
+    if !FileManager.default.fileExists(atPath: url.path) {
+      for previous in [at("Library/Application Support/Skillscout Thawee"), at("Library/Application Support/Skillscout")] {
+        guard FileManager.default.fileExists(atPath: previous.path) else { continue }
+        if (try? FileManager.default.copyItem(at: previous, to: url)) != nil { break }
+      }
     }
     try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return url

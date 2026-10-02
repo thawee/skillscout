@@ -90,7 +90,7 @@ extension Tool {
     }
   }
 
-  /// Column heading in `skillscout-thawee list`.
+  /// Column heading in `skillscout-mod list`.
   var code: String {
     switch self {
     case .cursor: "Cu"

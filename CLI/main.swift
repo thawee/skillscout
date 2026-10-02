@@ -59,14 +59,14 @@ struct Arguments {
   }
 
   func single(_ what: String) throws -> String {
-    guard let value = positional.first else { throw CLIError(message: "Tell me which \(what), like: skillscout-thawee \(command ?? "") release-notes", usage: true) }
+    guard let value = positional.first else { throw CLIError(message: "Tell me which \(what), like: skillscout-mod \(command ?? "") release-notes", usage: true) }
     guard positional.count == 1 else { throw CLIError(message: "Pass one \(what) at a time.", usage: true) }
     return value
   }
 
   func two(_ first: String, _ second: String, example: String) throws -> (String, String) {
     guard positional.count == 2 else {
-      throw CLIError(message: "Pass the \(first) and the \(second), like: skillscout-thawee \(command ?? "") \(example)", usage: true)
+      throw CLIError(message: "Pass the \(first) and the \(second), like: skillscout-mod \(command ?? "") \(example)", usage: true)
     }
     return (positional[0], positional[1])
   }
@@ -244,7 +244,7 @@ func printHelp(_ command: Command?) {
   guard let command else {
     print(Terminal.wrap("Skillscout finds the skills your coding agents load, shows which tools can use each one, and counts how often you use them."))
     print()
-    print("\(bold("Usage:")) skillscout-thawee [command] [options]")
+    print("\(bold("Usage:")) skillscout-mod [command] [options]")
     print()
     print(bold("Commands:"))
     for command in Command.allCases {
@@ -252,14 +252,14 @@ func printHelp(_ command: Command?) {
       print("  \(Terminal.pad(name, 17)) \(command.summary)")
     }
     print()
-    print("Run skillscout-thawee with no command for a summary.")
-    print("Run skillscout-thawee help <command> to see its options.")
+    print("Run skillscout-mod with no command for a summary.")
+    print("Run skillscout-mod help <command> to see its options.")
     print()
     print("\(bold("Tools:")) \(Tool.allCases.map(\.rawValue).joined(separator: ", "))")
     return
   }
 
-  print("\(bold("Usage:")) skillscout-thawee \(command.synopsis)")
+  print("\(bold("Usage:")) skillscout-mod \(command.synopsis)")
   print()
   print(Terminal.wrap(command.details))
   print()
@@ -278,7 +278,7 @@ do {
   if args.flag("no-color") { Terminal.colors = false }
 
   if args.flag("version") {
-    print("skillscout-thawee \(version)")
+    print("skillscout-mod \(version)")
   } else if args.command == "help" {
     let name = args.positional.first
     guard let command = name.map(Command.init(rawValue:)) ?? .some(nil) else {
@@ -302,7 +302,7 @@ do {
 } catch {
   Terminal.clearStatus()
   let usage = (error as? CLIError)?.usage == true
-  Terminal.note("skillscout-thawee: \(error.localizedDescription)")
-  if usage { Terminal.note("Run skillscout-thawee help for usage.") }
+  Terminal.note("skillscout-mod: \(error.localizedDescription)")
+  if usage { Terminal.note("Run skillscout-mod help for usage.") }
   exit(usage ? 2 : 1)
 }

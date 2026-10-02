@@ -63,6 +63,14 @@ enum FunctionalCheck {
   static func run(home: URL, output: URL, host: NSHostingController<AnyView>, window: NSWindow) async throws {
     let fm = FileManager.default
     try fm.createDirectory(at: output, withIntermediateDirectories: true)
+    let previousSupport = home.appending(path: "Library/Application Support/Skillscout Thawee")
+    let originalSupport = home.appending(path: "Library/Application Support/Skillscout")
+    try fm.createDirectory(at: previousSupport, withIntermediateDirectories: true)
+    try fm.createDirectory(at: originalSupport, withIntermediateDirectories: true)
+    try "previous fork".write(to: previousSupport.appending(path: "migration-check.txt"), atomically: true, encoding: .utf8)
+    try "original".write(to: originalSupport.appending(path: "migration-check.txt"), atomically: true, encoding: .utf8)
+    let migratedMarker = try String(contentsOf: Paths.appSupport.appending(path: "migration-check.txt"), encoding: .utf8)
+    try check(migratedMarker == "previous fork", "renamed app migrates existing fork data first")
     for folder in Tool.allCases.flatMap(\.homeFolders) {
       try fm.createDirectory(at: home.appending(path: folder), withIntermediateDirectories: true)
     }

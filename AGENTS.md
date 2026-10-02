@@ -1,6 +1,6 @@
 # Skillscout
 
-A SwiftUI macOS app, plus a `skillscout-thawee` command-line tool, that lists the skills of 10 coding agents, counts their use from local chats, and asks AI for new skill ideas. This fork also manages a central skill library and skillsets. No dependencies or formal test suite yet.
+A SwiftUI macOS app, plus a `skillscout-mod` command-line tool, that lists the skills of 10 coding agents, counts their use from local chats, and asks AI for new skill ideas. This fork also manages a central skill library and skillsets. No dependencies or formal test suite yet.
 
 The app and the command share these core files, which only import Foundation, CryptoKit and SQLite3:
 
@@ -31,9 +31,9 @@ Command only: `CLI/main.swift` (arguments and help), `CLI/Commands.swift`, `CLI/
 Requirements: macOS 15 or later, Xcode 26 (the `.icon` needs it), and XcodeGen after editing `project.yml`.
 
 ```bash
-scripts/build-release.sh           # universal Release build, dist/Skillscout-Thawee-<version>.zip
-open 'build/release/Release/Skillscout Thawee.app'
-'build/release/Release/Skillscout Thawee.app/Contents/Helpers/skillscout-thawee' list
+scripts/build-release.sh           # universal Release build, dist/Skillscout-Mod-<version>.zip
+open 'build/release/Release/Skillscout Mod.app'
+'build/release/Release/Skillscout Mod.app/Contents/Helpers/skillscout-mod' list
 xcodegen generate                  # after editing project.yml
 swift scripts/render-icon.swift    # after editing the icon
 scripts/screenshot.sh              # docs/screenshot-*.png, from a demo home folder
@@ -52,7 +52,7 @@ swift scripts/render-banner.swift  # docs/banner.png, from the icon and the dark
 - When an agent's folders or read rules change in `Tool`, update the agents table in the README.
 - Never use real skills or chats in screenshots, the banner or demos. `scripts/screenshot.sh` builds made-up ones in `build/demo-home`, under its own bundle ID. Test adding, uninstalling, renaming and merging against a made-up home too, since `Paths.home` follows `$HOME`. The Codex and Claude Code CLIs can't log in under a made-up home, so a merge test drafts with the real `HOME` and applies under the made-up one. Test copies still go to the real Trash, so clean them up. The shell can't list `~/.Trash`, but Finder can: `osascript -e 'tell application "Finder" to get name of every item of trash'`.
 - `scripts/screenshot.sh` draws the sidebar dimmed when its app loses focus to Cursor partway through, so look at every image. If one is dimmed, run it again while activating the app in a loop: `osascript -e 'tell application id "com.thawee.skillscout.screenshot" to activate'`.
-- Verify UI changes by building and opening the newly built app. For release verification, rebuild with `scripts/build-release.sh`, then quit and reopen `build/release/Release/Skillscout Thawee.app`; a Debug build alone leaves an older release app on screen.
+- Verify UI changes by building and opening the newly built app. For release verification, rebuild with `scripts/build-release.sh`, then quit and reopen `build/release/Release/Skillscout Mod.app`; a Debug build alone leaves an older release app on screen.
 - The app isn't sandboxed, because it reads folders across the home folder, and has no Developer ID. Releases are ad-hoc signed and not notarized.
 - The updater trusts the GitHub release. Every release needs its `vX.Y.Z` tag, the zip from `scripts/build-release.sh` attached, and a `MARKETING_VERSION` that matches the tag, or the app refuses the update. The update dialog shows the release notes above `## Install`, so the new features go first.
 - This is an independent fork. Preserve upstream's MIT attribution, keep the app and CLI identities separate from the original, and publish fork releases under `thawee/skillscout`.

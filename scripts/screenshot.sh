@@ -23,7 +23,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>CFBundleIdentifier</key>
   <string>com.thawee.skillscout.screenshot</string>
   <key>CFBundleName</key>
-  <string>Skillscout Thawee Screenshot</string>
+  <string>Skillscout Mod Screenshot</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>NSHighResolutionCapable</key>

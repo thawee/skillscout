@@ -24,11 +24,11 @@ targets:
           subpath: Contents/Helpers
     settings:
       base:
-        PRODUCT_NAME: "Skillscout Thawee"
+        PRODUCT_NAME: "Skillscout Mod"
         PRODUCT_BUNDLE_IDENTIFIER: com.thawee.skillscout
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: "Skillscout Thawee"
+        INFOPLIST_KEY_CFBundleDisplayName: "Skillscout Mod"
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual
@@ -49,7 +49,7 @@ targets:
       - Skillscout/Registry.swift
     settings:
       base:
-        PRODUCT_NAME: skillscout-thawee
+        PRODUCT_NAME: skillscout-mod
         PRODUCT_BUNDLE_IDENTIFIER: com.thawee.skillscout.cli
         GENERATE_INFOPLIST_FILE: YES
         CREATE_INFOPLIST_SECTION_IN_BINARY: YES
