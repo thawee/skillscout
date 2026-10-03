@@ -3,7 +3,7 @@ import SwiftUI
 enum SidebarItem: Hashable {
   case discover
   case allSkills
-  case missing
+  case used
   case unused
   case unmanaged
   case tool(Tool)
@@ -48,6 +48,12 @@ struct ContentView: View {
   @State private var showingNewSkillset = false
   @State private var newSkillsetName = ""
   @State private var repoToRemove: String?
+  @AppStorage("sidebar.communityExpanded") private var communityExpanded = true
+  @AppStorage("sidebar.skillsExpanded") private var skillsExpanded = true
+  @AppStorage("sidebar.skillsetsExpanded") private var skillsetsExpanded = true
+  @AppStorage("sidebar.toolsExpanded") private var toolsExpanded = true
+  @AppStorage("sidebar.sourcesExpanded") private var sourcesExpanded = true
+  @AppStorage("sidebar.ideasExpanded") private var ideasExpanded = true
 
   init(sidebar: SidebarItem = .allSkills, skill: Skill.ID? = nil, suggestion: Suggestion.ID? = nil, pair: SimilarPair.ID? = nil) {
     _sidebar = State(initialValue: sidebar)
@@ -70,14 +76,14 @@ struct ContentView: View {
 
   private var librarySkills: [Skill] { enabledSkills.filter(source.includes) }
 
-  private func isMissing(_ skill: Skill) -> Bool {
-    skill.isPersonal && !skill.missing(from: store.tools).isEmpty
+  private func isUsed(_ skill: Skill) -> Bool {
+    (store.usage[skill.id]?.chats ?? 0) > 1
   }
 
   private var listedSkills: [Skill] {
     var skills: [Skill]
     switch sidebar {
-    case .missing: skills = librarySkills.filter(isMissing)
+    case .used: skills = librarySkills.filter(isUsed)
     case .unused: skills = librarySkills.filter { store.usage[$0.id] == nil }
     case .unmanaged:
       skills = librarySkills.filter { skill in
@@ -304,18 +310,20 @@ struct ContentView: View {
 
   private var sidebarList: some View {
     List(selection: $sidebar) {
-      Section("Community") {
+      Section("Community", isExpanded: $communityExpanded) {
         sidebarRow("Discover", symbol: "globe", count: store.registrySkills.count, item: .discover)
       }
-      Section("Skills") {
+      Section("Skills", isExpanded: $skillsExpanded) {
         sidebarRow("All skills", symbol: "square.stack.3d.up", count: librarySkills.count, item: .allSkills)
-        sidebarRow("Missing somewhere", symbol: "exclamationmark.triangle", count: librarySkills.count(where: isMissing), item: .missing)
+        sidebarRow("Used", symbol: "checkmark.circle", count: librarySkills.count(where: isUsed), item: .used)
+          .help("Used in more than one chat within the selected lookback period")
         sidebarRow("Unused", symbol: "moon.zzz", count: librarySkills.count(where: { store.usage[$0.id] == nil }), item: .unused)
-        sidebarRow("Local Only", symbol: "folder.badge.person.crop", count: librarySkills.count(where: { skill in
+        sidebarRow("AI tools only", symbol: "folder.badge.person.crop", count: librarySkills.count(where: { skill in
           skill.isPersonal && !skill.copies.contains { $0.root.kind == .managed || $0.root.kind == .shared }
         }), item: .unmanaged)
+          .help("Personal skills in AI tool folders, outside the central and shared skill libraries")
       }
-      Section("Skillsets") {
+      Section("Skillsets", isExpanded: $skillsetsExpanded) {
         ForEach(store.skillsets) { skillset in
           sidebarRow(skillset.name, symbol: "folder", count: skillset.skills.count, item: .skillset(skillset.id))
             .contextMenu {
@@ -332,13 +340,13 @@ struct ContentView: View {
         .padding(.leading, 8)
         .foregroundStyle(.secondary)
       }
-      Section("Available in") {
+      Section("Available in", isExpanded: $toolsExpanded) {
         ForEach(store.tools) { tool in
           sidebarRow(tool.name, symbol: tool.symbol, color: tool.color, count: librarySkills.count(where: { $0.availableIn.contains(tool) }), item: .tool(tool))
         }
       }
       if !store.managedRepos.isEmpty || !store.registeredLocalSources.isEmpty {
-        Section("Sources") {
+        Section("Sources", isExpanded: $sourcesExpanded) {
           ForEach(store.managedRepos, id: \.self) { repo in
             sidebarRow(repo, symbol: "shippingbox", count: librarySkills.count(where: { $0.managedRepos.contains(repo) }), item: .repo(repo))
               .contextMenu {
@@ -359,11 +367,12 @@ struct ContentView: View {
           }
         }
       }
-      Section("Ideas") {
+      Section("Ideas", isExpanded: $ideasExpanded) {
         sidebarRow("Suggestions", symbol: "lightbulb", count: store.suggestions.count, item: .suggestions)
         sidebarRow("Similar skills", symbol: "arrow.triangle.merge", count: listedPairs.count, item: .similar)
       }
     }
+    .listStyle(.sidebar)
     .navigationSplitViewColumnWidth(min: 210, ideal: 230)
     .safeAreaInset(edge: .bottom) {
       StatusPanel()
@@ -446,6 +455,22 @@ private struct Presentations: ViewModifier {
         Button("OK") {}
       } message: {
         Text(store.errorMessage ?? "")
+      }
+      .confirmationDialog(
+        "Replace existing installation?",
+        isPresented: Binding(
+          get: { store.addConflict != nil },
+          set: { if !$0 { store.addConflict = nil } }
+        ),
+        presenting: store.addConflict
+      ) { conflict in
+        Button("Replace with selected source", role: .destructive) {
+          store.addConflict = nil
+          Task { await store.replaceInstallation(conflict) }
+        }
+        Button("Keep existing", role: .cancel) { store.addConflict = nil }
+      } message: { conflict in
+        Text("Replace \(Paths.abbreviate(conflict.destination)) in \(conflict.tool.name) with \(Paths.abbreviate(conflict.source.resolved))? The existing folder or link will move to Trash. If installation fails, it will be restored.")
       }
       .confirmationDialog(
         store.removal?.title ?? "",

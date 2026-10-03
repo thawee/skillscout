@@ -239,7 +239,8 @@ enum SkillInstaller {
   private static func isManaged(_ folder: URL) -> Bool {
     let path = folder.resolvingSymlinksInPath().path
     return SkillRoot.all.contains { root in
-      root.kind != .user && root.kind != .shared && path.hasPrefix(root.url.resolvingSymlinksInPath().path + "/")
+      let rootPath = root.url.resolvingSymlinksInPath().path
+      return root.kind != .user && root.kind != .shared && (path == rootPath || path.hasPrefix(rootPath + "/"))
     }
   }
 
@@ -329,6 +330,27 @@ enum SkillInstaller {
     return sources.count == 1 ? sources[0] : nil
   }
 
+  struct AddConflict: LocalizedError, Sendable {
+    let skill: Skill
+    let tool: Tool
+    let source: SkillCopy
+    let destination: URL
+    let signature: String
+
+    var errorDescription: String? { "\(Paths.abbreviate(destination)) already contains an installation. Choose whether to keep it or replace it." }
+  }
+
+  private static func installationSignature(_ folder: URL) throws -> String {
+    let fm = FileManager.default
+    if let target = try? fm.destinationOfSymbolicLink(atPath: folder.path) {
+      return "link:\(target)"
+    }
+    guard (try folder.resourceValues(forKeys: [.isDirectoryKey])).isDirectory == true else {
+      throw Failure.problem("\(Paths.abbreviate(folder)) is not a skill folder. Move it aside before installing.")
+    }
+    return "folder:\(try skillsetFingerprint(folder))"
+  }
+
   static func add(_ skill: Skill, to tool: Tool, from selectedSource: SkillCopy? = nil) throws -> URL {
     let sources = installableSources(for: skill)
     guard !sources.isEmpty else {
@@ -339,16 +361,68 @@ enum SkillInstaller {
       throw InstallFailure.sourceChoiceRequired(skill.name)
     }
     let fm = FileManager.default
+    guard fm.fileExists(atPath: source.resolved.appending(path: "SKILL.md").path) else { throw InstallFailure.invalidSkill }
     try fm.createDirectory(at: tool.skillsFolder, withIntermediateDirectories: true)
     let destination = tool.skillsFolder.appending(path: source.resolved.lastPathComponent)
-    guard !exists(destination) else { throw Failure.alreadyExists(destination) }
+    if exists(destination) {
+      if destination.resolvingSymlinksInPath().path == source.resolved.resolvingSymlinksInPath().path { return destination }
+      // Inspect the entry's parent, not a link's target: replacing a user link must leave its source alone.
+      guard !isManaged(destination.deletingLastPathComponent()) else { throw Failure.managed(destination) }
+      throw AddConflict(skill: skill, tool: tool, source: source, destination: destination,
+        signature: try installationSignature(destination))
+    }
 
+    try createInstallation(from: source, at: destination)
+    return destination
+  }
+
+  private static func createInstallation(from source: SkillCopy, at destination: URL) throws {
+    let fm = FileManager.default
+    guard fm.fileExists(atPath: source.resolved.appending(path: "SKILL.md").path) else { throw InstallFailure.invalidSkill }
     if source.root.kind == .plugin {
       try fm.copyItem(at: source.resolved, to: destination)
     } else {
       try fm.createSymbolicLink(at: destination, withDestinationURL: source.resolved)
     }
-    return destination
+  }
+
+  static func replace(_ conflict: AddConflict) throws -> (destination: URL, trashed: URL?) {
+    guard conflict.destination.deletingLastPathComponent().resolvingSymlinksInPath().path == conflict.tool.skillsFolder.resolvingSymlinksInPath().path,
+          !isManaged(conflict.destination.deletingLastPathComponent()) else { throw Failure.managed(conflict.destination) }
+    let sourcePath = conflict.source.resolved.resolvingSymlinksInPath().path
+    let destinationPath = conflict.destination.resolvingSymlinksInPath().path
+    guard !sourcePath.hasPrefix(destinationPath + "/") else {
+      throw Failure.problem("The selected source is inside the installation being replaced. Choose another source.")
+    }
+    let fm = FileManager.default
+    let staged = conflict.tool.skillsFolder.appending(path: ".skillscout-install-\(UUID().uuidString)")
+    defer { if exists(staged) { try? fm.removeItem(at: staged) } }
+    try createInstallation(from: conflict.source, at: staged)
+    guard try installationSignature(conflict.destination) == conflict.signature else { throw Failure.changedOnDisk(conflict.destination) }
+    return try replacingInstallation(at: conflict.destination) {
+      try fm.moveItem(at: staged, to: conflict.destination)
+      return conflict.destination
+    }
+  }
+
+  /// Preserve the previous entry in Trash, and restore it if the new installation fails.
+  static func replacingInstallation(at destination: URL, install: () throws -> URL) throws -> (destination: URL, trashed: URL?) {
+    let fm = FileManager.default
+    var trashed: NSURL?
+    try fm.trashItem(at: destination, resultingItemURL: &trashed)
+    do {
+      return (try install(), trashed as URL?)
+    } catch {
+      guard let backup = trashed as URL? else {
+        throw Failure.problem("Installation failed: \(error.localizedDescription). The previous installation is in Trash.")
+      }
+      guard !exists(destination) else {
+        throw Failure.problem("Installation failed: \(error.localizedDescription). The destination is occupied; the previous installation is in Trash at \(backup.path).")
+      }
+      do { try fm.moveItem(at: backup, to: destination) }
+      catch { throw Failure.problem("Couldn't restore the previous installation from \(backup.path): \(error.localizedDescription)") }
+      throw error
+    }
   }
 
   enum InstallFailure: LocalizedError {

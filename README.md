@@ -43,8 +43,10 @@ defaults write com.thawee.skillscout AppUpdaterAutomaticChecks -bool false
 ## Features
 
 - Every skill from your agents in one list, with a row of icons showing which agents load it
-- **Missing somewhere** lists the skills at least one of your agents can't see
+- **Used** lists skills used in more than one chat within the selected lookback period
+- **AI tools only** lists personal skills in AI tool folders, outside the central and shared skill libraries
 - **Add to** links the skill folder into another agent's skills folder, so every agent loads the same file
+- If an AI tool already has a different installation, **Keep existing** leaves it in place or **Replace with selected source** moves it to Trash and installs your chosen source, restoring the previous entry if installation fails
 - **Uninstall** moves a skill to the Trash, from all your skills folders or from one of them
 - **Skillsets** group skills into reusable collections, with explicit assignments to each agent and previews of changes
 - **Edit** changes a skill's `SKILL.md` right in the app, in every copy that has the same text

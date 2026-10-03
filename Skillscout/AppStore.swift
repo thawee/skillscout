@@ -33,6 +33,7 @@ final class AppStore {
   var isAnalyzing = false
   var busy: Set<String> = []
   var errorMessage: String?
+  var addConflict: SkillInstaller.AddConflict?
   var searchRequests = 0
   /// Copies waiting for you to confirm, before they go to the Trash.
   var removal: Removal?
@@ -249,9 +250,21 @@ final class AppStore {
       _ = try SkillInstaller.add(skill, to: tool, from: source ?? preferredSource(for: skill))
       if let source { setPreferredSource(source, for: skill) }
       await refreshSkills()
+    } catch let conflict as SkillInstaller.AddConflict {
+      addConflict = conflict
     } catch {
       errorMessage = error.localizedDescription
     }
+  }
+
+  func replaceInstallation(_ conflict: SkillInstaller.AddConflict) async {
+    do {
+      _ = try SkillInstaller.replace(conflict)
+      setPreferredSource(conflict.source, for: conflict.skill)
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+    await refreshSkills()
   }
 
   func remove(_ copies: [SkillCopy]) async {

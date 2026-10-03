@@ -118,7 +118,7 @@ extension SkillInstaller {
   }
 
   /// Include supporting files so editing a copied plugin's script also protects it from removal.
-  private static func skillsetFingerprint(_ folder: URL) throws -> String {
+  static func skillsetFingerprint(_ folder: URL) throws -> String {
     let fm = FileManager.default
     var enumerationError: Error?
     guard let enumerator = fm.enumerator(at: folder, includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey],

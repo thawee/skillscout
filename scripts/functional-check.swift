@@ -288,6 +288,7 @@ enum FunctionalCheck {
     await restored.start()
     try check(restored.skillsets.first?.skills.contains(prefix) == true, "skillsets survive reloading")
     let skillsetTrash = try await checkSkillsets(store, prefix: prefix)
+    let installationTrash = try await checkInstallConflicts(store, prefix: prefix)
     let discoverAvailable = RegistrySkill(name: "Made-up repository", description: "Made-up skills for UI verification",
       repo: "https://example.invalid/made-up-repository", tools: nil, author: "Demo")
     let discoverInLibrary = RegistrySkill(name: libraryOnlyName, description: "Made-up library repository",
@@ -336,6 +337,7 @@ enum FunctionalCheck {
     var trashed = try SkillInstaller.removeRepo(name: destination.lastPathComponent)
     trashed += redownloadTrash
     trashed += skillsetTrash
+    trashed += installationTrash
     try check(fm.fileExists(atPath: Tool.amp.skillsFolder.appending(path: prefix).path), "repository removal preserves independent copies")
     try check(!fm.fileExists(atPath: Tool.codex.skillsFolder.appending(path: prefix).path), "repository removal removes its agent links")
     let removable = SkillScanner.scan().first { $0.name == prefix + "-explicit" }!
@@ -357,6 +359,118 @@ enum FunctionalCheck {
     for item in trashed {
       try fm.removeItem(at: item)
     }
+  }
+
+  @MainActor
+  static func checkInstallConflicts(_ store: AppStore, prefix: String) async throws -> [URL] {
+    let fm = FileManager.default
+    let name = prefix + "-replace"
+    let sourceFolder = Paths.at(".config/skillscout/skills/\(name)/\(name)")
+    let destination = Tool.amp.skillsFolder.appending(path: name)
+    try writeSkill(sourceFolder, name: name)
+    try writeSkill(destination, name: name + "-old")
+    let original = try String(contentsOf: destination.appending(path: "SKILL.md"), encoding: .utf8)
+    let skill = SkillScanner.scan().first { $0.name == name }!
+    let source = SkillInstaller.defaultSource(for: skill)!
+    await store.add(skill, to: .amp, from: source)
+    guard let conflict = store.addConflict else { throw CheckFailure.failed("existing installation presents a conflict") }
+    store.addConflict = nil
+    try check(conflict.destination.path == destination.path && conflict.source.resolved.path == sourceFolder.path,
+      "install conflict identifies the existing entry and selected source")
+    let kept = try String(contentsOf: destination.appending(path: "SKILL.md"), encoding: .utf8)
+    try check(kept == original,
+      "keeping an installation leaves its files unchanged")
+
+    try "user edit".write(to: destination.appending(path: "notes.txt"), atomically: true, encoding: .utf8)
+    do {
+      _ = try SkillInstaller.replace(conflict)
+      throw CheckFailure.failed("replacement accepted a changed installation")
+    } catch SkillInstaller.Failure.changedOnDisk {
+      print("PASS: replacement refuses an installation changed after confirmation opened")
+    }
+    try check(fm.fileExists(atPath: destination.appending(path: "notes.txt").path), "changed installation remains intact")
+    let fresh: SkillInstaller.AddConflict
+    do {
+      _ = try SkillInstaller.add(skill, to: .amp, from: source)
+      throw CheckFailure.failed("existing installation did not conflict")
+    } catch let conflict as SkillInstaller.AddConflict { fresh = conflict }
+    let result = try SkillInstaller.replace(fresh)
+    var trashed = result.trashed.map { [$0] } ?? []
+    try check(destination.resolvingSymlinksInPath().path == sourceFolder.path, "replacement links the selected source")
+    guard let backup = result.trashed else { throw CheckFailure.failed("replacement returned no Trash backup") }
+    try check(fm.fileExists(atPath: backup.appending(path: "notes.txt").path), "replacement preserves the old folder and supporting files in Trash")
+    let unchanged = try SkillInstaller.add(skill, to: .amp, from: source)
+    try check(unchanged == destination, "adding an already-correct link succeeds without conflict")
+
+    let rollback = Tool.amp.skillsFolder.appending(path: prefix + "-rollback")
+    try writeSkill(rollback, name: prefix + "-rollback")
+    do {
+      _ = try SkillInstaller.replacingInstallation(at: rollback) { throw CheckFailure.failed("simulated installation failure") }
+      throw CheckFailure.failed("rollback test unexpectedly installed")
+    } catch CheckFailure.failed(let message) {
+      try check(message == "simulated installation failure", "replacement returns the original failure after rollback")
+    }
+    try check(fm.fileExists(atPath: rollback.appending(path: "SKILL.md").path), "failed installation restores the old folder from Trash")
+
+    let linkName = prefix + "-replace-link"
+    let newFolder = Paths.at(".config/skillscout/skills/\(linkName)/\(linkName)")
+    let oldFolder = Paths.at("fixtures/old-\(linkName)")
+    let link = Tool.amp.skillsFolder.appending(path: linkName)
+    try writeSkill(newFolder, name: linkName)
+    try writeSkill(oldFolder, name: linkName + "-old")
+    try fm.createSymbolicLink(at: link, withDestinationURL: oldFolder)
+    let newSkill = SkillScanner.scan().first { $0.name == linkName }!
+    do {
+      _ = try SkillInstaller.add(newSkill, to: .amp)
+      throw CheckFailure.failed("old link did not conflict")
+    } catch let conflict as SkillInstaller.AddConflict {
+      let replacement = try SkillInstaller.replace(conflict)
+      if let backup = replacement.trashed { trashed.append(backup) }
+    }
+    try check(link.resolvingSymlinksInPath().path == newFolder.path && fm.fileExists(atPath: oldFolder.appending(path: "SKILL.md").path),
+      "replacing a link preserves its original source folder")
+
+    let pluginName = prefix + "-replace-plugin"
+    let pluginRoot = SkillRoot.all.first { $0.kind == .plugin }!
+    let pluginFolder = pluginRoot.url.appending(path: "demo/\(pluginName)/1/skills/\(pluginName)")
+    let pluginDestination = Tool.amp.skillsFolder.appending(path: pluginName)
+    try writeSkill(pluginFolder, name: pluginName)
+    try "supporting script".write(to: pluginFolder.appending(path: "script.txt"), atomically: true, encoding: .utf8)
+    try writeSkill(pluginDestination, name: pluginName + "-old")
+    let pluginSkill = SkillScanner.scan().first { $0.name == pluginName }!
+    let pluginSource = pluginSkill.copies.first { $0.root.kind == .plugin }!
+    let pluginConflict: SkillInstaller.AddConflict
+    do {
+      _ = try SkillInstaller.add(pluginSkill, to: .amp, from: pluginSource)
+      throw CheckFailure.failed("plugin destination did not conflict")
+    } catch let conflict as SkillInstaller.AddConflict { pluginConflict = conflict }
+    let pluginResult = try SkillInstaller.replace(pluginConflict)
+    if let backup = pluginResult.trashed { trashed.append(backup) }
+    let copiedScript = try String(contentsOf: pluginDestination.appending(path: "script.txt"), encoding: .utf8)
+    try check(copiedScript == "supporting script" && (try? fm.destinationOfSymbolicLink(atPath: pluginDestination.path)) == nil,
+      "plugin replacement copies the whole folder instead of linking its cache")
+    try check(fm.fileExists(atPath: pluginFolder.appending(path: "script.txt").path), "plugin replacement leaves the plugin cache untouched")
+
+    let missingName = prefix + "-replace-missing"
+    let missingFolder = Paths.at(".config/skillscout/skills/\(missingName)/\(missingName)")
+    let missingDestination = Tool.amp.skillsFolder.appending(path: missingName)
+    try writeSkill(missingFolder, name: missingName)
+    try writeSkill(missingDestination, name: missingName + "-old")
+    let missingSkill = SkillScanner.scan().first { $0.name == missingName }!
+    do {
+      _ = try SkillInstaller.add(missingSkill, to: .amp)
+      throw CheckFailure.failed("missing-source setup did not conflict")
+    } catch let conflict as SkillInstaller.AddConflict {
+      try fm.removeItem(at: missingFolder.appending(path: "SKILL.md"))
+      do {
+        _ = try SkillInstaller.replace(conflict)
+        throw CheckFailure.failed("replacement accepted a missing source")
+      } catch SkillInstaller.InstallFailure.invalidSkill {
+        print("PASS: a missing replacement source fails before moving the old installation")
+      }
+    }
+    try check(fm.fileExists(atPath: missingDestination.appending(path: "SKILL.md").path), "missing-source failure preserves the old installation")
+    return trashed
   }
 
   @MainActor

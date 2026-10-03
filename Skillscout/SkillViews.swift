@@ -213,8 +213,7 @@ struct SkillDetail: View {
 
   private var installations: some View {
     VStack(alignment: .leading, spacing: 12) {
-      let missing = skill.missing(from: store.tools)
-      if !missing.isEmpty {
+      if !store.tools.isEmpty {
         if skill.isBuiltInOnly {
           Text("Built-in skills stay with their original tool.")
             .font(.callout)
@@ -222,11 +221,11 @@ struct SkillDetail: View {
         } else {
           Menu(skill.isPluginOnly ? "Copy to tool…" : "Add to tool…") {
             let sources = SkillInstaller.installableSources(for: skill)
-            ForEach(missing) { tool in
+            ForEach(store.tools) { tool in
               if sources.count <= 1 {
-                Button(tool.name) { Task { await store.add(skill, to: tool) } }
+                Button(skill.availableIn.contains(tool) ? "\(tool.name) (installed)" : tool.name) { Task { await store.add(skill, to: tool) } }
               } else {
-                Menu(tool.name) {
+                Menu(skill.availableIn.contains(tool) ? "\(tool.name) (installed)" : tool.name) {
                   ForEach(sources) { source in
                     Button("\(source.sourceLabel) · \(Paths.abbreviate(source.resolved))") {
                       Task { await store.add(skill, to: tool, from: source) }
