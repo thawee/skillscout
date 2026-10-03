@@ -138,6 +138,13 @@ enum Commands {
     if !skill.description.isEmpty { print(Terminal.wrap(skill.description)) }
     print()
 
+    let problems = SkillLint.problems(for: skill)
+    if !problems.isEmpty {
+      print(bold("Problems"))
+      for problem in problems { print("  \(Terminal.warn("!"))  \(problem)") }
+      print()
+    }
+
     print(bold("Available in"))
     let toolWidth = library.tools.map(\.name.count).max() ?? 0
     for tool in library.tools {

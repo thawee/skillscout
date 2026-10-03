@@ -60,6 +60,7 @@ defaults write com.thawee.skillscout AppUpdaterAutomaticChecks -bool false
 - **Suggestions** finds the tasks you keep asking for and drafts a `SKILL.md` for each one
 - Plugin and built-in skills from Cursor, Claude Code and Codex, with a filter in the toolbar to show your skills, the plugin ones, the built-in ones, or all of them
 - Every copy of a skill on disk, with a warning when two copies have different content
+- **Problems** checks each skill you can edit against the [Agent Skills specification](https://agentskills.io/specification): a missing name or description, a name that breaks the naming rules or doesn't match its folder, a description over 1024 characters, or a `SKILL.md` over the recommended 500 lines. `skillscout-mod show` lists them too
 - The list and the counts update while you work, as skills and chats change on disk
 - A `skillscout-mod` command for your terminal that reads the same data
 - Updates from inside the app: it checks GitHub once a day, and **Install and Relaunch** puts the new version in place
@@ -371,6 +372,13 @@ xcodegen generate
 ```
 
 The command line tool shares the app's core files: the models, the skill scanner, the chat readers, the installer, the similarity check and the AI engine. Its own code lives in `CLI/`.
+
+Unit tests for the core files live in `Tests/`, and a functional check runs the app's workflows and renders its views against a made-up home folder:
+
+```sh
+xcodebuild test -scheme SkillscoutTests
+python3 scripts/functional-check.py
+```
 
 The app icon is drawn in code. Edit `scripts/render-icon.swift`, then write a new `Skillscout/AppIcon.icon`:
 

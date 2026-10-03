@@ -8,11 +8,14 @@
 
 /* Begin PBXBuildFile section */
 		01A2AE019AB11C572862C32F /* SkillsetTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C869F111F332D93D6DC43741 /* SkillsetTransfer.swift */; };
+		0253CE05EEDB52B914C3625D /* Analyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B18AC56992256E677133D35C /* Analyzer.swift */; };
 		059A5D5E6CD42EB94D7CF8DA /* AppUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365039D37C939DF6EA1C6600 /* AppUpdater.swift */; };
 		0727654346EF6DA1148B2D68 /* AppStore+Skillsets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0377BD2BDE684AA347A662DD /* AppStore+Skillsets.swift */; };
 		0B4298E3428DA3452C8E316E /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8B95A883374ADCF2BB2A9A5 /* AppStore.swift */; };
 		11E7DF1CFFE0D2991E331A43 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E320FCE90C51C4EA51E9B6 /* SettingsView.swift */; };
+		1AA8B6FE7B6BDE1160469406 /* SkillInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1D7A86C6C2F6A665C94583 /* SkillInstaller.swift */; };
 		27C9E2A4A6BC1AD429CDF52B /* SkillsetInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAD0529B4BB35B1D34A4149E /* SkillsetInstaller.swift */; };
+		2C5FDD83D3C6E0EB313C3F95 /* SkillReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0E0DAF3A6CF8673C432C76C /* SkillReview.swift */; };
 		2F6073BEADFE16809A96C720 /* FileWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89D396BDA8C7A8F808C390DC /* FileWatcher.swift */; };
 		3057845395C604BF88151C8A /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64E4526107B440152D6AB925 /* Components.swift */; };
 		31F0312A63C31BCB33D669D0 /* SkillSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2F1910B2F3AC4B72EA3830 /* SkillSimilarity.swift */; };
@@ -21,16 +24,21 @@
 		56B2C0632C4077DB2FCB717D /* SkillReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0E0DAF3A6CF8673C432C76C /* SkillReview.swift */; };
 		5F85019D7561BB0D7566001B /* SuggestionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076A549C0CCE0367FE4D11D0 /* SuggestionViews.swift */; };
 		62C88BC3E3B945945C3EA296 /* PromptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53B6FF6B0D5A3694C197EBC0 /* PromptLibrary.swift */; };
+		63CEF43C596046DD34FB36F8 /* SkillsetTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C869F111F332D93D6DC43741 /* SkillsetTransfer.swift */; };
 		63D31CC01E1C27A3F28B0EE1 /* Skillsets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BF04406D1E3714347E3BD10 /* Skillsets.swift */; };
+		65C46532FF8BCCB4B172F689 /* PromptLibrary+Tools.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06BC03210D288EFFD8FC48F /* PromptLibrary+Tools.swift */; };
 		681E32575030D0E0B2D761D0 /* Analyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B18AC56992256E677133D35C /* Analyzer.swift */; };
 		6A3DB35F25B28E6CC9B0D70C /* SkillSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2F1910B2F3AC4B72EA3830 /* SkillSimilarity.swift */; };
 		6CA7602CF7C5E86F4D8442D7 /* SkillsetInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAD0529B4BB35B1D34A4149E /* SkillsetInstaller.swift */; };
 		7200E247BDF839C1210920BD /* SkillScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E76FCD9E9E2549A3682D8F84 /* SkillScanner.swift */; };
 		723294FB0DDBB211E9C5C3EE /* SkillInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1D7A86C6C2F6A665C94583 /* SkillInstaller.swift */; };
+		72573D7336C236C38A5DA342 /* Registry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 756AC6D1B9CA7B46984721E7 /* Registry.swift */; };
 		7428972CE87CBDC6CA0A4568 /* SkillscoutApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBC9224FFE73C8083ADF7A81 /* SkillscoutApp.swift */; };
 		769B6AB81AA5DB52B5C8E72B /* SkillInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1D7A86C6C2F6A665C94583 /* SkillInstaller.swift */; };
+		796A56F34B6065273974C9B4 /* PromptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53B6FF6B0D5A3694C197EBC0 /* PromptLibrary.swift */; };
 		7D1ED7DC185BDC28054F80F3 /* SkillscoutCLI in Embed Dependencies */ = {isa = PBXBuildFile; fileRef = E26D1D5FD710CB617FB08F62 /* SkillscoutCLI */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		7EAA6460180F438E2323C891 /* SkillReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0E0DAF3A6CF8673C432C76C /* SkillReview.swift */; };
+		8263994162E058F7C967DBFE /* SkillScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E76FCD9E9E2549A3682D8F84 /* SkillScanner.swift */; };
 		84E808F8E0F83C19CC874971 /* SimilarViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E76D5137A9F0049E8AC4D8E /* SimilarViews.swift */; };
 		84F02E4790C165F04AD7A63B /* DiscoverViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B2204DD544E18EC3E164284 /* DiscoverViews.swift */; };
 		87C08B6B099E31DE98657B1B /* AIEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEF9DD364F39E0F1EC34650C /* AIEngine.swift */; };
@@ -41,19 +49,24 @@
 		A86AB87B505B940D7D4FE616 /* PromptLibrary+Tools.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06BC03210D288EFFD8FC48F /* PromptLibrary+Tools.swift */; };
 		A8E5EF8255CE60720E91CC0F /* SkillScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E76FCD9E9E2549A3682D8F84 /* SkillScanner.swift */; };
 		AE698F92528A6290BFBA78D7 /* Terminal.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2CF8B954622C1B06777D365 /* Terminal.swift */; };
+		B238A01D1726610A229E3179 /* SkillSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2F1910B2F3AC4B72EA3830 /* SkillSimilarity.swift */; };
 		B2BC44AB7EADA260F6CCEF2F /* Registry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 756AC6D1B9CA7B46984721E7 /* Registry.swift */; };
 		B4CC45E0405F0B11817E9751 /* Analyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B18AC56992256E677133D35C /* Analyzer.swift */; };
 		B5A22C0947A1D605DD5A347F /* CommandLineTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B6744572DF35BB435E8324 /* CommandLineTool.swift */; };
 		BD66695BCC8D9CC8ED4ECECB /* SkillViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FAA2265543363EFFE7362C0 /* SkillViews.swift */; };
 		C3040FC3DE85AD54F35F5AB5 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 470A830374A881BA320C6298 /* main.swift */; };
+		CB528AE33C415D88F3FCFCA7 /* CoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6E23123CD6141D9B083D467 /* CoreTests.swift */; };
 		D74C3DF23F315DC08035D237 /* SkillsetTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C869F111F332D93D6DC43741 /* SkillsetTransfer.swift */; };
 		D8C564B443D00A0E4E8EB73C /* SkillsetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F37839C6B57A808494AC4C7 /* SkillsetViews.swift */; };
 		DBB251FE54D449EE803CFF26 /* CustomRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 033B0F3CAC9D7A9BD8E4535E /* CustomRegistry.swift */; };
 		DD6BE7DE0CE5849AC0A467D9 /* PromptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53B6FF6B0D5A3694C197EBC0 /* PromptLibrary.swift */; };
 		DDE9E1A704C7AF903D6BA424 /* PromptLibrary+Tools.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06BC03210D288EFFD8FC48F /* PromptLibrary+Tools.swift */; };
 		E7CD521610EFFCD1E25B6D72 /* AIEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEF9DD364F39E0F1EC34650C /* AIEngine.swift */; };
+		E99E842A075096D58387BF01 /* AIEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEF9DD364F39E0F1EC34650C /* AIEngine.swift */; };
 		EBC9C35E6066C01AA02170F5 /* registry.json in Resources */ = {isa = PBXBuildFile; fileRef = 76CC09375ECB6FC9E16C667E /* registry.json */; };
 		EE8F257BD637BB6F32AA736B /* Library.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BA987BB62340C0FAE33523 /* Library.swift */; };
+		F0493751556236295D27D37F /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E1EA96200BEB72A33D6E38 /* Models.swift */; };
+		F203EA260EEB52DF58DADC49 /* SkillsetInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAD0529B4BB35B1D34A4149E /* SkillsetInstaller.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -89,6 +102,7 @@
 		1A5CBBA64E4A150D837018A9 /* Skillscout.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Skillscout.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1B2F1910B2F3AC4B72EA3830 /* SkillSimilarity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillSimilarity.swift; sourceTree = "<group>"; };
 		1F37839C6B57A808494AC4C7 /* SkillsetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillsetViews.swift; sourceTree = "<group>"; };
+		2F97773769C540ED52C83AF1 /* SkillscoutTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SkillscoutTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		365039D37C939DF6EA1C6600 /* AppUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdater.swift; sourceTree = "<group>"; };
 		36B6744572DF35BB435E8324 /* CommandLineTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandLineTool.swift; sourceTree = "<group>"; };
 		414FE5AD94D9FE8882D117D9 /* Commands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Commands.swift; sourceTree = "<group>"; };
@@ -117,6 +131,7 @@
 		E26D1D5FD710CB617FB08F62 /* SkillscoutCLI */ = {isa = PBXFileReference; includeInIndex = 0; path = SkillscoutCLI; sourceTree = BUILT_PRODUCTS_DIR; };
 		E76FCD9E9E2549A3682D8F84 /* SkillScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillScanner.swift; sourceTree = "<group>"; };
 		EAD0529B4BB35B1D34A4149E /* SkillsetInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillsetInstaller.swift; sourceTree = "<group>"; };
+		F6E23123CD6141D9B083D467 /* CoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -167,12 +182,21 @@
 			path = Skillscout;
 			sourceTree = "<group>";
 		};
+		18FA082FF01017D376A9474B /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				F6E23123CD6141D9B083D467 /* CoreTests.swift */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
 		22879075C5F81BCB00737182 = {
 			isa = PBXGroup;
 			children = (
 				76CC09375ECB6FC9E16C667E /* registry.json */,
 				031D27BD9E28FC3E65C803CC /* CLI */,
 				183905979DC348D94C24F946 /* Skillscout */,
+				18FA082FF01017D376A9474B /* Tests */,
 				E474085FC976DE8D4E5E7C91 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -182,6 +206,7 @@
 			children = (
 				1A5CBBA64E4A150D837018A9 /* Skillscout.app */,
 				E26D1D5FD710CB617FB08F62 /* SkillscoutCLI */,
+				2F97773769C540ED52C83AF1 /* SkillscoutTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -205,6 +230,23 @@
 			productName = SkillscoutCLI;
 			productReference = E26D1D5FD710CB617FB08F62 /* SkillscoutCLI */;
 			productType = "com.apple.product-type.tool";
+		};
+		86DCD1FAF8AE037A05328602 /* SkillscoutTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 14A413500869C91901C26C19 /* Build configuration list for PBXNativeTarget "SkillscoutTests" */;
+			buildPhases = (
+				99E5CD5B306C223FEB0EB6E7 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SkillscoutTests;
+			packageProductDependencies = (
+			);
+			productName = SkillscoutTests;
+			productReference = 2F97773769C540ED52C83AF1 /* SkillscoutTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		C95DC626C7287CB49A3B4655 /* Skillscout */ = {
 			isa = PBXNativeTarget;
@@ -238,6 +280,9 @@
 					5B35AD0257C62648ED7B21F5 = {
 						ProvisioningStyle = Manual;
 					};
+					86DCD1FAF8AE037A05328602 = {
+						ProvisioningStyle = Manual;
+					};
 					C95DC626C7287CB49A3B4655 = {
 						ProvisioningStyle = Manual;
 					};
@@ -259,6 +304,7 @@
 			targets = (
 				C95DC626C7287CB49A3B4655 /* Skillscout */,
 				5B35AD0257C62648ED7B21F5 /* SkillscoutCLI */,
+				86DCD1FAF8AE037A05328602 /* SkillscoutTests */,
 			);
 		};
 /* End PBXProject section */
@@ -331,6 +377,26 @@
 				01A2AE019AB11C572862C32F /* SkillsetTransfer.swift in Sources */,
 				D8C564B443D00A0E4E8EB73C /* SkillsetViews.swift in Sources */,
 				5F85019D7561BB0D7566001B /* SuggestionViews.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		99E5CD5B306C223FEB0EB6E7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E99E842A075096D58387BF01 /* AIEngine.swift in Sources */,
+				0253CE05EEDB52B914C3625D /* Analyzer.swift in Sources */,
+				CB528AE33C415D88F3FCFCA7 /* CoreTests.swift in Sources */,
+				F0493751556236295D27D37F /* Models.swift in Sources */,
+				65C46532FF8BCCB4B172F689 /* PromptLibrary+Tools.swift in Sources */,
+				796A56F34B6065273974C9B4 /* PromptLibrary.swift in Sources */,
+				72573D7336C236C38A5DA342 /* Registry.swift in Sources */,
+				1AA8B6FE7B6BDE1160469406 /* SkillInstaller.swift in Sources */,
+				2C5FDD83D3C6E0EB313C3F95 /* SkillReview.swift in Sources */,
+				8263994162E058F7C967DBFE /* SkillScanner.swift in Sources */,
+				B238A01D1726610A229E3179 /* SkillSimilarity.swift in Sources */,
+				F203EA260EEB52DF58DADC49 /* SkillsetInstaller.swift in Sources */,
+				63CEF43C596046DD34FB36F8 /* SkillsetTransfer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -481,6 +547,24 @@
 			};
 			name = Debug;
 		};
+		DC83E834B12FD956B7D08EF3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.skillscout.tests;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
 		EB41A0BC53C82FDCEBF59B36 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -546,9 +630,36 @@
 			};
 			name = Debug;
 		};
+		EE90268B1823EC9CEFCB39D7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.skillscout.tests;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		14A413500869C91901C26C19 /* Build configuration list for PBXNativeTarget "SkillscoutTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DC83E834B12FD956B7D08EF3 /* Debug */,
+				EE90268B1823EC9CEFCB39D7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		4C5710DAB94DA70BC2F05CA9 /* Build configuration list for PBXNativeTarget "Skillscout" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

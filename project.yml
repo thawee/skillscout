@@ -58,3 +58,29 @@ targets:
         SKIP_INSTALL: YES
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual
+  SkillscoutTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - Tests
+      - Skillscout/Models.swift
+      - Skillscout/SkillScanner.swift
+      - Skillscout/SkillSimilarity.swift
+      - Skillscout/PromptLibrary.swift
+      - Skillscout/PromptLibrary+Tools.swift
+      - Skillscout/SkillInstaller.swift
+      - Skillscout/SkillsetInstaller.swift
+      - Skillscout/Analyzer.swift
+      - Skillscout/AIEngine.swift
+      - Skillscout/Registry.swift
+      - Skillscout/SkillReview.swift
+      - Skillscout/SkillsetTransfer.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.thawee.skillscout.tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+    scheme:
+      testTargets:
+        - SkillscoutTests

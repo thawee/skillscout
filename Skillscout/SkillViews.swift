@@ -112,6 +112,7 @@ struct SkillDetail: View {
   let skill: Skill
   @State private var content = ""
   @State private var review: SkillReview?
+  @State private var problems: [String] = []
   @AppStorage("lookbackDays") private var lookbackDays = 60
 
   var body: some View {
@@ -128,6 +129,20 @@ struct SkillDetail: View {
         }
         .textSelection(.enabled)
 
+        if !problems.isEmpty {
+          DetailSection("Problems") {
+            VStack(alignment: .leading, spacing: 6) {
+              ForEach(problems, id: \.self) { problem in
+                Label(problem, systemImage: "exclamationmark.triangle")
+                  .foregroundStyle(.orange)
+                  .fixedSize(horizontal: false, vertical: true)
+              }
+              Text("Checked against the Agent Skills specification. Agents may skip the skill, rename it or cut its description.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            }
+          }
+        }
         DetailSection("Installation") {
           installations
         }
@@ -168,6 +183,7 @@ struct SkillDetail: View {
     .task(id: skill.primary) {
       content = (try? String(contentsOf: skill.skillFile, encoding: .utf8)) ?? ""
       review = skill.copies.first(where: SkillInstaller.isFromLibrary).map { SkillReview.inspect($0.resolved) }
+      problems = SkillLint.problems(for: skill)
     }
   }
 

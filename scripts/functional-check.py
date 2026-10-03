@@ -24,6 +24,8 @@ if "--run-only" not in sys.argv:
         "CFBundleName": "Skillscout Functional Check",
         "CFBundlePackageType": "APPL",
         "NSHighResolutionCapable": True,
+        # cacheDisplay can't draw macOS 26's Liquid Glass sidebar and toolbar, so render the earlier design.
+        "UIDesignRequiresCompatibility": True,
     }))
     sources = [str(p) for p in sorted((root / "Skillscout").glob("*.swift"))
                if p.name != "SkillscoutApp.swift"]

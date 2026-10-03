@@ -1,6 +1,6 @@
 # Skillscout
 
-A SwiftUI macOS app, plus a `skillscout-mod` command-line tool, that lists the skills of 10 coding agents, counts their use from local chats, and asks AI for new skill ideas. This fork also manages a central skill library and skillsets. No dependencies or formal test suite yet.
+A SwiftUI macOS app, plus a `skillscout-mod` command-line tool, that lists the skills of 10 coding agents, counts their use from local chats, and asks AI for new skill ideas. This fork also manages a central skill library and skillsets. No dependencies. Unit tests in `Tests/` cover the core files, and `scripts/functional-check.py` runs the app views and workflows against a made-up home.
 
 The app and the command share these core files, which only import Foundation, CryptoKit and SQLite3:
 
@@ -35,12 +35,14 @@ scripts/build-release.sh           # universal Release build, dist/Skillscout-Mo
 open 'build/release/Release/Skillscout Mod.app'
 'build/release/Release/Skillscout Mod.app/Contents/Helpers/skillscout-mod' list
 xcodegen generate                  # after editing project.yml
+xcodebuild test -scheme SkillscoutTests   # unit tests for the core files (Swift Testing)
+python3 scripts/functional-check.py       # app workflows and view renders under a made-up home
 swift scripts/render-icon.swift    # after editing the icon
 scripts/screenshot.sh              # docs/screenshot-*.png, from a demo home folder
 swift scripts/render-banner.swift  # docs/banner.png, from the icon and the dark screenshot
 ```
 
-`project.yml` is the source of the Xcode project, so edit it and regenerate instead of changing `project.pbxproj` by hand. The version lives in its `MARKETING_VERSION`, and every release also bumps the build number in `CURRENT_PROJECT_VERSION`. A new file the command needs goes in the `SkillscoutCLI` sources list there, and it can't import SwiftUI or AppKit.
+`project.yml` is the source of the Xcode project, so edit it and regenerate instead of changing `project.pbxproj` by hand. The version lives in its `MARKETING_VERSION`, and every release also bumps the build number in `CURRENT_PROJECT_VERSION`. A new core file goes in both the `SkillscoutCLI` and `SkillscoutTests` sources lists there, and it can't import SwiftUI or AppKit.
 
 ## Rules
 

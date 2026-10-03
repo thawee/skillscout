@@ -183,3 +183,52 @@ enum Frontmatter {
     return String(value.dropFirst().dropLast())
   }
 }
+
+/// Problems in a `SKILL.md` against the Agent Skills specification (agentskills.io/specification), which agents
+/// may handle by skipping the skill, renaming it, or cutting its description.
+enum SkillLint {
+  /// Pass nil for `folderName` to skip the folder rule, for a copy no agent reads directly.
+  static func problems(_ text: String, folderName: String?) -> [String] {
+    let first = text.prefix { $0 != "\n" && $0 != "\r\n" }
+    guard first.trimmingCharacters(in: .whitespaces) == "---" else {
+      return ["No frontmatter, so agents get no name or description from it."]
+    }
+    let meta = Frontmatter.parse(text)
+    var problems: [String] = []
+    if let name = meta["name"], !name.isEmpty {
+      if name.count > 64 {
+        problems.append("The name is \(name.count) characters long. The limit is 64.")
+      }
+      if name.range(of: #"^[a-z0-9]+(-[a-z0-9]+)*$"#, options: .regularExpression) == nil {
+        problems.append("The name \(name) should use only lowercase letters, numbers and single hyphens, without a hyphen at either end.")
+      }
+      if let folderName, name != folderName {
+        problems.append("The name \(name) doesn't match its folder, \(folderName).")
+      }
+    } else {
+      problems.append("No name in the frontmatter.")
+    }
+    if let description = meta["description"], !description.isEmpty {
+      if description.count > 1024 {
+        problems.append("The description is \(description.count) characters long. The limit is 1024.")
+      }
+    } else {
+      problems.append("No description, so agents can't tell when to use it.")
+    }
+    let lines = text.components(separatedBy: "\n").count
+    if lines > 500 {
+      problems.append("SKILL.md has \(lines) lines. Keeping it under 500 and moving details to other files is recommended.")
+    }
+    return problems
+  }
+
+  /// The problems of a skill the user can fix, not a plugin or built-in one. The folder rule uses a copy an agent
+  /// reads; a skill only in the Library skips it, since agents see it through links named when it's added.
+  static func problems(for skill: Skill) -> [String] {
+    let editable = skill.copies.filter { $0.root.kind != .plugin && $0.root.kind != .builtIn }
+    let read = editable.first { !$0.root.readBy.isEmpty }
+    guard let copy = read ?? editable.first,
+          let text = try? String(contentsOf: copy.folder.appending(path: "SKILL.md"), encoding: .utf8) else { return [] }
+    return problems(text, folderName: read?.folder.lastPathComponent)
+  }
+}
