@@ -14,8 +14,9 @@ enum SidebarItem: Hashable {
   case repo(String)
   case localSource(String)
   case similar
+  case plugins
 
-  var listsSkills: Bool { self != .discover && self != .suggestions && self != .similar && !isLocalSource }
+  var listsSkills: Bool { self != .discover && self != .suggestions && self != .similar && self != .plugins && !isLocalSource }
 
   private var isLocalSource: Bool {
     if case .localSource = self { return true }
@@ -43,6 +44,7 @@ struct ContentView: View {
   @State private var selectedSuggestion: Suggestion.ID?
   @State private var selectedRegistrySkill: RegistrySkill.ID?
   @State private var selectedPair: SimilarPair.ID?
+  @State private var selectedPlugin: InstalledPlugin.ID?
   @State private var search = ""
   @FocusState private var isSearchFocused: Bool
   @AppStorage("skillSource") private var source = SkillSource.yours
@@ -164,6 +166,19 @@ struct ContentView: View {
     }
   }
 
+  private var enabledPlugins: [InstalledPlugin] {
+    let tools = Set(store.tools)
+    return store.plugins.filter { tools.contains($0.tool) }
+  }
+
+  private var listedPlugins: [InstalledPlugin] {
+    guard !search.isEmpty else { return enabledPlugins }
+    return enabledPlugins.filter {
+      $0.name.localizedCaseInsensitiveContains(search) || $0.description.localizedCaseInsensitiveContains(search)
+        || ($0.marketplace ?? "").localizedCaseInsensitiveContains(search)
+    }
+  }
+
   private func showRepo(_ repo: String) {
     sidebar = .repo(repo)
     selectedSkills.removeAll()
@@ -181,6 +196,8 @@ struct ContentView: View {
         SuggestionList(suggestions: listedSuggestions, selection: $selectedSuggestion)
       } else if sidebar == .similar {
         SimilarList(pairs: listedPairs, selection: $selectedPair)
+      } else if sidebar == .plugins {
+        PluginList(plugins: listedPlugins, selection: $selectedPlugin)
       } else {
         VStack(spacing: 0) {
           if case .skillset(let id) = sidebar {
@@ -217,6 +234,12 @@ struct ContentView: View {
           SimilarDetail(pair: pair, keep: suggestedKeep(pair)).id(pair.id)
         } else {
           ContentUnavailableView("Pick two similar skills", systemImage: "arrow.triangle.merge")
+        }
+      } else if sidebar == .plugins {
+        if let plugin = store.plugins.first(where: { $0.id == selectedPlugin }) {
+          PluginDetail(plugin: plugin)
+        } else {
+          ContentUnavailableView("Pick a plugin", systemImage: "puzzlepiece.extension")
         }
       } else if let skill = store.skill(selectedSkill) {
         SkillDetail(skill: skill)
@@ -353,6 +376,8 @@ struct ContentView: View {
           skill.isPersonal && !skill.copies.contains { $0.root.kind == .managed || $0.root.kind == .shared }
         }), item: .unmanaged)
           .help("Personal skills in AI tool folders, outside the central and shared skill libraries")
+        sidebarRow("Plugins", symbol: "puzzlepiece.extension", count: enabledPlugins.count, item: .plugins)
+          .help("Plugins installed in your agents, with the hooks and servers they run")
       }
       Section("Skillsets", isExpanded: $skillsetsExpanded) {
         ForEach(store.skillsets) { skillset in

@@ -104,7 +104,7 @@ struct Arguments {
 }
 
 enum Command: String, CaseIterable {
-  case list, show, usage, tools, similar, add, rename, merge, uninstall, suggest, explain, install, update, skillset
+  case list, show, usage, tools, similar, add, rename, merge, uninstall, suggest, explain, install, update, skillset, plugins
 
   var synopsis: String {
     switch self {
@@ -122,6 +122,7 @@ enum Command: String, CaseIterable {
     case .install: "install <url_or_path> [--to <tool> | --no-link]"
     case .update: "update <skill>"
     case .skillset: "skillset <action> [<set> | <file>] [options]"
+    case .plugins: "plugins [options]"
     }
   }
 
@@ -141,6 +142,7 @@ enum Command: String, CaseIterable {
     case .install: "Install a skill from GitHub or a local path"
     case .update: "Review and apply changes to a Library repository"
     case .skillset: "List, apply, export and import skillsets"
+    case .plugins: "Plugins in your agents and what they run"
     }
   }
 
@@ -172,6 +174,8 @@ enum Command: String, CaseIterable {
       "Installs a skill from a GitHub URL or a local path into the Library, then links it to your tools. If the skill's SKILL.md specifies supported tools, it will only be linked to them, otherwise you can specify --to <tool>. If the download has scripts or high-risk commands, they're listed first and linking needs a yes, or --yes without a terminal."
     case .update:
       "Downloads a Library repository again, or copies its local folder again, and lists the added, changed and removed files, with the scripts and high-risk commands in them. The Library copy is replaced only after a yes, or --yes without a terminal, and the old copy goes to the Trash. Pass a skill from the repository or the repository's name."
+    case .plugins:
+      "Lists the plugins installed in Claude Code, Codex and Cursor, with their skills and what they run on your Mac: hooks, MCP and language servers, monitors and executables. Environment values are never shown. Skillscout only reads plugins; install, update or turn them off in the agent."
     case .skillset:
       "Works with the skillsets you make in the app. The actions are list, show <set>, apply <set> --to <tool>, unassign <set> --from <tool>, export <set> and import <file>. apply links a skillset's skills into a tool, and unassign removes the links and copies Skillscout made for it that no other assigned skillset needs; both show the changes first and need a yes, or --yes without a terminal. export saves a skillset as JSON, with the Git repository each Library skill came from, and import adds one, listing the skills this Mac doesn't have yet. apply, unassign and import change the app's saved state, so they stop while Skillscout Mod is open."
     }
@@ -222,6 +226,8 @@ enum Command: String, CaseIterable {
       ]
     case .update:
       return [("--yes", "Apply the changes without asking")]
+    case .plugins:
+      return [json]
     case .skillset:
       return [
         ("--to <tool>", "apply: the tool to assign it to"),
@@ -253,6 +259,7 @@ enum Command: String, CaseIterable {
     case .install: try await Commands.install(args)
     case .update: try await Commands.update(args)
     case .skillset: try await Commands.skillset(args)
+    case .plugins: try Commands.plugins(args)
     }
   }
 }

@@ -49,6 +49,7 @@ targets:
       - Skillscout/Registry.swift
       - Skillscout/SkillReview.swift
       - Skillscout/SkillsetTransfer.swift
+      - Skillscout/PluginScanner.swift
     settings:
       base:
         PRODUCT_NAME: skillscout-mod
@@ -75,6 +76,7 @@ targets:
       - Skillscout/Registry.swift
       - Skillscout/SkillReview.swift
       - Skillscout/SkillsetTransfer.swift
+      - Skillscout/PluginScanner.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.thawee.skillscout.tests

@@ -13,14 +13,17 @@
 		0727654346EF6DA1148B2D68 /* AppStore+Skillsets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0377BD2BDE684AA347A662DD /* AppStore+Skillsets.swift */; };
 		0B4298E3428DA3452C8E316E /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8B95A883374ADCF2BB2A9A5 /* AppStore.swift */; };
 		11E7DF1CFFE0D2991E331A43 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E320FCE90C51C4EA51E9B6 /* SettingsView.swift */; };
+		131CC0390532211BB9F54BA3 /* PluginScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1724D39BA2DCBF623F4A14 /* PluginScanner.swift */; };
 		1AA8B6FE7B6BDE1160469406 /* SkillInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1D7A86C6C2F6A665C94583 /* SkillInstaller.swift */; };
 		27C9E2A4A6BC1AD429CDF52B /* SkillsetInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAD0529B4BB35B1D34A4149E /* SkillsetInstaller.swift */; };
 		2C5FDD83D3C6E0EB313C3F95 /* SkillReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0E0DAF3A6CF8673C432C76C /* SkillReview.swift */; };
 		2F6073BEADFE16809A96C720 /* FileWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89D396BDA8C7A8F808C390DC /* FileWatcher.swift */; };
 		3057845395C604BF88151C8A /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64E4526107B440152D6AB925 /* Components.swift */; };
 		31F0312A63C31BCB33D669D0 /* SkillSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2F1910B2F3AC4B72EA3830 /* SkillSimilarity.swift */; };
+		32B08A40CB3F27CFE29EF8CE /* PluginViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 737812B0E9444153A1EA42FE /* PluginViews.swift */; };
 		378AA334FB694C25962B9245 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEA41E1474F7BE423B56D346 /* ContentView.swift */; };
 		4A585E671547357F3699831A /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E1EA96200BEB72A33D6E38 /* Models.swift */; };
+		54A880217300E0ABBE8DE26D /* PluginScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1724D39BA2DCBF623F4A14 /* PluginScanner.swift */; };
 		56B2C0632C4077DB2FCB717D /* SkillReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0E0DAF3A6CF8673C432C76C /* SkillReview.swift */; };
 		5F85019D7561BB0D7566001B /* SuggestionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076A549C0CCE0367FE4D11D0 /* SuggestionViews.swift */; };
 		62C88BC3E3B945945C3EA296 /* PromptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53B6FF6B0D5A3694C197EBC0 /* PromptLibrary.swift */; };
@@ -45,6 +48,7 @@
 		8849E62C41F7A32518FB6B67 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 50C6B03A08C5B5CE4FA655E2 /* AppIcon.icon */; };
 		8DB4F2A4A84E5384AF234528 /* Commands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 414FE5AD94D9FE8882D117D9 /* Commands.swift */; };
 		8DF11C0CCCEF82D04196FBC0 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E1EA96200BEB72A33D6E38 /* Models.swift */; };
+		98CC14C18B56863D77169451 /* Plugins.swift in Sources */ = {isa = PBXBuildFile; fileRef = B571DCFEAA809EC5567D24DB /* Plugins.swift */; };
 		9D3695DC64486D9ED2CEC606 /* Registry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 756AC6D1B9CA7B46984721E7 /* Registry.swift */; };
 		A86AB87B505B940D7D4FE616 /* PromptLibrary+Tools.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06BC03210D288EFFD8FC48F /* PromptLibrary+Tools.swift */; };
 		A8E5EF8255CE60720E91CC0F /* SkillScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E76FCD9E9E2549A3682D8F84 /* SkillScanner.swift */; };
@@ -56,6 +60,7 @@
 		BD66695BCC8D9CC8ED4ECECB /* SkillViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FAA2265543363EFFE7362C0 /* SkillViews.swift */; };
 		C3040FC3DE85AD54F35F5AB5 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 470A830374A881BA320C6298 /* main.swift */; };
 		CB528AE33C415D88F3FCFCA7 /* CoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6E23123CD6141D9B083D467 /* CoreTests.swift */; };
+		CF3ADAB9F71D5CA8F6E70456 /* PluginScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1724D39BA2DCBF623F4A14 /* PluginScanner.swift */; };
 		D74C3DF23F315DC08035D237 /* SkillsetTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C869F111F332D93D6DC43741 /* SkillsetTransfer.swift */; };
 		D8C564B443D00A0E4E8EB73C /* SkillsetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F37839C6B57A808494AC4C7 /* SkillsetViews.swift */; };
 		DBB251FE54D449EE803CFF26 /* CustomRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 033B0F3CAC9D7A9BD8E4535E /* CustomRegistry.swift */; };
@@ -112,6 +117,7 @@
 		57E1EA96200BEB72A33D6E38 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		5B2204DD544E18EC3E164284 /* DiscoverViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverViews.swift; sourceTree = "<group>"; };
 		64E4526107B440152D6AB925 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		737812B0E9444153A1EA42FE /* PluginViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginViews.swift; sourceTree = "<group>"; };
 		756AC6D1B9CA7B46984721E7 /* Registry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Registry.swift; sourceTree = "<group>"; };
 		76CC09375ECB6FC9E16C667E /* registry.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = registry.json; sourceTree = "<group>"; };
 		89D396BDA8C7A8F808C390DC /* FileWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileWatcher.swift; sourceTree = "<group>"; };
@@ -120,10 +126,12 @@
 		A2CF8B954622C1B06777D365 /* Terminal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Terminal.swift; sourceTree = "<group>"; };
 		AEA41E1474F7BE423B56D346 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		B18AC56992256E677133D35C /* Analyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analyzer.swift; sourceTree = "<group>"; };
+		B571DCFEAA809EC5567D24DB /* Plugins.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Plugins.swift; sourceTree = "<group>"; };
 		C06BC03210D288EFFD8FC48F /* PromptLibrary+Tools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PromptLibrary+Tools.swift"; sourceTree = "<group>"; };
 		C0BA987BB62340C0FAE33523 /* Library.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Library.swift; sourceTree = "<group>"; };
 		C869F111F332D93D6DC43741 /* SkillsetTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillsetTransfer.swift; sourceTree = "<group>"; };
 		CA1D7A86C6C2F6A665C94583 /* SkillInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillInstaller.swift; sourceTree = "<group>"; };
+		CB1724D39BA2DCBF623F4A14 /* PluginScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginScanner.swift; sourceTree = "<group>"; };
 		CBC9224FFE73C8083ADF7A81 /* SkillscoutApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillscoutApp.swift; sourceTree = "<group>"; };
 		CEF9DD364F39E0F1EC34650C /* AIEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIEngine.swift; sourceTree = "<group>"; };
 		D8B95A883374ADCF2BB2A9A5 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
@@ -141,6 +149,7 @@
 				414FE5AD94D9FE8882D117D9 /* Commands.swift */,
 				C0BA987BB62340C0FAE33523 /* Library.swift */,
 				470A830374A881BA320C6298 /* main.swift */,
+				B571DCFEAA809EC5567D24DB /* Plugins.swift */,
 				8BF04406D1E3714347E3BD10 /* Skillsets.swift */,
 				A2CF8B954622C1B06777D365 /* Terminal.swift */,
 			);
@@ -163,6 +172,8 @@
 				5B2204DD544E18EC3E164284 /* DiscoverViews.swift */,
 				89D396BDA8C7A8F808C390DC /* FileWatcher.swift */,
 				57E1EA96200BEB72A33D6E38 /* Models.swift */,
+				CB1724D39BA2DCBF623F4A14 /* PluginScanner.swift */,
+				737812B0E9444153A1EA42FE /* PluginViews.swift */,
 				53B6FF6B0D5A3694C197EBC0 /* PromptLibrary.swift */,
 				C06BC03210D288EFFD8FC48F /* PromptLibrary+Tools.swift */,
 				756AC6D1B9CA7B46984721E7 /* Registry.swift */,
@@ -331,6 +342,8 @@
 				8DB4F2A4A84E5384AF234528 /* Commands.swift in Sources */,
 				EE8F257BD637BB6F32AA736B /* Library.swift in Sources */,
 				8DF11C0CCCEF82D04196FBC0 /* Models.swift in Sources */,
+				CF3ADAB9F71D5CA8F6E70456 /* PluginScanner.swift in Sources */,
+				98CC14C18B56863D77169451 /* Plugins.swift in Sources */,
 				DDE9E1A704C7AF903D6BA424 /* PromptLibrary+Tools.swift in Sources */,
 				62C88BC3E3B945945C3EA296 /* PromptLibrary.swift in Sources */,
 				9D3695DC64486D9ED2CEC606 /* Registry.swift in Sources */,
@@ -362,6 +375,8 @@
 				84F02E4790C165F04AD7A63B /* DiscoverViews.swift in Sources */,
 				2F6073BEADFE16809A96C720 /* FileWatcher.swift in Sources */,
 				4A585E671547357F3699831A /* Models.swift in Sources */,
+				54A880217300E0ABBE8DE26D /* PluginScanner.swift in Sources */,
+				32B08A40CB3F27CFE29EF8CE /* PluginViews.swift in Sources */,
 				A86AB87B505B940D7D4FE616 /* PromptLibrary+Tools.swift in Sources */,
 				DD6BE7DE0CE5849AC0A467D9 /* PromptLibrary.swift in Sources */,
 				B2BC44AB7EADA260F6CCEF2F /* Registry.swift in Sources */,
@@ -388,6 +403,7 @@
 				0253CE05EEDB52B914C3625D /* Analyzer.swift in Sources */,
 				CB528AE33C415D88F3FCFCA7 /* CoreTests.swift in Sources */,
 				F0493751556236295D27D37F /* Models.swift in Sources */,
+				131CC0390532211BB9F54BA3 /* PluginScanner.swift in Sources */,
 				65C46532FF8BCCB4B172F689 /* PromptLibrary+Tools.swift in Sources */,
 				796A56F34B6065273974C9B4 /* PromptLibrary.swift in Sources */,
 				72573D7336C236C38A5DA342 /* Registry.swift in Sources */,

@@ -22,6 +22,7 @@ final class AppStore {
   var dismissed: [String] = []
   /// Pairs of your skills that read alike, most alike first.
   var similar: [SimilarPair] = []
+  var plugins: [InstalledPlugin] = []
   /// The pairs you said aren't alike, by `SimilarPair.id`.
   var dismissedPairs: [String] = []
   /// Merged SKILL.md drafts, by `MergePlan.id`.
@@ -146,9 +147,9 @@ final class AppStore {
 
   func refreshSkills() async {
     let dismissed = Set(dismissedPairs)
-    (skills, similar) = await Task.detached {
+    (skills, similar, plugins) = await Task.detached {
       let skills = SkillScanner.scan()
-      return (skills, SkillSimilarity.pairs(in: skills, dismissed: dismissed))
+      return (skills, SkillSimilarity.pairs(in: skills, dismissed: dismissed), PluginScanner.scan())
     }.value
     applyTools()
   }

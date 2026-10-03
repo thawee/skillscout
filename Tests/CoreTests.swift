@@ -234,3 +234,102 @@ private func skill(_ name: String, folder: URL, kind: SkillRoot.Kind = .user, de
   }
 }
 
+
+@Suite struct PluginScannerTests {
+  private func write(_ text: String, _ url: URL) throws {
+    try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try text.write(to: url, atomically: true, encoding: .utf8)
+  }
+
+  @Test func readsDefaultFilesAndEveryManifestShape() throws {
+    let folder = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    try write(#"{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"./check.sh"}]}]}}"#,
+              folder.appending(path: "hooks/hooks.json"))
+    try write(#"{"mcpServers":{"api":{"command":"node","args":["server.js"],"env":{"TOKEN":"secret"}}}}"#,
+              folder.appending(path: ".mcp.json"))
+    try write(#"{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"./stop.sh"}]}]}}"#, folder.appending(path: "config/more-hooks.json"))
+    try write("[{\"name\":\"watch\",\"command\":\"./poll.sh\",\"description\":\"d\"}]", folder.appending(path: "monitors/monitors.json"))
+    try write("#!/bin/sh\n", folder.appending(path: "bin/tool"))
+    try write("---\nname: helper\ndescription: d\n---\n", folder.appending(path: "skills/helper/SKILL.md"))
+    let manifest: [String: Any] = [
+      "hooks": ["./config/more-hooks.json", ["PostToolUse": [["hooks": [["type": "mcp_tool", "server": "api", "tool": "log"]]]]]],
+      "mcpServers": ["remote": ["type": "http", "url": "https://example.invalid/mcp"]],
+      "lspServers": ["go": ["command": "gopls", "args": ["serve"], "extensionToLanguage": [".go": "go"]]],
+      "skills": "../outside",
+    ]
+    let runs = PluginScanner.runs(in: folder, manifest: manifest)
+    #expect(runs.contains(PluginRunItem(kind: .hook, name: "PreToolUse (Bash)", detail: "./check.sh")))
+    #expect(runs.contains(PluginRunItem(kind: .hook, name: "Stop", detail: "./stop.sh")))
+    #expect(runs.contains(PluginRunItem(kind: .hook, name: "PostToolUse", detail: "MCP tool log on api")))
+    #expect(runs.contains(PluginRunItem(kind: .mcpServer, name: "api", detail: "node server.js")))
+    #expect(runs.contains(PluginRunItem(kind: .mcpServer, name: "remote", detail: "https://example.invalid/mcp")))
+    #expect(runs.contains(PluginRunItem(kind: .lspServer, name: "go", detail: "gopls serve")))
+    #expect(runs.contains(PluginRunItem(kind: .monitor, name: "watch", detail: "./poll.sh")))
+    #expect(runs.contains(PluginRunItem(kind: .executable, name: "tool", detail: "bin/tool")))
+    #expect(!runs.contains { $0.detail.contains("secret") })
+    #expect(PluginScanner.skills(in: folder, manifest: manifest) == ["helper"])
+  }
+
+  @Test func readsHooksFilesWithExtraKeysAndRedactsURLs() throws {
+    let folder = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    try write(#"{"description":"Formatting","hooks":{"Stop":[{"hooks":[{"type":"http","url":"https://user:token@example.invalid/hook"}]}]}}"#,
+              folder.appending(path: "hooks/hooks.json"))
+    #expect(PluginScanner.runs(in: folder, manifest: [:]) == [PluginRunItem(kind: .hook, name: "Stop", detail: "https://example.invalid/hook")])
+  }
+
+  @Test func strictMarketplaceEntryAddsToTheManifest() throws {
+    let folder = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    try write(#"{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"./default-stop.sh"}]}]}}"#, folder.appending(path: "hooks/hooks.json"))
+    let manifest: [String: Any] = ["name": "demo", "hooks": ["PreToolUse": [["hooks": [["type": "command", "command": "./pre.sh"]]]]]]
+    let entry: [String: Any] = [
+      "hooks": ["Stop": [["hooks": [["type": "command", "command": "./entry-stop.sh"]]]]],
+      "mcpServers": ["extra": ["command": "extra-server"]],
+    ]
+    let plugin = PluginScanner.plugin(tool: .claude, name: "demo", marketplace: "m", version: nil, folder: folder,
+                                      manifest: manifest, entry: entry, enabled: true)
+    #expect(Set(plugin.runs) == [
+      PluginRunItem(kind: .hook, name: "PreToolUse", detail: "./pre.sh"),
+      PluginRunItem(kind: .hook, name: "Stop", detail: "./entry-stop.sh"),
+      PluginRunItem(kind: .mcpServer, name: "extra", detail: "extra-server"),
+    ])
+  }
+
+  @Test func unwrapsCodexInlineHooks() throws {
+    let folder = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let manifest: [String: Any] = ["hooks": ["hooks": ["Stop": [["hooks": [["type": "mcp_tool", "server": "repl", "tool": "turn_ended"]]]]]]]
+    #expect(PluginScanner.runs(in: folder, manifest: manifest) == [PluginRunItem(kind: .hook, name: "Stop", detail: "MCP tool turn_ended on repl")])
+  }
+
+  @Test func readsClaudePluginsWithMarketplaceEntriesAndSettings() throws {
+    let home = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: home) }
+    let install = home.appending(path: ".claude/plugins/cache/market/lsp/1.0.0")
+    try FileManager.default.createDirectory(at: install, withIntermediateDirectories: true)
+    try write("""
+      {"version":2,"plugins":{"lsp@market":[{"installPath":"\(install.path)","version":"1.0.0"}]}}
+      """, home.appending(path: ".claude/plugins/installed_plugins.json"))
+    try write(#"{"plugins":[{"name":"lsp","description":"A language server","lspServers":{"x":{"command":"x-lsp"}}}]}"#,
+              home.appending(path: ".claude/plugins/marketplaces/market/.claude-plugin/marketplace.json"))
+    try write(#"{"enabledPlugins":{"lsp@market":false}}"#, home.appending(path: ".claude/settings.json"))
+    let plugins = PluginScanner.claudePlugins(home: home)
+    #expect(plugins.count == 1)
+    #expect(plugins.first?.name == "lsp" && plugins.first?.marketplace == "market" && plugins.first?.enabled == false)
+    #expect(plugins.first?.description == "A language server")
+    #expect(plugins.first?.runs == [PluginRunItem(kind: .lspServer, name: "x", detail: "x-lsp")])
+  }
+
+  @Test func usesTheNewestCachedVersion() throws {
+    let root = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: root) }
+    for version in ["0.9.0", "0.10.0"] {
+      try write("{\"name\":\"demo\",\"version\":\"\(version)\"}", root.appending(path: "market/demo/\(version)/.codex-plugin/plugin.json"))
+    }
+    let plugins = PluginScanner.cachedPlugins(.codex, root: root, manifest: ".codex-plugin", depth: 2)
+    #expect(plugins.map(\.version) == ["0.10.0"])
+    #expect(plugins.first?.enabled == nil)
+  }
+}

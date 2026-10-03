@@ -58,6 +58,7 @@ defaults write com.thawee.skillscout AppUpdaterAutomaticChecks -bool false
 - Search by name or description with `⌘F`
 - **Explain with AI** asks Claude Code or Codex what a skill does, when the agent uses it, and what it needs to work
 - **Suggestions** finds the tasks you keep asking for and drafts a `SKILL.md` for each one
+- **Plugins** lists the plugins installed in Claude Code, Codex and Cursor, with their skills and what they run on your Mac without asking: hooks, MCP and language servers, monitors and executables. It only reads them
 - Plugin and built-in skills from Cursor, Claude Code and Codex, with a filter in the toolbar to show your skills, the plugin ones, the built-in ones, or all of them
 - Every copy of a skill on disk, with a warning when two copies have different content
 - **Problems** checks each skill you can edit against the [Agent Skills specification](https://agentskills.io/specification): a missing name or description, a name that breaks the naming rules or doesn't match its folder, a description over 1024 characters, or a `SKILL.md` over the recommended 500 lines. `skillscout-mod show` lists them too
@@ -219,6 +220,7 @@ The command reads the same skills and chats as the app, and follows its settings
 | `skillscout-mod suggest` | Asks AI for skill ideas based on requests you repeat |
 | `skillscout-mod explain <skill>` | Asks AI what a skill does |
 | `skillscout-mod skillset <action>` | Lists, shows, applies, unassigns, exports and imports skillsets |
+| `skillscout-mod plugins` | Lists the plugins in your agents and what they run |
 
 Run `skillscout-mod` alone for a summary, and `skillscout-mod help <command>` for the options of each command.
 
@@ -335,7 +337,7 @@ skillscout-mod list --unused --json
 
 ## Privacy
 
-Skillscout reads your skill folders and your chats on your Mac, and has no accounts or analytics. The only request it makes on its own goes to GitHub: once a day, it asks whether there's a newer version of Skillscout, and it downloads one only when you click **Install and Relaunch**.
+Skillscout reads your skill folders, your agents' plugin folders and your chats on your Mac, and has no accounts or analytics. It shows the commands plugins run but never their environment values. The only request it makes on its own goes to GitHub: once a day, it asks whether there's a newer version of Skillscout, and it downloads one only when you click **Install and Relaunch**.
 
 Discover reads a registry bundled with the app. Adding a repository to Library, re-downloading it, and the CLI's `update` command run Git against the repository you select. These operations contact its host and download skill files; they don't send your chats.
 

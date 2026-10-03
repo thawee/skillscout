@@ -6,6 +6,7 @@ The app and the command share these core files, which only import Foundation, Cr
 
 - `Skillscout/Models.swift`: `Paths`, `Tool` (the 10 agents, their skills folders, and which folders each one reads), `Skill`, `SkillCopy`, `SkillSort`, `Prompt`, `SkillUse`, `SkillUsage`, `SkillAliases` and `Suggestion`.
 - `Skillscout/SkillScanner.swift`: finds every `SKILL.md` in the agents' folders and plugin caches, reads the frontmatter, and groups the copies of a skill.
+- `Skillscout/PluginScanner.swift`: reads the plugins installed in Claude Code, Codex and Cursor, with their skills and the hooks, servers, monitors and executables they run. Read-only.
 - `Skillscout/SkillSimilarity.swift`: pairs the personal skills that read alike, with TF-IDF over their names, descriptions and `SKILL.md` bodies. No AI.
 - `Skillscout/PromptLibrary.swift`: finds and parses the chats of Cursor, Claude Code and Codex, detects when an agent loads a skill, and caches parsed files in `chats-cache.json`.
 - `Skillscout/PromptLibrary+Tools.swift`: the parsers for Gemini CLI, Droid, Pi, Amp and OpenCode's SQLite database.
@@ -18,7 +19,7 @@ App only:
 - `Skillscout/AppStore.swift`: the observable state, loading, the file watcher hookup, the AI actions and `state.json`.
 - `Skillscout/FileWatcher.swift`: the FSEvents stream on the agents' folders.
 - `Skillscout/ContentView.swift`: the split view, the sidebar, the toolbar and the status panel.
-- `Skillscout/SkillViews.swift`, `Skillscout/SuggestionViews.swift` and `Skillscout/SimilarViews.swift`: the lists and detail panes, plus the rename sheet.
+- `Skillscout/SkillViews.swift`, `Skillscout/SuggestionViews.swift`, `Skillscout/SimilarViews.swift` and `Skillscout/PluginViews.swift`: the lists and detail panes, plus the rename sheet.
 - `Skillscout/Components.swift`: agent badges and icons, detail sections, `PlainTextEditor`, Finder helpers.
 - `Skillscout/SettingsView.swift`, `Skillscout/SkillscoutApp.swift`, `Skillscout/CommandLineTool.swift` (the Install Command Line Tool menu item).
 - `Skillscout/AppUpdater.swift`: checks the GitHub releases once a day and installs updates. It's an identical copy of the template in the `mac-app-updater` skill, so change the template and copy it over instead of editing it here.

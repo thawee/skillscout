@@ -303,6 +303,16 @@ enum FunctionalCheck {
       "Sources keeps another registered local folder visible without importing it")
     let discoverLocalAvailable = RegistrySkill(name: "Pending local folder", description: "Made-up local skills for UI verification",
       repo: pendingLocalSource.path, tools: nil, author: "Custom")
+    // A made-up Claude Code plugin with a hook and an MCP server.
+    let pluginFolder = home.appending(path: ".claude/plugins/cache/demo-market/demo-plugin/1.0.0")
+    try fm.createDirectory(at: pluginFolder.appending(path: ".claude-plugin"), withIntermediateDirectories: true)
+    try #"{"name":"demo-plugin","description":"Made-up plugin for UI verification","hooks":{"PostToolUse":[{"matcher":"Write","hooks":[{"type":"command","command":"./scripts/format.sh"}]}]},"mcpServers":{"demo":{"command":"node","args":["server.js"]}}}"#
+      .write(to: pluginFolder.appending(path: ".claude-plugin/plugin.json"), atomically: true, encoding: .utf8)
+    try #"{"version":2,"plugins":{"demo-plugin@demo-market":[{"installPath":"\#(pluginFolder.path)","version":"1.0.0"}]}}"#
+      .write(to: home.appending(path: ".claude/plugins/installed_plugins.json"), atomically: true, encoding: .utf8)
+    await store.refreshSkills()
+    let demoPlugin = store.plugins.first { $0.name == "demo-plugin" }
+    try check(demoPlugin?.runs.count == 2 && demoPlugin?.enabled == true, "Plugins lists a plugin's hooks and MCP servers")
     let scenes: [(String, AnyView)] = [
       ("library", AnyView(ContentView(skill: prefix).environment(store))),
       ("library-light", AnyView(ContentView(skill: prefix).environment(store))),
@@ -321,6 +331,8 @@ enum FunctionalCheck {
       ("tool-skillsets", AnyView(ContentView(sidebar: .tool(.amp)).environment(store))),
       ("suggestions", AnyView(ContentView(sidebar: .suggestions).environment(store))),
       ("settings", AnyView(SettingsView().environment(store))),
+      ("plugins", AnyView(ContentView(sidebar: .plugins).environment(store))),
+      ("plugin-detail", AnyView(PluginDetail(plugin: demoPlugin!).environment(store))),
     ] + reviewed.scenes
     for (name, view) in scenes {
       NSApp.appearance = NSAppearance(named: name.hasSuffix("-light") ? .aqua : .darkAqua)
