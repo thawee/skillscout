@@ -12,7 +12,7 @@ Read [Flavio's original announcement and watch his 1-minute demo](https://flavio
 
 ## Download
 
-This fork has no downloadable release yet. Build it from source using the instructions below. Future releases will be published at [thawee/skillscout releases](https://github.com/thawee/skillscout/releases) as `Skillscout-Mod-<version>.zip`. It runs on macOS 15 Sequoia or later, on Apple silicon and Intel Macs.
+Download `Skillscout-Mod-<version>.zip` from the latest of the [thawee/skillscout releases](https://github.com/thawee/skillscout/releases), unzip it, and move **Skillscout Mod** to your Applications folder. It runs on macOS 15 Sequoia or later, on Apple silicon and Intel Macs.
 
 ### Opening it the first time
 
