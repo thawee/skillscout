@@ -7,9 +7,9 @@
 import AppKit
 import SwiftUI
 
-let name = "Skillscout"
-let tagline = "Your agent skills in one place,\nand the ones you keep asking for."
-let chips = ["8 coding agents", "Usage counts", "Skill ideas"]
+let name = "Skillscout Mod"
+let tagline = "Your agent skills in one place,\nchecked before your agents follow them."
+let chips = ["10 coding agents", "Skill Library", "Skillsets"]
 let size = CGSize(width: 1280, height: 560)
 
 let backgroundTop = Color(hex: 0x2A2F66)

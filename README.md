@@ -1,6 +1,6 @@
-<img src="docs/banner.png" alt="Skillscout, your agent skills in one place, and the ones you keep asking for" />
+<img src="docs/banner.png" alt="Skillscout Mod, your agent skills in one place, checked before your agents follow them" />
 
-Skillscout Mod is an independent fork of [Flavio Copes's Skillscout](https://github.com/flaviocopes/skillscout). It finds every skill on your Mac, shows which coding agents can see each one, and counts how often you use them. This fork adds a managed Library, Discover sources, skillsets, and support for more agents while keeping upstream's editing, renaming, and similar-skills features.
+Skillscout Mod is an independent fork of [Flavio Copes's Skillscout](https://github.com/flaviocopes/skillscout). Like the original, it finds every skill on your Mac, shows which coding agents can see each one, and counts how often you use them. The Mod edition turns it into a small package manager for skills: it downloads skills into a Library, groups them into skillsets you apply to each agent, and shows you what a skill or plugin runs before your agents follow it.
 
 It knows 10 agents: Cursor, Claude Code, Codex, GitHub Copilot, Gemini CLI, Antigravity, OpenCode, Droid, Pi and Amp. Each one reads skills from its own folders, and some also read the folders of the others. So a skill you wrote for Claude Code can load in Cursor but not in Codex. Skillscout maps all of it, and adds a skill to the agents that miss it with one click.
 
@@ -10,15 +10,32 @@ Read [Flavio's original announcement and watch his 1-minute demo](https://flavio
 
 [![Watch the 1-minute Skillscout demo](docs/showreel-poster.jpg)](https://flaviocopes.com/skillscout/)
 
+## What Skillscout Mod adds
+
+Everything in the original stays: the agent map, usage counts, editing, renaming, merging similar skills and skill ideas. On top of that, the Mod edition adds:
+
+- **[Discover and Library](#discover-and-library)**: browse curated skill repositories, or add your own Git repository or local folder, and download them into a Library in `~/.config/skillscout/skills`. Then choose which skills each agent gets.
+- **[Reviewing downloaded skills](#reviewing-downloaded-skills)**: a Contents section lists a downloaded skill's scripts and the commands worth reading, and Skillscout asks before adding a flagged skill to an agent.
+- **Update previews**: refreshing a Library repository shows the commit and every added, changed and removed file before anything is replaced.
+- **[Skillsets](#skillsets)**: group skills into collections, assign them to agents with a preview of each change, and export or import them as JSON to move them to another Mac.
+- **[Plugins](#plugins)**: a read-only view of the plugins installed in Claude Code, Codex and Cursor, with the hooks, MCP and language servers, monitors and executables they run without asking.
+- **Problems**: each skill you can edit is checked against the [Agent Skills specification](https://agentskills.io/specification).
+- **Keep or replace**: when an agent already has a different copy of a skill, choose which one stays. The old copy goes to the Trash.
+- **More agents**: GitHub Copilot and Antigravity, for 10 in all.
+- **Sidebar filters**: Used, Used once and AI tools only, next to the original's Unused.
+- **[More commands](#the-command-line-tool)**: `skillscout-mod skillset`, `plugins`, `install` and `update`, with a review before anything flagged is linked.
+
+Skillscout Mod has its own app name, `skillscout-mod` command, data folder and update channel, so it can sit next to the original Skillscout.
+
 ## Download
 
 Download `Skillscout-Mod-<version>.zip` from the latest of the [thawee/skillscout releases](https://github.com/thawee/skillscout/releases), unzip it, and move **Skillscout Mod** to your Applications folder. It runs on macOS 15 Sequoia or later, on Apple silicon and Intel Macs.
 
 ### Opening it the first time
 
-Skillscout isn't signed with an Apple Developer ID or notarized by Apple. So the first time you open it, macOS says it "could not verify Skillscout is free of malware". Click **Done**, then allow it in one of two ways.
+Skillscout Mod isn't signed with an Apple Developer ID or notarized by Apple. So the first time you open it, macOS says it "could not verify Skillscout Mod is free of malware". Click **Done**, then allow it in one of two ways.
 
-In System Settings, open **Privacy & Security** and scroll down to the message about Skillscout. Click **Open Anyway**, confirm, and open the app again. The button shows up for about an hour after you try to open the app.
+In System Settings, open **Privacy & Security** and scroll down to the message about Skillscout Mod. Click **Open Anyway**, confirm, and open the app again. The button shows up for about an hour after you try to open the app.
 
 In Terminal, remove the quarantine flag macOS adds to downloaded files, then open the app:
 
@@ -26,7 +43,7 @@ In Terminal, remove the quarantine flag macOS adds to downloaded files, then ope
 xattr -dr com.apple.quarantine "/Applications/Skillscout Mod.app"
 ```
 
-The same command fixes a message saying Skillscout is damaged. You don't need to turn off Gatekeeper for either option.
+The same command fixes a message saying Skillscout Mod is damaged. You don't need to turn off Gatekeeper for either option.
 
 On a work laptop you might not be able to install apps in `/Applications`. You can keep the app in the `Applications` folder inside your home folder, and run the command on `~/Applications/Skillscout Mod.app`. If your company blocks apps that aren't notarized, ask your IT team.
 
@@ -96,8 +113,16 @@ Right-click a skillset and choose **Export Skillset…** to save it as JSON, wit
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png" />
-  <img src="docs/screenshot-light.png" alt="The Skillscout window with the writing-style skill selected, showing the agents that load it and its usage" />
+  <img src="docs/screenshot-light.png" alt="The Skillscout Mod window with the writing-style skill selected, showing the agents that load it, its skillsets and its usage" />
 </picture>
+
+The skills and chats in the screenshots are made up.
+
+## Plugins
+
+**Plugins** in the sidebar lists the plugins installed in Claude Code, Codex and Cursor. Each one shows its agent, marketplace, version and folder, whether it's on (Claude Code only), its skills, and what it runs on your Mac without asking each time: hooks, MCP servers, language servers, monitors and the executables it puts on the agent's `PATH`. Commands are shown, but environment values and credentials in URLs never are.
+
+Skillscout only reads plugins. Install, update or turn them off in the agent. `skillscout-mod plugins` prints the same list, and `--json` gives JSON.
 
 ## The agents it knows
 
@@ -388,7 +413,7 @@ The app icon is drawn in code. Edit `scripts/render-icon.swift`, then write a ne
 swift scripts/render-icon.swift
 ```
 
-The screenshots come from the real app views, with made-up skills and chats in a demo home folder. The capture app has its own bundle ID, so your settings and skills stay as they are:
+The screenshots come from the real app views, with made-up skills, chats, skillsets, a Library repository and a plugin in a demo home folder. The capture app has its own bundle ID, so your settings and skills stay as they are. It renders the earlier macOS design, because the capture can't draw macOS 26's Liquid Glass sidebar and toolbar:
 
 ```sh
 scripts/screenshot.sh
@@ -400,6 +425,15 @@ The banner uses the icon and the dark screenshot:
 swift scripts/render-banner.swift
 ```
 
+To publish a release, set `MARKETING_VERSION` and bump `CURRENT_PROJECT_VERSION` in `project.yml`, write the notes in `docs/releases/vX.Y.Z.md` with the new features above `## Install`, commit, and push the tag:
+
+```sh
+git tag -a v1.5.0 -m "Skillscout Mod 1.5.0"
+git push origin v1.5.0
+```
+
+The Release workflow checks that the tag matches the version, runs the unit tests, builds the universal zip and publishes the GitHub release with it. To publish a tag that was pushed before the workflow existed, run the workflow from the Actions tab with that tag.
+
 Working with an AI coding agent? Point it at [AGENTS.md](AGENTS.md). It has the commands and the rules to follow.
 
 ## How it works
@@ -408,10 +442,12 @@ At launch Skillscout scans every skills folder it knows. A skill is a folder wit
 
 Then it reads the chats of every agent you turned on. Each agent stores them differently. Cursor, Claude Code, Codex, Droid and Pi write JSONL files, Gemini CLI and Amp write JSON, and OpenCode keeps a SQLite database. Skillscout keeps the messages you typed and the moments an agent loaded a skill, and caches what it parsed. On the next launch it only reads the files whose size or date changed.
 
+It also reads the plugin folders of Claude Code, Codex and Cursor, and the Library in `~/.config/skillscout/skills`, which agents only see through the links Skillscout makes.
+
 An FSEvents watcher on the agents' folders refreshes the list and the counts while you work.
 
 ## License
 
-Skillscout is released under the [MIT license](LICENSE). It's provided as is, without warranty of any kind.
+Skillscout Mod is a fork of [Skillscout](https://github.com/flaviocopes/skillscout) by Flavio Copes, and keeps its [MIT license](LICENSE) and copyright notice. It's provided as is, without warranty of any kind. The fork isn't endorsed by Flavio Copes; report its problems at [thawee/skillscout](https://github.com/thawee/skillscout).
 
-Skillscout is an independent project, and it isn't affiliated with the makers of the agents it works with. Cursor, Claude Code, Codex, Gemini CLI, OpenCode, Droid, Pi and Amp are trademarks of their owners.
+Skillscout Mod is an independent project, and it isn't affiliated with the makers of the agents it works with. Cursor, Claude Code, Codex, GitHub Copilot, Gemini CLI, Antigravity, OpenCode, Droid, Pi and Amp are trademarks of their owners.

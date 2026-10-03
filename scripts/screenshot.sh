@@ -8,7 +8,8 @@ ROOT=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 APP="$ROOT/build/screenshot/Skillscout Screenshot.app"
 
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$ROOT/docs"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$ROOT/docs"
+cp "$ROOT/registry.json" "$APP/Contents/Resources/registry.json"
 find "$ROOT/Skillscout" -name '*.swift' ! -name SkillscoutApp.swift -print0 |
   xargs -0 swiftc -O -swift-version 6 -parse-as-library -target arm64-apple-macos15.0 \
     "$ROOT/scripts/screenshot.swift" -o "$APP/Contents/MacOS/Screenshot"
@@ -27,6 +28,9 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>NSHighResolutionCapable</key>
+  <true/>
+  <!-- cacheDisplay can't draw macOS 26's Liquid Glass sidebar and toolbar, so capture the earlier design. -->
+  <key>UIDesignRequiresCompatibility</key>
   <true/>
 </dict>
 </plist>

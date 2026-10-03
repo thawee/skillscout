@@ -210,7 +210,28 @@ func buildDemoHome() throws {
       try fm.createSymbolicLink(at: parent.appending(path: skill.name), withDestinationURL: folder)
     }
   }
+
+  // A made-up Library repository, so the sidebar shows a Source.
+  for (name, description) in librarySkills {
+    let folder = demoHome.appending(path: ".config/skillscout/skills/team-skills/\(name)")
+    try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+    try "---\nname: \(name)\ndescription: \(description)\n---\n\n\(description)\n"
+      .write(to: folder.appending(path: "SKILL.md"), atomically: true, encoding: .utf8)
+  }
+
+  // A made-up Claude Code plugin, so the sidebar shows Plugins.
+  let plugin = demoHome.appending(path: ".claude/plugins/cache/team-market/format-on-save/1.2.0")
+  try fm.createDirectory(at: plugin.appending(path: ".claude-plugin"), withIntermediateDirectories: true)
+  try #"{"name":"format-on-save","description":"Formats files after every edit","hooks":{"PostToolUse":[{"matcher":"Write|Edit","hooks":[{"type":"command","command":"./scripts/format.sh"}]}]}}"#
+    .write(to: plugin.appending(path: ".claude-plugin/plugin.json"), atomically: true, encoding: .utf8)
+  try #"{"version":2,"plugins":{"format-on-save@team-market":[{"installPath":"\#(plugin.path)","version":"1.2.0"}]}}"#
+    .write(to: demoHome.appending(path: ".claude/plugins/installed_plugins.json"), atomically: true, encoding: .utf8)
 }
+
+let librarySkills = [
+  ("pdf-forms", "Fill and check PDF forms from a JSON file, and flag the fields that are still empty."),
+  ("release-checklist", "Walk through the release checklist: version bump, changelog, tag and the release notes."),
+]
 
 /// The status panel counts, spread across the tools like a week of real use.
 func demoPrompts() -> [Prompt] {
@@ -237,6 +258,10 @@ func fill(_ store: AppStore) {
   if let skill = store.skill("writing-style") {
     store.explanations[skill.primary.contentHash] = explanation
   }
+  store.skillsets = [
+    Skillset(name: "Writing", skills: ["writing-style", "release-notes", "astro-blog-post"]),
+    Skillset(name: "Shipping", skills: ["commit-and-push", "code-review", "release-checklist", "cloudflare-deploy"]),
+  ]
 }
 
 @main
