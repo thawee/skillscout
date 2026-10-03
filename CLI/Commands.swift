@@ -1,6 +1,6 @@
 import Foundation
 
-private func plural(_ count: Int, _ word: String) -> String {
+func plural(_ count: Int, _ word: String) -> String {
   "\(count.formatted()) \(word)\(count == 1 ? "" : "s")"
 }
 
@@ -8,7 +8,7 @@ private func bold(_ text: String) -> String { Terminal.bold(text) }
 private func dim(_ text: String) -> String { Terminal.dim(text) }
 
 /// Asks a yes or no question. Without a terminal to answer on, fails and points to --yes instead of waiting.
-private func confirm(_ question: String, _ args: Arguments) throws -> Bool {
+func confirm(_ question: String, _ args: Arguments) throws -> Bool {
   if args.flag("yes") { return true }
   guard isatty(STDIN_FILENO) == 1 else {
     throw CLIError(message: "\(question) Run again with --yes to confirm without a terminal.")
@@ -18,7 +18,7 @@ private func confirm(_ question: String, _ args: Arguments) throws -> Bool {
   return ["y", "yes"].contains(readLine()?.trimmingCharacters(in: .whitespaces).lowercased() ?? "")
 }
 
-private func printReview(_ review: SkillReview) {
+func printReview(_ review: SkillReview) {
   for file in review.scripts {
     print("  \(Terminal.warn("script"))  \(file.path)")
   }
@@ -551,6 +551,10 @@ enum Commands {
     }
     Terminal.clearStatus()
     print("Installed to \(Paths.abbreviate(destination))")
+    guard !args.flag("no-link") else {
+      print("Kept in the Library without links. Add its skills to tools with skillscout-mod add or a skillset.")
+      return
+    }
 
     let review = SkillReview.inspect(destination)
     if review.needsReview {

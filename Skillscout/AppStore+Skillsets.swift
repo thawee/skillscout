@@ -73,45 +73,19 @@ extension AppStore {
     isManagingSkillsets = true
     defer { isManagingSkillsets = false }
     await refreshSkills()
-    let plan = SkillInstaller.skillsetPlan(tool: tool, assignments: skillsetAssignments, entries: skillsetEntries, skills: skills, preferredSources: preferredSources)
-    var issues = plan.issues
-    var notes: [String] = []
-    var trashed: [URL] = []
-    for skill in plan.additions {
-      do {
-        let entry = try SkillInstaller.addForSkillset(skill, to: tool, preferredSources: preferredSources)
-        // Replace an old receipt if an externally removed entry was recreated.
-        skillsetEntries.removeAll { $0.path == entry.path }
-        skillsetEntries.append(entry)
-        guard saveState() else {
-          skillsetIssues[tool.rawValue] = issues + ["Stopped: ownership could not be saved."]
-          await refreshSkills()
-          return trashed
-        }
-      } catch {
-        issues.append("\(skill.name): \(error.localizedDescription)")
-      }
+    var entries = skillsetEntries
+    let result = SkillInstaller.reconcileSkillsets(tool: tool, assignments: skillsetAssignments, entries: &entries,
+      skills: skills, preferredSources: preferredSources) { updated in
+      skillsetEntries = updated
+      return saveState()
     }
-    for entry in plan.removals {
-      do {
-        let result = try SkillInstaller.removeSkillsetEntry(entry, entries: skillsetEntries, skills: skills)
-        trashed += result.trashed
-        if let note = result.note { notes.append(note) }
-        skillsetEntries.removeAll { $0 == entry }
-        guard saveState() else {
-          skillsetIssues[tool.rawValue] = issues + ["Stopped: ownership could not be saved."]
-          await refreshSkills()
-          return trashed
-        }
-      } catch {
-        issues.append("\(entry.skillID): \(error.localizedDescription)")
-      }
+    skillsetIssues[tool.rawValue] = result.issues
+    if !result.stopped {
+      skillsetNotes[tool.rawValue] = result.notes
+      saveState()
     }
-    skillsetIssues[tool.rawValue] = issues
-    skillsetNotes[tool.rawValue] = notes
-    saveState()
     await refreshSkills()
-    return trashed
+    return result.trashed
   }
 
   @discardableResult
@@ -130,5 +104,44 @@ extension AppStore {
     var trashed: [URL] = []
     for tool in Tool.allCases where affected.contains(tool) { trashed += await reconcileSkillsets(for: tool) }
     return trashed
+  }
+
+  func exportSkillset(id: UUID, to url: URL) {
+    guard let skillset = skillsets.first(where: { $0.id == id }) else { return }
+    do {
+      let data = try SkillsetFile(skillset, skills: skills, preferredSources: preferredSources).encoded()
+      try (data + Data("\n".utf8)).write(to: url, options: .atomic)
+    } catch {
+      errorMessage = "Couldn't export \(skillset.name): \(error.localizedDescription)"
+    }
+  }
+
+  /// Adds a skillset from a file, unassigned, and describes the skills this Mac doesn't have yet.
+  @discardableResult
+  func importSkillset(from url: URL) -> Skillset? {
+    guard !isManagingSkillsets else { return nil }
+    do {
+      let file = try SkillsetFile.decode(Data(contentsOf: url))
+      let skillset = Skillset(name: SkillsetFile.availableName(file.name, among: skillsets), skills: Set(file.skills.map(\.name)))
+      skillsets.append(skillset)
+      guard saveState() else {
+        skillsets.removeAll { $0.id == skillset.id }
+        return nil
+      }
+      var lines = ["\(skillset.name) has \(file.skills.count) skills. It isn't assigned to a tool yet."]
+      let missing = file.missing(among: skills)
+      if !missing.isEmpty {
+        lines.append("Not on this Mac yet: \(missing.map(\.name).formatted(.list(type: .and))).")
+        let sources = Array(Set(missing.compactMap(\.source))).sorted()
+        if !sources.isEmpty {
+          lines.append("Add these sources with Add Custom Source in Discover, then Add to Library: \(sources.joined(separator: ", ")).")
+        }
+      }
+      importNote = lines.joined(separator: "\n\n")
+      return skillset
+    } catch {
+      errorMessage = "Couldn't import the skillset: \(error.localizedDescription)"
+      return nil
+    }
   }
 }

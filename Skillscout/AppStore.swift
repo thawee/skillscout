@@ -35,6 +35,7 @@ final class AppStore {
   var errorMessage: String?
   var pendingRepoUpdate: RepoUpdate?
   var pendingReviewedAdd: PendingReviewedAdd?
+  var importNote: String?
   var addConflict: SkillInstaller.AddConflict?
   var searchRequests = 0
   /// Copies waiting for you to confirm, before they go to the Trash.
@@ -395,7 +396,7 @@ final class AppStore {
 
   // MARK: - Persistence
 
-  private struct SavedState: Codable {
+  fileprivate struct SavedState: Codable {
     var suggestions: [Suggestion]
     var dismissed: [String]
     var explanations: [String: String]
@@ -598,4 +599,24 @@ struct PendingReviewedAdd: Identifiable {
   let source: SkillCopy?
   let folder: URL
   let review: SkillReview
+}
+
+extension AppStore.SavedState {
+  /// Missing keys read as empty, so a state file written by the command line tool, which holds only
+  /// skillsets, still loads.
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    self.init(
+      suggestions: try container.decodeIfPresent([Suggestion].self, forKey: .suggestions) ?? [],
+      dismissed: try container.decodeIfPresent([String].self, forKey: .dismissed) ?? [],
+      explanations: try container.decodeIfPresent([String: String].self, forKey: .explanations) ?? [:],
+      analyzedIDs: try container.decodeIfPresent([String].self, forKey: .analyzedIDs) ?? [],
+      lastAnalysis: try container.decodeIfPresent(Date.self, forKey: .lastAnalysis),
+      skillsets: try container.decodeIfPresent([Skillset].self, forKey: .skillsets),
+      skillsetAssignments: try container.decodeIfPresent([SkillsetAssignment].self, forKey: .skillsetAssignments),
+      skillsetEntries: try container.decodeIfPresent([SkillsetEntry].self, forKey: .skillsetEntries),
+      skillsetIssues: try container.decodeIfPresent([String: [String]].self, forKey: .skillsetIssues),
+      preferredSources: try container.decodeIfPresent([Skill.ID: String].self, forKey: .preferredSources),
+      dismissedPairs: try container.decodeIfPresent([String].self, forKey: .dismissedPairs))
+  }
 }

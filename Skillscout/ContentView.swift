@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 enum SidebarItem: Hashable {
   case discover
@@ -78,6 +79,22 @@ struct ContentView: View {
   private var librarySkills: [Skill] { enabledSkills.filter(source.includes) }
 
   private func chats(_ skill: Skill) -> Int { store.usage[skill.id]?.chats ?? 0 }
+
+  private func exportSkillset(_ skillset: Skillset) {
+    let panel = NSSavePanel()
+    panel.allowedContentTypes = [.json]
+    panel.nameFieldStringValue = "\(skillset.name).skillset.json"
+    if panel.runModal() == .OK, let url = panel.url { store.exportSkillset(id: skillset.id, to: url) }
+  }
+
+  private func importSkillset() {
+    let panel = NSOpenPanel()
+    panel.allowedContentTypes = [.json]
+    panel.allowsMultipleSelection = false
+    guard panel.runModal() == .OK, let url = panel.url,
+          let skillset = store.importSkillset(from: url) else { return }
+    sidebar = .skillset(skillset.id)
+  }
   private func isUsed(_ skill: Skill) -> Bool { chats(skill) > 1 }
   private func isUsedOnce(_ skill: Skill) -> Bool { chats(skill) == 1 }
   private func isUnused(_ skill: Skill) -> Bool { chats(skill) == 0 }
@@ -238,6 +255,14 @@ struct ContentView: View {
     } message: {
       Text("This moves the repository and any links into it from AI tool folders to the Trash. Independent copies stay.")
     }
+    .alert("Skillset imported", isPresented: Binding(
+      get: { store.importNote != nil },
+      set: { if !$0 { store.importNote = nil } }
+    )) {
+      Button("OK") {}
+    } message: {
+      Text(store.importNote ?? "")
+    }
     .alert("New Skillset", isPresented: $showingNewSkillset) {
       TextField("Skillset Name", text: $newSkillsetName)
       Button("Cancel", role: .cancel) { newSkillsetName = "" }
@@ -333,6 +358,7 @@ struct ContentView: View {
         ForEach(store.skillsets) { skillset in
           sidebarRow(skillset.name, symbol: "folder", count: skillset.skills.count, item: .skillset(skillset.id))
             .contextMenu {
+              Button("Export Skillset…") { exportSkillset(skillset) }
               Button("Unassign and Delete Skillset", role: .destructive) { Task { await store.deleteSkillset(id: skillset.id) } }
                 .disabled(store.isManagingSkillsets)
             }
@@ -345,6 +371,15 @@ struct ContentView: View {
         .buttonStyle(.plain)
         .padding(.leading, 8)
         .foregroundStyle(.secondary)
+        Button {
+          importSkillset()
+        } label: {
+          Label("Import Skillset…", systemImage: "square.and.arrow.down")
+        }
+        .buttonStyle(.plain)
+        .padding(.leading, 8)
+        .foregroundStyle(.secondary)
+        .disabled(store.isManagingSkillsets)
       }
       Section("Available in", isExpanded: $toolsExpanded) {
         ForEach(store.tools) { tool in

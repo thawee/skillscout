@@ -659,6 +659,14 @@ extension SkillInstaller {
     return copy.resolved.resolvingSymlinksInPath().path.hasPrefix(library + "/")
   }
 
+  /// The Library repository a copy's files live in, directly or through a link.
+  static func libraryRepo(of copy: SkillCopy) -> String? {
+    let library = SkillRoot.all.first { $0.kind == .managed }!.url.resolvingSymlinksInPath().path
+    let path = copy.resolved.resolvingSymlinksInPath().path
+    guard path.hasPrefix(library + "/") else { return nil }
+    return path.dropFirst(library.count + 1).split(separator: "/").first.map(String.init)
+  }
+
   /// Removes staging folders a quit left behind while an update preview was open.
   private static func removeStaleStaging(name: String, in managedRoot: URL) {
     let fm = FileManager.default

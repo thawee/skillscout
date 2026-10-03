@@ -48,6 +48,7 @@ targets:
       - Skillscout/AIEngine.swift
       - Skillscout/Registry.swift
       - Skillscout/SkillReview.swift
+      - Skillscout/SkillsetTransfer.swift
     settings:
       base:
         PRODUCT_NAME: skillscout-mod

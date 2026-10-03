@@ -9,7 +9,7 @@ struct Arguments {
   private var flags: Set<String> = []
   private var options: [String: String] = [:]
 
-  private static let valued: Set<String> = ["days", "tool", "to", "from", "sort", "engine", "model"]
+  private static let valued: Set<String> = ["days", "tool", "to", "from", "sort", "engine", "model", "output"]
 
   init(_ raw: [String]) throws {
     var queue = raw[...]
@@ -104,7 +104,7 @@ struct Arguments {
 }
 
 enum Command: String, CaseIterable {
-  case list, show, usage, tools, similar, add, rename, merge, uninstall, suggest, explain, install, update
+  case list, show, usage, tools, similar, add, rename, merge, uninstall, suggest, explain, install, update, skillset
 
   var synopsis: String {
     switch self {
@@ -119,8 +119,9 @@ enum Command: String, CaseIterable {
     case .uninstall: "uninstall <skill> [--from <tool>]"
     case .suggest: "suggest [options]"
     case .explain: "explain <skill> [options]"
-    case .install: "install <url_or_path> [--to <tool>]"
-    case .update: "update <skill | repository>"
+    case .install: "install <url_or_path> [--to <tool> | --no-link]"
+    case .update: "update <skill>"
+    case .skillset: "skillset <action> [<set> | <file>] [options]"
     }
   }
 
@@ -139,6 +140,7 @@ enum Command: String, CaseIterable {
     case .explain: "Ask AI what a skill does"
     case .install: "Install a skill from GitHub or a local path"
     case .update: "Review and apply changes to a Library repository"
+    case .skillset: "List, apply, export and import skillsets"
     }
   }
 
@@ -170,6 +172,8 @@ enum Command: String, CaseIterable {
       "Installs a skill from a GitHub URL or a local path into the Library, then links it to your tools. If the skill's SKILL.md specifies supported tools, it will only be linked to them, otherwise you can specify --to <tool>. If the download has scripts or high-risk commands, they're listed first and linking needs a yes, or --yes without a terminal."
     case .update:
       "Downloads a Library repository again, or copies its local folder again, and lists the added, changed and removed files, with the scripts and high-risk commands in them. The Library copy is replaced only after a yes, or --yes without a terminal, and the old copy goes to the Trash. Pass a skill from the repository or the repository's name."
+    case .skillset:
+      "Works with the skillsets you make in the app. The actions are list, show <set>, apply <set> --to <tool>, unassign <set> --from <tool>, export <set> and import <file>. apply links a skillset's skills into a tool, and unassign removes the links and copies Skillscout made for it that no other assigned skillset needs; both show the changes first and need a yes, or --yes without a terminal. export saves a skillset as JSON, with the Git repository each Library skill came from, and import adds one, listing the skills this Mac doesn't have yet. apply, unassign and import change the app's saved state, so they stop while Skillscout Mod is open."
     }
   }
 
@@ -213,10 +217,19 @@ enum Command: String, CaseIterable {
     case .install:
       return [
         ("--to <tool>", "The tool to link it to (overrides SKILL.md frontmatter)"),
+        ("--no-link", "Only add it to the Library, without linking it to tools"),
         ("--yes", "Link a flagged download without asking"),
       ]
     case .update:
       return [("--yes", "Apply the changes without asking")]
+    case .skillset:
+      return [
+        ("--to <tool>", "apply: the tool to assign it to"),
+        ("--from <tool>", "unassign: the tool to remove it from"),
+        ("--yes", "apply, unassign: change without asking"),
+        ("--output <file>", "export: save to a file instead of printing"),
+        ("--json", "list: print JSON"),
+      ]
     }
   }
 
@@ -239,6 +252,7 @@ enum Command: String, CaseIterable {
     case .explain: try await Commands.explain(args)
     case .install: try await Commands.install(args)
     case .update: try await Commands.update(args)
+    case .skillset: try await Commands.skillset(args)
     }
   }
 }

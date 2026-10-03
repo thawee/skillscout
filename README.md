@@ -90,6 +90,8 @@ Choose **Apply…** for an agent to preview additions, existing installations, r
 
 **Unassign…** in a management row's action menu removes only unchanged links or copies that Skillscout created for skillsets and that no remaining assignment needs. Personal installations and modified copies stay. Agents can still read skills from shared folders or other agents' folders, so **Not assigned** can coexist with available skills; the assignment row explains inherited sources. Existing skillsets migrate as unassigned collections, without claiming ownership of previous installations.
 
+Right-click a skillset and choose **Export Skillset…** to save it as JSON, with the Git repository each Library skill came from. Skills from local folders are listed without a source, since their paths don't carry over to another Mac. **Import Skillset…** under the skillsets adds one from a file, unassigned, under a new name if the name is taken, and lists the skills this Mac doesn't have yet with the sources to add in Discover. Importing never downloads anything.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png" />
   <img src="docs/screenshot-light.png" alt="The Skillscout window with the writing-style skill selected, showing the agents that load it and its usage" />
@@ -215,6 +217,7 @@ The command reads the same skills and chats as the app, and follows its settings
 | `skillscout-mod uninstall <skill>` | Moves a skill to the Trash |
 | `skillscout-mod suggest` | Asks AI for skill ideas based on requests you repeat |
 | `skillscout-mod explain <skill>` | Asks AI what a skill does |
+| `skillscout-mod skillset <action>` | Lists, shows, applies, unassigns, exports and imports skillsets |
 
 Run `skillscout-mod` alone for a summary, and `skillscout-mod help <command>` for the options of each command.
 
@@ -279,6 +282,18 @@ skillscout-mod add release-notes --all
 ```
 
 If the skill comes from a Library repository and has scripts or high-risk commands, `add` lists them and asks before linking it. Pass `--yes` to skip the question; without a terminal, `add` stops instead of waiting for an answer. `update` works the same way: it lists the added, changed and removed files and the flagged lines, and replaces the Library copy only after you confirm or pass `--yes`.
+
+`skillset` works with the skillsets you make in the app. `apply` and `unassign` preview the changes like the app does and ask first, and `export` and `import` move a skillset to another Mac. Pass `--no-link` to `install` to add an imported skillset's repositories to the Library without linking every skill:
+
+```sh
+skillscout-mod skillset list
+skillscout-mod skillset apply Engineer --to claude
+skillscout-mod skillset export Engineer --output engineer.json
+skillscout-mod skillset import engineer.json
+skillscout-mod install https://github.com/example/skills --no-link
+```
+
+`apply`, `unassign` and `import` change the app's saved state, so they stop while Skillscout Mod is open. Quit the app first, and it picks up the change the next time it opens.
 
 `uninstall` moves every copy of a skill to the Trash. Pass `--from` with one agent to remove only the copy in that agent's skills folder, which undoes an `add`:
 

@@ -288,6 +288,7 @@ enum FunctionalCheck {
     await restored.start()
     try check(restored.skillsets.first?.skills.contains(prefix) == true, "skillsets survive reloading")
     let skillsetTrash = try await checkSkillsets(store, prefix: prefix)
+      + checkSkillsetTransfer(store, prefix: prefix, home: home)
     let installationTrash = try await checkInstallConflicts(store, prefix: prefix)
     let reviewed = try await checkReviewAndUpdates(store, prefix: prefix, home: home)
     let discoverAvailable = RegistrySkill(name: "Made-up repository", description: "Made-up skills for UI verification",
@@ -570,6 +571,64 @@ enum FunctionalCheck {
     }
     try check(fm.fileExists(atPath: missingDestination.appending(path: "SKILL.md").path), "missing-source failure preserves the old installation")
     return trashed
+  }
+
+  @MainActor
+  static func checkSkillsetTransfer(_ store: AppStore, prefix: String, home: URL) async throws -> [URL] {
+    let name = prefix + "-transfer"
+    let missing = name + "-missing"
+    let source = home.appending(path: "fixtures/\(name)")
+    try writeSkill(source.appending(path: name), name: name)
+    let library = try await store.addRepoToLibrary(source: source.path)
+    store.createSkillset(name: "Transfer demo")
+    let original = store.skillsets.last!
+    store.setSkillMembership([name, missing], in: original.id, included: true)
+
+    let file = home.appending(path: "transfer.skillset.json")
+    store.exportSkillset(id: original.id, to: file)
+    let exported = try SkillsetFile.decode(Data(contentsOf: file))
+    try check(exported.name == "Transfer demo"
+      && exported.skills == [.init(name: name, source: nil), .init(name: missing, source: nil)],
+      "skillset export lists members and leaves out local folder paths")
+
+    let imported = store.importSkillset(from: file)
+    try check(imported?.name == "Transfer demo 2" && imported?.skills == [name, missing]
+      && !store.skillsetAssignments.contains { $0.skillsetID == imported?.id }
+      && store.importNote?.contains("Not on this Mac yet: \(missing).") == true,
+      "skillset import adds an unassigned copy under a free name and lists missing skills")
+    store.importNote = nil
+
+    let bad = home.appending(path: "not-a-skillset.json")
+    try "{}".write(to: bad, atomically: true, encoding: .utf8)
+    try check(store.importSkillset(from: bad) == nil && store.errorMessage != nil && store.skillsets.count(where: { $0.name.hasPrefix("Transfer demo") }) == 2,
+      "skillset import rejects a file that isn't a skillset")
+    store.errorMessage = nil
+
+    let stateCopy = home.appending(path: "state-copy.json")
+    try #"{"dismissed":["keep"],"lastAnalysis":12.5,"skillsets":[]}"#.write(to: stateCopy, atomically: true, encoding: .utf8)
+    var state = try SkillsetState.load(from: stateCopy)
+    state.skillsets = [Skillset(name: "CLI set", skills: [name])]
+    try state.save(to: stateCopy)
+    let raw = try JSONSerialization.jsonObject(with: Data(contentsOf: stateCopy)) as? [String: Any]
+    let reloaded = try SkillsetState.load(from: stateCopy)
+    try check((raw?["dismissed"] as? [String]) == ["keep"] && (raw?["lastAnalysis"] as? Double) == 12.5
+      && reloaded.skillsets.first?.skills == [name],
+      "the command line tool's skillset saves keep the rest of the app's state")
+
+    // A state file the command line tool creates from scratch must still load in the app.
+    let fm = FileManager.default
+    let saved = Paths.stateFile.deletingLastPathComponent().appending(path: "state-saved.json")
+    try fm.moveItem(at: Paths.stateFile, to: saved)
+    try SkillsetState(skillsets: [Skillset(name: "From CLI", skills: [name])]).save()
+    let fresh = AppStore()
+    await fresh.start()
+    let freshNames = fresh.skillsets.map(\.name)
+    try fm.removeItem(at: Paths.stateFile)
+    try fm.moveItem(at: saved, to: Paths.stateFile)
+    try check(freshNames == ["From CLI"], "the app loads a state file the command line tool created")
+
+    for set in store.skillsets where set.name.hasPrefix("Transfer demo") { await store.deleteSkillset(id: set.id) }
+    return try SkillInstaller.removeRepo(name: library.lastPathComponent)
   }
 
   @MainActor
