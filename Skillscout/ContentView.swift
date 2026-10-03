@@ -4,6 +4,7 @@ enum SidebarItem: Hashable {
   case discover
   case allSkills
   case used
+  case usedOnce
   case unused
   case unmanaged
   case tool(Tool)
@@ -76,15 +77,17 @@ struct ContentView: View {
 
   private var librarySkills: [Skill] { enabledSkills.filter(source.includes) }
 
-  private func isUsed(_ skill: Skill) -> Bool {
-    (store.usage[skill.id]?.chats ?? 0) > 1
-  }
+  private func chats(_ skill: Skill) -> Int { store.usage[skill.id]?.chats ?? 0 }
+  private func isUsed(_ skill: Skill) -> Bool { chats(skill) > 1 }
+  private func isUsedOnce(_ skill: Skill) -> Bool { chats(skill) == 1 }
+  private func isUnused(_ skill: Skill) -> Bool { chats(skill) == 0 }
 
   private var listedSkills: [Skill] {
     var skills: [Skill]
     switch sidebar {
     case .used: skills = librarySkills.filter(isUsed)
-    case .unused: skills = librarySkills.filter { store.usage[$0.id] == nil }
+    case .usedOnce: skills = librarySkills.filter(isUsedOnce)
+    case .unused: skills = librarySkills.filter(isUnused)
     case .unmanaged:
       skills = librarySkills.filter { skill in
         skill.isPersonal && !skill.copies.contains { $0.root.kind == .managed || $0.root.kind == .shared }
@@ -317,7 +320,10 @@ struct ContentView: View {
         sidebarRow("All skills", symbol: "square.stack.3d.up", count: librarySkills.count, item: .allSkills)
         sidebarRow("Used", symbol: "checkmark.circle", count: librarySkills.count(where: isUsed), item: .used)
           .help("Used in more than one chat within the selected lookback period")
-        sidebarRow("Unused", symbol: "moon.zzz", count: librarySkills.count(where: { store.usage[$0.id] == nil }), item: .unused)
+        sidebarRow("Used once", symbol: "1.circle", count: librarySkills.count(where: isUsedOnce), item: .usedOnce)
+          .help("Used in exactly one chat within the selected lookback period")
+        sidebarRow("Unused", symbol: "moon.zzz", count: librarySkills.count(where: isUnused), item: .unused)
+          .help("Not used in any chat within the selected lookback period")
         sidebarRow("AI tools only", symbol: "folder.badge.person.crop", count: librarySkills.count(where: { skill in
           skill.isPersonal && !skill.copies.contains { $0.root.kind == .managed || $0.root.kind == .shared }
         }), item: .unmanaged)
@@ -352,8 +358,7 @@ struct ContentView: View {
               .contextMenu {
                 Button("Refresh Source") {
                   Task {
-                    do { try await store.redownloadRepo(name: repo) }
-                    catch { store.errorMessage = error.localizedDescription }
+                    await store.previewRepoUpdate(name: repo)
                   }
                 }
                 Button("Remove Repository", role: .destructive) {
@@ -488,5 +493,10 @@ private struct Presentations: ViewModifier {
       }
       .sheet(item: $store.renaming) { RenameSheet(skill: $0) }
       .sheet(item: $store.editing) { EditSheet(skill: $0) }
+      .sheet(item: Binding(
+        get: { store.pendingRepoUpdate },
+        set: { if $0 == nil { Task { await store.finishRepoUpdate(apply: false) } } }
+      )) { RepoUpdateSheet(update: $0) }
+      .sheet(item: $store.pendingReviewedAdd) { ReviewedAddSheet(request: $0) }
   }
 }

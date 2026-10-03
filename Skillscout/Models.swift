@@ -235,10 +235,11 @@ struct Skill: Identifiable, Sendable, Hashable {
   }
 
   var managedRepos: [String] {
-    let managedURL = Paths.at(".config/skillscout/skills").path
+    // Compare the scanned folder with its root, both unresolved, so a home path behind a link still matches.
     let repos = copies.filter { $0.root.kind == .managed }.compactMap { copy -> String? in
-      let path = copy.resolved.path
-      guard path.hasPrefix(managedURL) else { return nil }
+      let managedURL = copy.root.url.path
+      let path = copy.folder.path
+      guard path.hasPrefix(managedURL + "/") else { return nil }
       let relative = String(path.dropFirst(managedURL.count))
       let components = relative.split(separator: "/")
       guard let first = components.first, !first.isEmpty else { return nil }

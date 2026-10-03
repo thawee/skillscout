@@ -197,6 +197,7 @@ struct SkillsetPreview: View {
   var body: some View {
     if let skillset = store.skillsets.first(where: { $0.id == skillsetID }) {
       let plan = store.skillsetPreview(skillset, to: tool, assigned: assigned)
+      let reviews = plan.additions.reduce(into: [Skill.ID: SkillReview]()) { $0[$1.id] = additionReview($1) }
       VStack(alignment: .leading, spacing: 16) {
         Text("\(assigned ? "Apply" : "Unassign") \(skillset.name) \(assigned ? "to" : "from") \(tool.name)")
           .font(.headline)
@@ -205,7 +206,15 @@ struct SkillsetPreview: View {
           .font(.callout).foregroundStyle(.secondary)
         ScrollView {
           VStack(alignment: .leading, spacing: 8) {
-            ForEach(plan.additions) { Label("Add \($0.name)", systemImage: "plus") }
+            ForEach(plan.additions) { skill in
+              if let review = reviews[skill.id] {
+                Label("Add \(skill.name): \(review.summary.lowercased())", systemImage: "exclamationmark.triangle")
+                  .foregroundStyle(.orange)
+                  .help("From a downloaded repository. Open the skill to read its Contents before applying.")
+              } else {
+                Label("Add \(skill.name)", systemImage: "plus")
+              }
+            }
             ForEach(plan.removals, id: \.path) { Label("Remove \($0.skillID)", systemImage: "minus") }
             ForEach(plan.issues, id: \.self) { Label($0, systemImage: "exclamationmark.triangle").foregroundStyle(.orange) }
           }
@@ -214,6 +223,10 @@ struct SkillsetPreview: View {
         .frame(maxHeight: 220)
         if !plan.issues.isEmpty {
           Text("Available changes can be applied now. Unresolved items remain visible for retry.").font(.caption)
+        }
+        if !reviews.isEmpty {
+          Text("Skills marked in orange come from downloaded repositories and have scripts or high-risk commands. Read their Contents before applying.")
+            .font(.caption).foregroundStyle(.secondary)
         }
         HStack {
           Spacer()
@@ -233,6 +246,14 @@ struct SkillsetPreview: View {
       .disabled(store.isManagingSkillsets)
       .interactiveDismissDisabled(store.isManagingSkillsets)
     }
+  }
+
+  /// The review of an addition's source when it comes from a downloaded repository and needs a look.
+  private func additionReview(_ skill: Skill) -> SkillReview? {
+    guard let source = SkillInstaller.skillsetSource(skill, preferredSources: store.preferredSources),
+          SkillInstaller.isFromLibrary(source) else { return nil }
+    let review = SkillReview.inspect(source.resolved)
+    return review.needsReview ? review : nil
   }
 }
 

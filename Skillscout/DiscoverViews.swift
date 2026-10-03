@@ -87,6 +87,7 @@ struct DiscoverDetail: View {
   @Environment(AppStore.self) private var store
   @State private var isWorking = false
   @State private var libraryPath: String?
+  @State private var libraryCommit: String?
   @State private var showingRemove = false
 
   @State private var showingTokenPrompt = false
@@ -120,6 +121,12 @@ struct DiscoverDetail: View {
           Label("In Library", systemImage: "checkmark.circle.fill")
             .font(.callout.weight(.semibold))
             .foregroundStyle(.green)
+          if let libraryCommit {
+            Text("Downloaded commit \(libraryCommit)")
+              .font(.callout.monospaced())
+              .foregroundStyle(.secondary)
+              .textSelection(.enabled)
+          }
           Text("\(store.skills.count { $0.managedRepos.contains(SkillInstaller.repoName(for: skill.repo)) }) skills available to browse. Add individual skills to an AI tool or skillset from there.")
             .font(.callout)
             .foregroundStyle(.secondary)
@@ -197,6 +204,9 @@ struct DiscoverDetail: View {
       checkLibraryStatus()
       showingTokenPrompt = false
     }
+    .onChange(of: store.pendingRepoUpdate == nil) {
+      checkLibraryStatus()
+    }
     .sheet(isPresented: $showingTokenPrompt) {
       VStack(alignment: .leading, spacing: 20) {
           Text("Authentication Required").font(.headline)
@@ -240,8 +250,7 @@ struct DiscoverDetail: View {
   private func redownload() {
     Task {
       isWorking = true
-      do { try await store.redownloadRepo(name: SkillInstaller.repoName(for: skill.repo)) }
-      catch { store.errorMessage = error.localizedDescription }
+      await store.previewRepoUpdate(name: SkillInstaller.repoName(for: skill.repo))
       checkLibraryStatus()
       isWorking = false
     }
@@ -267,8 +276,10 @@ struct DiscoverDetail: View {
       || (try? String(contentsOf: localMarker, encoding: .utf8)) == skill.repo
     if FileManager.default.fileExists(atPath: destination.path, isDirectory: &isDir), isDir.boolValue, matchesLocalSource {
       libraryPath = Paths.abbreviate(destination)
+      libraryCommit = SkillInstaller.gitCommit(destination)
     } else {
       libraryPath = nil
+      libraryCommit = nil
     }
   }
 
@@ -288,5 +299,152 @@ struct DiscoverDetail: View {
         isWorking = false
       }
     }
+  }
+}
+
+/// The scripts and flagged lines of a skill review, for reading before adding or updating skills.
+struct ReviewFindingsView: View {
+  let review: SkillReview
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 6) {
+      ForEach(review.scripts, id: \.path) { file in
+        Label(file.path, systemImage: "terminal")
+          .font(.callout.monospaced())
+          .foregroundStyle(.orange)
+      }
+      ForEach(review.findings, id: \.self) { finding in
+        VStack(alignment: .leading, spacing: 2) {
+          Label("\(finding.reason) · \(finding.path):\(finding.line)",
+                systemImage: finding.highRisk ? "exclamationmark.triangle.fill" : "info.circle")
+            .font(.callout)
+            .foregroundStyle(finding.highRisk ? .orange : .secondary)
+          Text(finding.text)
+            .font(.caption.monospaced())
+            .foregroundStyle(.secondary)
+            .lineLimit(2)
+            .textSelection(.enabled)
+            .padding(.leading, 22)
+        }
+      }
+    }
+  }
+}
+
+struct RepoUpdateSheet: View {
+  @Environment(AppStore.self) private var store
+  let update: RepoUpdate
+
+  private var version: String? {
+    switch (update.oldCommit, update.newCommit) {
+    case let (old?, new?) where old != new: "Commit \(old) → \(new)"
+    case let (old?, new?) where old == new: "Commit \(new), unchanged"
+    case let (nil, new?): "Commit \(new)"
+    default: nil
+    }
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 14) {
+      Text("Update \(update.name)?")
+        .font(.headline)
+      VStack(alignment: .leading, spacing: 2) {
+        Text(update.source)
+        if let version { Text(version) }
+      }
+      .font(.callout)
+      .foregroundStyle(.secondary)
+      .textSelection(.enabled)
+
+      if update.hasChanges {
+        ScrollView {
+          VStack(alignment: .leading, spacing: 12) {
+            fileGroup("Added", update.added, symbol: "plus.circle")
+            fileGroup("Changed", update.changed, symbol: "pencil.circle")
+            fileGroup("Removed", update.removed, symbol: "minus.circle")
+            if update.review.needsReview || !update.review.findings.isEmpty {
+              VStack(alignment: .leading, spacing: 6) {
+                Text("Worth reading in new and changed files").font(.subheadline.weight(.semibold))
+                ReviewFindingsView(review: update.review)
+              }
+            }
+          }
+          .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxHeight: 320)
+        Text("The current copy moves to the Trash. Changes you made to it in the Library are replaced.")
+          .font(.callout)
+          .foregroundStyle(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
+      } else {
+        Text("The source has no changes.")
+          .font(.callout)
+      }
+
+      HStack {
+        Spacer()
+        Button("Cancel", role: .cancel) { finish(apply: false) }
+          .keyboardShortcut(.cancelAction)
+        if update.hasChanges {
+          Button("Update", action: { finish(apply: true) })
+            .keyboardShortcut(.defaultAction)
+        }
+      }
+    }
+    .padding(20)
+    .frame(width: 520)
+  }
+
+  @ViewBuilder
+  private func fileGroup(_ title: String, _ paths: [String], symbol: String) -> some View {
+    if !paths.isEmpty {
+      VStack(alignment: .leading, spacing: 4) {
+        Text("\(title) (\(paths.count))").font(.subheadline.weight(.semibold))
+        ForEach(paths.prefix(50), id: \.self) { path in
+          Label(path, systemImage: symbol).font(.callout.monospaced())
+        }
+        if paths.count > 50 {
+          Text("and \(paths.count - 50) more").font(.callout).foregroundStyle(.secondary)
+        }
+      }
+    }
+  }
+
+  private func finish(apply: Bool) {
+    Task { await store.finishRepoUpdate(apply: apply) }
+  }
+}
+
+struct ReviewedAddSheet: View {
+  @Environment(AppStore.self) private var store
+  @Environment(\.dismiss) private var dismiss
+  let request: PendingReviewedAdd
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 14) {
+      Text("Review \(request.skill.name) before adding it to \(request.tool.name)")
+        .font(.headline)
+      Text("This skill comes from a downloaded repository and has \(request.review.summary.lowercased()). \(request.tool.name) will follow its instructions, so read these before adding it.")
+        .font(.callout)
+        .foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
+      ScrollView {
+        ReviewFindingsView(review: request.review)
+          .frame(maxWidth: .infinity, alignment: .leading)
+      }
+      .frame(maxHeight: 280)
+      HStack {
+        Button("Show in Finder") { Finder.reveal(request.folder) }
+        Spacer()
+        Button("Cancel", role: .cancel) { dismiss() }
+          .keyboardShortcut(.cancelAction)
+        Button("Add Anyway") {
+          dismiss()
+          Task { await store.add(request.skill, to: request.tool, from: request.source, reviewed: true) }
+        }
+      }
+    }
+    .padding(20)
+    .frame(width: 520)
   }
 }

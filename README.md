@@ -52,7 +52,7 @@ defaults write com.thawee.skillscout AppUpdaterAutomaticChecks -bool false
 - **Edit** changes a skill's `SKILL.md` right in the app, in every copy that has the same text
 - **Rename** gives a skill a new name in its folders, its links and its `SKILL.md`, and keeps its usage
 - **Similar skills** pairs the skills that read alike, and **Merge with AI** turns two of them into one
-- **Unused** lists the skills no chat touched in the last 60 days
+- **Used once** lists skills used in exactly one chat, and **Unused** the skills no chat touched, within the same lookback period
 - Usage for each skill: how many chats, from which agents, in which projects, and when you last used it
 - The skills you created last come first, and you can sort by name or by use instead
 - Search by name or description with `⌘F`
@@ -74,7 +74,11 @@ Choose **Add to Library** in Discover to download a repository into `~/.config/s
 Use **Add Custom Source** to save a Git repository URL or choose a local folder containing one or more `SKILL.md` files. Adding a local source to Library copies the folder; **Refresh from Folder** updates that copy after you edit the original. Existing links to skills in the Library copy stay in place.
 Registered local folders also appear under **Sources** before import, where you can open their Discover details and choose **Add to Library**. After import, the Source row browses the copied skills.
 
-**Re-download** or **Refresh from Folder** stages a replacement before changing the library copy. If the source is missing or the replacement would break an existing tool link, the current copy stays. **Remove from Library…** moves the repository and links into it to the Trash after confirmation; independent copies stay. Adding a custom source to Discover only saves its address or path until you choose **Add to Library**. The CLI's `skillscout-mod install` still links skills to enabled or supported tools by default.
+**Re-download** or **Refresh from Folder** stages a replacement and shows what would change before touching the library copy: the commit it came from, the added, changed and removed files, and any scripts or high-risk commands in the new and changed files. Choose **Update** to put it in place, or **Cancel** to discard it. If the source is missing, the replacement would break an existing tool link, or the library copy changed since the preview, the current copy stays. The Discover details show the commit of the downloaded copy.
+
+### Reviewing downloaded skills
+
+Agents follow a skill's instructions and can run the scripts beside it, so skills from downloaded repositories show a **Contents** section listing their scripts and the lines worth reading: commands that download and run a script, decode hidden content, use `sudo`, or delete from the home or root folder, plus notes for `eval`, `chmod` and network downloads. **Add to tool…** asks first when a downloaded skill has scripts or high-risk commands, and a skillset's **Apply…** preview marks those skills. The checks are a heuristic, so a skill without flags still deserves a look before you trust it. **Remove from Library…** moves the repository and links into it to the Trash after confirmation; independent copies stay. Adding a custom source to Discover only saves its address or path until you choose **Add to Library**. The CLI's `skillscout-mod install` still links skills to enabled or supported tools by default, after listing any scripts or high-risk commands and asking first.
 
 ## Skillsets
 
@@ -205,7 +209,7 @@ The command reads the same skills and chats as the app, and follows its settings
 | `skillscout-mod similar` | Lists the pairs of skills that read alike |
 | `skillscout-mod add <skill> --to <tool>` | Adds a skill to another agent |
 | `skillscout-mod install <url_or_path>` | Adds a repository or local skill to the managed Library |
-| `skillscout-mod update <skill>` | Refreshes a managed Git repository |
+| `skillscout-mod update <skill>` | Shows the changes to a Library repository and applies them after you confirm |
 | `skillscout-mod rename <skill> <new-name>` | Gives a skill a new name |
 | `skillscout-mod merge <skill> <other>` | Merges the other skill into the first one with AI |
 | `skillscout-mod uninstall <skill>` | Moves a skill to the Trash |
@@ -273,6 +277,8 @@ release-notes         12  4 days ago   Cursor 8, Gemini CLI 4
 ```sh
 skillscout-mod add release-notes --all
 ```
+
+If the skill comes from a Library repository and has scripts or high-risk commands, `add` lists them and asks before linking it. Pass `--yes` to skip the question; without a terminal, `add` stops instead of waiting for an answer. `update` works the same way: it lists the added, changed and removed files and the flagged lines, and replaces the Library copy only after you confirm or pass `--yes`.
 
 `uninstall` moves every copy of a skill to the Trash. Pass `--from` with one agent to remove only the copy in that agent's skills folder, which undoes an `add`:
 

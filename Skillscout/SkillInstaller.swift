@@ -505,6 +505,19 @@ enum SkillInstaller {
        }
     }
 
+    let skillDirs = skillFolders(in: destination)
+    guard !skillDirs.isEmpty else {
+       try? fm.removeItem(at: destination)
+       throw InstallFailure.invalidSkill
+    }
+    try linkSkills(in: destination, name: name, explicitTools: explicitTools)
+
+    return destination
+  }
+
+  /// The skill folders in a Library repository, including the hidden `.claude/skills` folder some repositories use.
+  static func skillFolders(in destination: URL) -> [URL] {
+    let fm = FileManager.default
     var skillDirs: [URL] = []
     if let enumerator = fm.enumerator(at: destination, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles, .skipsPackageDescendants]) {
       while let url = enumerator.nextObject() as? URL {
@@ -523,12 +536,15 @@ enum SkillInstaller {
         }
       }
     }
+    return skillDirs
+  }
 
-    guard !skillDirs.isEmpty else {
-       try? fm.removeItem(at: destination)
-       throw InstallFailure.invalidSkill
-    }
-
+  /// Links each skill of a Library repository into the tools that should load it: the explicit tools,
+  /// else the skill's `supported_tools`, else every enabled tool.
+  static func linkSkills(in destination: URL, name: String? = nil, explicitTools: [Tool]?) throws {
+    let fm = FileManager.default
+    let name = name ?? destination.lastPathComponent
+    let skillDirs = skillFolders(in: destination)
     for skillDir in skillDirs {
        let skillFile = skillDir.appending(path: "SKILL.md")
        let markdown = (try? String(contentsOf: skillFile, encoding: .utf8)) ?? ""
@@ -555,8 +571,6 @@ enum SkillInstaller {
           }
        }
     }
-
-    return destination
   }
 
   static func save(markdown: String, fallbackName: String, to target: SaveTarget) throws -> URL {
@@ -604,5 +618,177 @@ enum SkillInstaller {
     return String(lowered)
       .split(separator: "-", omittingEmptySubsequences: true)
       .joined(separator: "-")
+  }
+}
+
+/// A re-downloaded or refreshed repository, staged next to the current copy until the user applies or discards it.
+struct RepoUpdate: Identifiable, Sendable {
+  let name: String
+  /// The source address without any credentials.
+  let source: String
+  let staged: URL
+  let oldCommit: String?
+  let newCommit: String?
+  let added: [String]
+  let removed: [String]
+  let changed: [String]
+  /// The review of the added and changed files.
+  let review: SkillReview
+  /// The current copy's file hashes when the update was prepared, so apply can refuse a copy that changed since.
+  fileprivate let currentFingerprints: [String: String]
+
+  var id: URL { staged }
+  var hasChanges: Bool { !added.isEmpty || !removed.isEmpty || !changed.isEmpty }
+}
+
+extension SkillInstaller {
+  enum RepoUpdateFailure: LocalizedError {
+    case changedSincePreview(String)
+
+    var errorDescription: String? {
+      switch self {
+      case .changedSincePreview(let name): "\(name) changed in the Library since the update was previewed. Refresh it again to see the current changes."
+      }
+    }
+  }
+
+  /// Whether a copy's files live in the Library, directly or through a link, so they came from a downloaded repository.
+  static func isFromLibrary(_ copy: SkillCopy) -> Bool {
+    if copy.root.kind == .managed { return true }
+    let library = SkillRoot.all.first { $0.kind == .managed }!.url.resolvingSymlinksInPath().path
+    return copy.resolved.resolvingSymlinksInPath().path.hasPrefix(library + "/")
+  }
+
+  /// Removes staging folders a quit left behind while an update preview was open.
+  private static func removeStaleStaging(name: String, in managedRoot: URL) {
+    let fm = FileManager.default
+    let prefix = ".\(name)-staged-"
+    for entry in (try? fm.contentsOfDirectory(atPath: managedRoot.path)) ?? [] where entry.hasPrefix(prefix) {
+      try? fm.removeItem(at: managedRoot.appending(path: entry))
+    }
+  }
+
+  static func managedRepoFolder(_ name: String) -> URL {
+    SkillRoot.all.first { $0.kind == .managed }!.url.appending(path: name)
+  }
+
+  /// The source a managed repository was added from: its local folder, or its Git remote.
+  static func repoSource(name: String) throws -> String {
+    guard !name.isEmpty, name == slug(name) else { throw InstallFailure.notFound }
+    let repoFolder = managedRepoFolder(name)
+    if let path = try? String(contentsOf: repoFolder.appending(path: ".skillscout-local-source"), encoding: .utf8), !path.isEmpty {
+      return path
+    }
+    guard let config = try? String(contentsOf: repoFolder.appending(path: ".git/config"), encoding: .utf8),
+          let range = config.range(of: "url = "),
+          let line = config[range.upperBound...].split(separator: "\n").first else {
+      throw InstallFailure.notFound
+    }
+    return line.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  /// A source address with any user name, password or token removed.
+  static func redactedSource(_ source: String) -> String {
+    guard source.hasPrefix("http"), var components = URLComponents(string: source),
+          components.user != nil || components.password != nil else { return source }
+    components.user = nil
+    components.password = nil
+    return components.string ?? source
+  }
+
+  /// The short commit of a Git checkout, or nil for a folder without Git.
+  static func gitCommit(_ folder: URL) -> String? {
+    guard FileManager.default.fileExists(atPath: folder.appending(path: ".git").path) else { return nil }
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+    process.arguments = ["-C", folder.path, "rev-parse", "--short", "HEAD"]
+    let pipe = Pipe()
+    process.standardOutput = pipe
+    process.standardError = FileHandle.nullDevice
+    guard (try? process.run()) != nil else { return nil }
+    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+    process.waitUntilExit()
+    guard process.terminationStatus == 0 else { return nil }
+    return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  /// Downloads or copies the repository's source again into a hidden staging folder and compares it with the current copy.
+  /// Nothing in the Library changes until `applyRepoUpdate`.
+  static func prepareRepoUpdate(name: String) async throws -> RepoUpdate {
+    let source = try repoSource(name: name)
+    let repoFolder = managedRepoFolder(name)
+    removeStaleStaging(name: name, in: repoFolder.deletingLastPathComponent())
+    let staged = repoFolder.deletingLastPathComponent().appending(path: ".\(name)-staged-\(UUID().uuidString)")
+    _ = try await install(source: source, explicitTools: [], stagingAt: staged)
+    do {
+      try checkLinksSurvive(repoFolder: repoFolder, replacement: staged)
+    } catch {
+      try? FileManager.default.removeItem(at: staged)
+      throw error
+    }
+    let current = SkillReview.fingerprints(repoFolder)
+    let next = SkillReview.fingerprints(staged)
+    let added = next.keys.filter { current[$0] == nil }.sorted()
+    let removed = current.keys.filter { next[$0] == nil }.sorted()
+    let changed = next.keys.filter { current[$0] != nil && current[$0] != next[$0] }.sorted()
+    return RepoUpdate(
+      name: name, source: redactedSource(source), staged: staged,
+      oldCommit: gitCommit(repoFolder), newCommit: gitCommit(staged),
+      added: added, removed: removed, changed: changed,
+      review: SkillReview.inspect(staged).limited(to: Set(added + changed)),
+      currentFingerprints: current)
+  }
+
+  static func discardRepoUpdate(_ update: RepoUpdate) {
+    try? FileManager.default.removeItem(at: update.staged)
+  }
+
+  /// Puts the staged copy in place and moves the previous one to the Trash, restoring it if the swap fails.
+  /// Returns the Trash location of the previous copy.
+  @discardableResult
+  static func applyRepoUpdate(_ update: RepoUpdate) throws -> [URL] {
+    let fm = FileManager.default
+    let repoFolder = managedRepoFolder(update.name)
+    defer { if fm.fileExists(atPath: update.staged.path) { try? fm.removeItem(at: update.staged) } }
+    guard SkillReview.fingerprints(repoFolder) == update.currentFingerprints else {
+      throw RepoUpdateFailure.changedSincePreview(update.name)
+    }
+    try checkLinksSurvive(repoFolder: repoFolder, replacement: update.staged)
+
+    let backup = repoFolder.deletingLastPathComponent().appending(path: ".\(update.name)-backup-\(UUID().uuidString)")
+    try fm.moveItem(at: repoFolder, to: backup)
+    do {
+      try fm.moveItem(at: update.staged, to: repoFolder)
+      var result: NSURL?
+      try fm.trashItem(at: backup, resultingItemURL: &result)
+      return result.map { [$0 as URL] } ?? []
+    } catch {
+      // Roll back while the old repository is still in its hidden backup folder.
+      if fm.fileExists(atPath: repoFolder.path) && !fm.fileExists(atPath: update.staged.path) {
+        try? fm.moveItem(at: repoFolder, to: update.staged)
+      }
+      if fm.fileExists(atPath: backup.path) && !fm.fileExists(atPath: repoFolder.path) {
+        try fm.moveItem(at: backup, to: repoFolder)
+      }
+      throw error
+    }
+  }
+
+  /// Existing links keep their target path when the new repository replaces the old one.
+  /// Refuses an update that would leave any of those paths broken.
+  private static func checkLinksSurvive(repoFolder: URL, replacement: URL) throws {
+    let fm = FileManager.default
+    for root in SkillRoot.all where root.kind == .user || root.kind == .shared {
+      guard fm.fileExists(atPath: root.url.path) else { continue }
+      for link in try fm.contentsOfDirectory(at: root.url, includingPropertiesForKeys: [.isSymbolicLinkKey]) {
+        guard (try link.resourceValues(forKeys: [.isSymbolicLinkKey])).isSymbolicLink == true else { continue }
+        let target = link.resolvingSymlinksInPath().path
+        guard target == repoFolder.path || target.hasPrefix(repoFolder.path + "/") else { continue }
+        let relative = String(target.dropFirst(repoFolder.path.count))
+        guard fm.fileExists(atPath: replacement.path + relative + "/SKILL.md") else {
+          throw InstallFailure.linkedSkillMissing(Paths.abbreviate(link))
+        }
+      }
+    }
   }
 }

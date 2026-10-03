@@ -17,6 +17,7 @@
 		31F0312A63C31BCB33D669D0 /* SkillSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2F1910B2F3AC4B72EA3830 /* SkillSimilarity.swift */; };
 		378AA334FB694C25962B9245 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEA41E1474F7BE423B56D346 /* ContentView.swift */; };
 		4A585E671547357F3699831A /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E1EA96200BEB72A33D6E38 /* Models.swift */; };
+		56B2C0632C4077DB2FCB717D /* SkillReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0E0DAF3A6CF8673C432C76C /* SkillReview.swift */; };
 		5F85019D7561BB0D7566001B /* SuggestionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076A549C0CCE0367FE4D11D0 /* SuggestionViews.swift */; };
 		62C88BC3E3B945945C3EA296 /* PromptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53B6FF6B0D5A3694C197EBC0 /* PromptLibrary.swift */; };
 		681E32575030D0E0B2D761D0 /* Analyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B18AC56992256E677133D35C /* Analyzer.swift */; };
@@ -27,6 +28,7 @@
 		7428972CE87CBDC6CA0A4568 /* SkillscoutApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBC9224FFE73C8083ADF7A81 /* SkillscoutApp.swift */; };
 		769B6AB81AA5DB52B5C8E72B /* SkillInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1D7A86C6C2F6A665C94583 /* SkillInstaller.swift */; };
 		7D1ED7DC185BDC28054F80F3 /* SkillscoutCLI in Embed Dependencies */ = {isa = PBXBuildFile; fileRef = E26D1D5FD710CB617FB08F62 /* SkillscoutCLI */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		7EAA6460180F438E2323C891 /* SkillReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0E0DAF3A6CF8673C432C76C /* SkillReview.swift */; };
 		84E808F8E0F83C19CC874971 /* SimilarViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E76D5137A9F0049E8AC4D8E /* SimilarViews.swift */; };
 		84F02E4790C165F04AD7A63B /* DiscoverViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B2204DD544E18EC3E164284 /* DiscoverViews.swift */; };
 		87C08B6B099E31DE98657B1B /* AIEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEF9DD364F39E0F1EC34650C /* AIEngine.swift */; };
@@ -106,6 +108,7 @@
 		CBC9224FFE73C8083ADF7A81 /* SkillscoutApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillscoutApp.swift; sourceTree = "<group>"; };
 		CEF9DD364F39E0F1EC34650C /* AIEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIEngine.swift; sourceTree = "<group>"; };
 		D8B95A883374ADCF2BB2A9A5 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
+		E0E0DAF3A6CF8673C432C76C /* SkillReview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillReview.swift; sourceTree = "<group>"; };
 		E26D1D5FD710CB617FB08F62 /* SkillscoutCLI */ = {isa = PBXFileReference; includeInIndex = 0; path = SkillscoutCLI; sourceTree = BUILT_PRODUCTS_DIR; };
 		E76FCD9E9E2549A3682D8F84 /* SkillScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillScanner.swift; sourceTree = "<group>"; };
 		EAD0529B4BB35B1D34A4149E /* SkillsetInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillsetInstaller.swift; sourceTree = "<group>"; };
@@ -145,6 +148,7 @@
 				13E320FCE90C51C4EA51E9B6 /* SettingsView.swift */,
 				9E76D5137A9F0049E8AC4D8E /* SimilarViews.swift */,
 				CA1D7A86C6C2F6A665C94583 /* SkillInstaller.swift */,
+				E0E0DAF3A6CF8673C432C76C /* SkillReview.swift */,
 				E76FCD9E9E2549A3682D8F84 /* SkillScanner.swift */,
 				CBC9224FFE73C8083ADF7A81 /* SkillscoutApp.swift */,
 				EAD0529B4BB35B1D34A4149E /* SkillsetInstaller.swift */,
@@ -278,6 +282,7 @@
 				62C88BC3E3B945945C3EA296 /* PromptLibrary.swift in Sources */,
 				9D3695DC64486D9ED2CEC606 /* Registry.swift in Sources */,
 				723294FB0DDBB211E9C5C3EE /* SkillInstaller.swift in Sources */,
+				56B2C0632C4077DB2FCB717D /* SkillReview.swift in Sources */,
 				7200E247BDF839C1210920BD /* SkillScanner.swift in Sources */,
 				6A3DB35F25B28E6CC9B0D70C /* SkillSimilarity.swift in Sources */,
 				27C9E2A4A6BC1AD429CDF52B /* SkillsetInstaller.swift in Sources */,
@@ -308,6 +313,7 @@
 				11E7DF1CFFE0D2991E331A43 /* SettingsView.swift in Sources */,
 				84E808F8E0F83C19CC874971 /* SimilarViews.swift in Sources */,
 				769B6AB81AA5DB52B5C8E72B /* SkillInstaller.swift in Sources */,
+				7EAA6460180F438E2323C891 /* SkillReview.swift in Sources */,
 				A8E5EF8255CE60720E91CC0F /* SkillScanner.swift in Sources */,
 				31F0312A63C31BCB33D669D0 /* SkillSimilarity.swift in Sources */,
 				BD66695BCC8D9CC8ED4ECECB /* SkillViews.swift in Sources */,

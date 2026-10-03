@@ -47,6 +47,7 @@ targets:
       - Skillscout/Analyzer.swift
       - Skillscout/AIEngine.swift
       - Skillscout/Registry.swift
+      - Skillscout/SkillReview.swift
     settings:
       base:
         PRODUCT_NAME: skillscout-mod

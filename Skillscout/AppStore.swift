@@ -33,6 +33,8 @@ final class AppStore {
   var isAnalyzing = false
   var busy: Set<String> = []
   var errorMessage: String?
+  var pendingRepoUpdate: RepoUpdate?
+  var pendingReviewedAdd: PendingReviewedAdd?
   var addConflict: SkillInstaller.AddConflict?
   var searchRequests = 0
   /// Copies waiting for you to confirm, before they go to the Trash.
@@ -245,7 +247,16 @@ final class AppStore {
     }
   }
 
-  func add(_ skill: Skill, to tool: Tool, from source: SkillCopy? = nil) async {
+  /// Adds a skill to a tool. A source from a downloaded repository with scripts or high-risk commands
+  /// is shown for review first, unless the user already reviewed it.
+  func add(_ skill: Skill, to tool: Tool, from source: SkillCopy? = nil, reviewed: Bool = false) async {
+    if !reviewed, let chosen = source ?? preferredSource(for: skill), SkillInstaller.isFromLibrary(chosen) {
+      let review = SkillReview.inspect(chosen.resolved)
+      if review.needsReview {
+        pendingReviewedAdd = PendingReviewedAdd(skill: skill, tool: tool, source: source, folder: chosen.resolved, review: review)
+        return
+      }
+    }
     do {
       _ = try SkillInstaller.add(skill, to: tool, from: source ?? preferredSource(for: skill))
       if let source { setPreferredSource(source, for: skill) }
@@ -466,62 +477,38 @@ final class AppStore {
     await refreshSkills()
   }
 
+  /// Prepares and applies a repository update without a preview.
   @discardableResult
   func redownloadRepo(name: String) async throws -> [URL] {
-    guard !name.isEmpty, name == SkillInstaller.slug(name) else { throw SkillInstaller.InstallFailure.notFound }
-    let managedRoot = SkillRoot.all.first { $0.kind == .managed }!.url
-    let repoFolder = managedRoot.appending(path: name)
-    let localSource = repoFolder.appending(path: ".skillscout-local-source")
-    let source: String
-    if let path = try? String(contentsOf: localSource, encoding: .utf8), !path.isEmpty {
-      source = path
-    } else {
-      let gitConfig = repoFolder.appending(path: ".git/config")
-      guard let configStr = try? String(contentsOf: gitConfig, encoding: .utf8),
-            let range = configStr.range(of: "url = ") else {
-        throw SkillInstaller.InstallFailure.notFound
-      }
-      source = String(configStr[range.upperBound...].split(separator: "\n").first!.trimmingCharacters(in: .whitespacesAndNewlines))
-    }
+    let update = try await SkillInstaller.prepareRepoUpdate(name: name)
+    let trashed = try SkillInstaller.applyRepoUpdate(update)
+    await refreshSkills()
+    return trashed
+  }
 
-    let fm = FileManager.default
-    let nonce = UUID().uuidString
-    let staged = managedRoot.appending(path: ".\(name)-staged-\(nonce)")
-    let backup = managedRoot.appending(path: ".\(name)-backup-\(nonce)")
-    defer { if fm.fileExists(atPath: staged.path) { try? fm.removeItem(at: staged) } }
-    _ = try await SkillInstaller.install(source: source, explicitTools: [], stagingAt: staged)
-
-    // Existing links keep their target path when the new repository replaces the old one.
-    // Refuse an update that would leave any of those paths broken.
-    for root in SkillRoot.all where root.kind == .user || root.kind == .shared {
-      guard fm.fileExists(atPath: root.url.path) else { continue }
-      for link in try fm.contentsOfDirectory(at: root.url, includingPropertiesForKeys: [.isSymbolicLinkKey]) {
-        guard (try link.resourceValues(forKeys: [.isSymbolicLinkKey])).isSymbolicLink == true else { continue }
-        let target = link.resolvingSymlinksInPath().path
-        guard target == repoFolder.path || target.hasPrefix(repoFolder.path + "/") else { continue }
-        let relative = String(target.dropFirst(repoFolder.path.count))
-        let replacement = URL(fileURLWithPath: staged.path + relative)
-        guard fm.fileExists(atPath: replacement.appending(path: "SKILL.md").path) else {
-          throw SkillInstaller.InstallFailure.linkedSkillMissing(Paths.abbreviate(link))
-        }
-      }
-    }
-
-    try fm.moveItem(at: repoFolder, to: backup)
+  /// Stages a repository update and shows its changes for the user to apply or discard.
+  func previewRepoUpdate(name: String) async {
     do {
-      try fm.moveItem(at: staged, to: repoFolder)
-      var result: NSURL?
-      try fm.trashItem(at: backup, resultingItemURL: &result)
-      await refreshSkills()
-      return result.map { [$0 as URL] } ?? []
+      pendingRepoUpdate = try await SkillInstaller.prepareRepoUpdate(name: name)
     } catch {
-      // Roll back while the old repository is still in its hidden backup folder.
-      if fm.fileExists(atPath: repoFolder.path) { try? fm.moveItem(at: repoFolder, to: staged) }
-      if fm.fileExists(atPath: backup.path) && !fm.fileExists(atPath: repoFolder.path) {
-        try fm.moveItem(at: backup, to: repoFolder)
-      }
-      throw error
+      errorMessage = error.localizedDescription
     }
+  }
+
+  /// Applies or discards the previewed update, and returns where the previous copy went in the Trash.
+  @discardableResult
+  func finishRepoUpdate(apply: Bool) async -> [URL] {
+    guard let update = pendingRepoUpdate else { return [] }
+    pendingRepoUpdate = nil
+    guard apply else {
+      SkillInstaller.discardRepoUpdate(update)
+      return []
+    }
+    var trashed: [URL] = []
+    do { trashed = try SkillInstaller.applyRepoUpdate(update) }
+    catch { errorMessage = error.localizedDescription }
+    await refreshSkills()
+    return trashed
   }
 
   func repairLibrary() async -> String {
@@ -601,4 +588,14 @@ final class AppStore {
     if deletedSymlinks > 0 { msgs.append("Deleted \(deletedSymlinks) broken links") }
     return msgs.isEmpty ? "No issues found." : msgs.joined(separator: ", ") + "."
   }
+}
+
+/// An Add to tool request waiting for the user to read the skill's scripts and flagged commands.
+struct PendingReviewedAdd: Identifiable {
+  let id = UUID()
+  let skill: Skill
+  let tool: Tool
+  let source: SkillCopy?
+  let folder: URL
+  let review: SkillReview
 }

@@ -7,6 +7,28 @@ private func plural(_ count: Int, _ word: String) -> String {
 private func bold(_ text: String) -> String { Terminal.bold(text) }
 private func dim(_ text: String) -> String { Terminal.dim(text) }
 
+/// Asks a yes or no question. Without a terminal to answer on, fails and points to --yes instead of waiting.
+private func confirm(_ question: String, _ args: Arguments) throws -> Bool {
+  if args.flag("yes") { return true }
+  guard isatty(STDIN_FILENO) == 1 else {
+    throw CLIError(message: "\(question) Run again with --yes to confirm without a terminal.")
+  }
+  print("\(question) [y/N] ", terminator: "")
+  fflush(stdout)
+  return ["y", "yes"].contains(readLine()?.trimmingCharacters(in: .whitespaces).lowercased() ?? "")
+}
+
+private func printReview(_ review: SkillReview) {
+  for file in review.scripts {
+    print("  \(Terminal.warn("script"))  \(file.path)")
+  }
+  for finding in review.findings {
+    let label = finding.highRisk ? Terminal.warn(finding.reason) : finding.reason
+    print("  \(label)  \(dim("\(finding.path):\(finding.line)"))")
+    print("    \(dim(finding.text))")
+  }
+}
+
 enum Commands {
   static func summary(_ args: Arguments) async throws {
     let library = await Library.load(days: args.days, readChats: true)
@@ -155,6 +177,13 @@ enum Commands {
     if skill.copiesDiffer {
       print(Terminal.warn("  These copies have different content, so editing one won't update the others."))
     }
+    if let managed = skill.copies.first(where: SkillInstaller.isFromLibrary) {
+      let review = SkillReview.inspect(managed.resolved)
+      print()
+      print(bold("Contents"))
+      print("  \(plural(review.files.count, "file")) from a downloaded repository: \(review.summary.lowercased())")
+      printReview(review)
+    }
   }
 
   static func usage(_ args: Arguments) async throws {
@@ -281,6 +310,19 @@ enum Commands {
       targets = [tool]
     } else {
       throw CLIError(message: "Pick where to add it: --to <tool>, or --all for every tool that's missing it.", usage: true)
+    }
+
+    if let source = SkillInstaller.defaultSource(for: skill), SkillInstaller.isFromLibrary(source),
+       targets.contains(where: { !skill.availableIn.contains($0) }) {
+      let review = SkillReview.inspect(source.resolved)
+      if review.needsReview {
+        print("\(skill.name) comes from a downloaded repository and has \(review.summary.lowercased()):")
+        printReview(review)
+        guard try confirm("Add it anyway?", args) else {
+          print("Nothing changed.")
+          return
+        }
+      }
     }
 
     var covered = skill.availableIn
@@ -499,37 +541,89 @@ enum Commands {
     }
 
     Terminal.status("Installing \(source)...")
+    let destination: URL
     do {
-      let destination = try await SkillInstaller.install(source: source, explicitTools: explicit)
-      Terminal.clearStatus()
-      print("Installed to \(Paths.abbreviate(destination))")
+      // Download into the Library first, which agents don't read, so the files can be reviewed before linking.
+      destination = try await SkillInstaller.install(source: source, explicitTools: [])
     } catch {
       Terminal.clearStatus()
       throw error
     }
+    Terminal.clearStatus()
+    print("Installed to \(Paths.abbreviate(destination))")
+
+    let review = SkillReview.inspect(destination)
+    if review.needsReview {
+      print("It has \(review.summary.lowercased()):")
+      printReview(review)
+      let approved: Bool
+      do {
+        approved = try confirm("Link its skills to your tools anyway?", args)
+      } catch {
+        throw CLIError(message: "Kept in the Library without links, since there's no terminal to confirm on. Read it, then link a skill with skillscout-mod add <skill> --to <tool> --yes.")
+      }
+      guard approved else {
+        print("Kept in the Library without links. Read it, then use skillscout-mod add.")
+        return
+      }
+    }
+    try SkillInstaller.linkSkills(in: destination, explicitTools: explicit)
   }
 
   static func update(_ args: Arguments) async throws {
     let query = try args.single("skill")
     let library = await Library.load(days: 1, readChats: false)
-    guard let skill = library.skills.first(where: { $0.name.localizedCaseInsensitiveCompare(query) == .orderedSame }) else {
-      throw CLIError(message: "Couldn't find a skill named \(query).")
-    }
-    guard let managed = skill.copies.first(where: { $0.root.kind == .managed }) else {
-      throw CLIError(message: "\(skill.name) is not a managed skill, so it can't be updated via git pull.")
+    let repo: String
+    if let skill = library.skills.first(where: { $0.name.localizedCaseInsensitiveCompare(query) == .orderedSame }) {
+      guard let name = skill.managedRepos.first else {
+        throw CLIError(message: "\(skill.name) isn't in the Library, so there's nothing to update. Add its repository with skillscout-mod install.")
+      }
+      repo = name
+    } else if FileManager.default.fileExists(atPath: SkillInstaller.managedRepoFolder(SkillInstaller.slug(query)).path) {
+      repo = SkillInstaller.slug(query)
+    } else {
+      throw CLIError(message: "Couldn't find a skill or Library repository named \(query).")
     }
 
-    Terminal.status("Updating \(skill.name)...")
-    let process = Process()
-    process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-    process.arguments = ["-C", managed.resolved.path, "pull"]
-    try process.run()
-    process.waitUntilExit()
+    Terminal.status("Checking \(repo) for changes...")
+    let update: RepoUpdate
+    do {
+      update = try await SkillInstaller.prepareRepoUpdate(name: repo)
+    } catch {
+      Terminal.clearStatus()
+      throw error
+    }
     Terminal.clearStatus()
+    defer { SkillInstaller.discardRepoUpdate(update) }
 
-    guard process.terminationStatus == 0 else {
-      throw CLIError(message: "Failed to update \(skill.name) (git pull returned \(process.terminationStatus)).")
+    print(bold("Update \(repo)"))
+    print("  \(dim(update.source))")
+    switch (update.oldCommit, update.newCommit) {
+    case let (old?, new?) where old != new: print("  Commit \(old) → \(new)")
+    case let (_, new?): print("  Commit \(new)")
+    default: break
     }
-    print("Updated \(skill.name).")
+    guard update.hasChanges else {
+      print("No changes.")
+      return
+    }
+    for (label, paths) in [("Added", update.added), ("Changed", update.changed), ("Removed", update.removed)] where !paths.isEmpty {
+      print()
+      print(bold("\(label) (\(paths.count))"))
+      for path in paths.prefix(50) { print("  \(path)") }
+      if paths.count > 50 { print(dim("  and \(paths.count - 50) more")) }
+    }
+    if !update.review.scripts.isEmpty || !update.review.findings.isEmpty {
+      print()
+      print(bold("Worth reading in new and changed files"))
+      printReview(update.review)
+    }
+    print()
+    guard try confirm("Replace the Library copy? The current one moves to the Trash.", args) else {
+      print("Nothing changed.")
+      return
+    }
+    try SkillInstaller.applyRepoUpdate(update)
+    print("Updated \(repo).")
   }
 }

@@ -111,6 +111,7 @@ struct SkillDetail: View {
   @Environment(AppStore.self) private var store
   let skill: Skill
   @State private var content = ""
+  @State private var review: SkillReview?
   @AppStorage("lookbackDays") private var lookbackDays = 60
 
   var body: some View {
@@ -129,6 +130,15 @@ struct SkillDetail: View {
 
         DetailSection("Installation") {
           installations
+        }
+        if let review {
+          DetailSection("Contents") {
+            VStack(alignment: .leading, spacing: 8) {
+              Text("\(review.files.count == 1 ? "1 file" : "\(review.files.count) files") from a downloaded repository: \(review.summary.lowercased()).")
+                .foregroundStyle(.secondary)
+              ReviewFindingsView(review: review)
+            }
+          }
         }
         if !store.skillsets.isEmpty {
           DetailSection("Skillsets") {
@@ -157,6 +167,7 @@ struct SkillDetail: View {
     }
     .task(id: skill.primary) {
       content = (try? String(contentsOf: skill.skillFile, encoding: .utf8)) ?? ""
+      review = skill.copies.first(where: SkillInstaller.isFromLibrary).map { SkillReview.inspect($0.resolved) }
     }
   }
 

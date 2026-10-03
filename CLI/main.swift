@@ -120,7 +120,7 @@ enum Command: String, CaseIterable {
     case .suggest: "suggest [options]"
     case .explain: "explain <skill> [options]"
     case .install: "install <url_or_path> [--to <tool>]"
-    case .update: "update <skill>"
+    case .update: "update <skill | repository>"
     }
   }
 
@@ -138,7 +138,7 @@ enum Command: String, CaseIterable {
     case .suggest: "Ask AI for skill ideas based on requests you repeat"
     case .explain: "Ask AI what a skill does"
     case .install: "Install a skill from GitHub or a local path"
-    case .update: "Update an installed skill via git pull"
+    case .update: "Review and apply changes to a Library repository"
     }
   }
 
@@ -159,7 +159,7 @@ enum Command: String, CaseIterable {
     case .merge:
       "Asks AI to write one SKILL.md from two skills, and makes it the SKILL.md of the first one. The old SKILL.md and the other skill go to the Trash, and the first skill gets linked wherever the other one was, so no tool loses it. The other skill's files come along, unless the first one has a file at the same path."
     case .add:
-      "Makes a skill available in another tool. Skillscout links the skill folder into that tool's skills folder, so an edit shows up everywhere. Plugin skills get copied instead, since plugin updates replace their folders."
+      "Makes a skill available in another tool. Skillscout links the skill folder into that tool's skills folder, so an edit shows up everywhere. Plugin skills get copied instead, since plugin updates replace their folders. A skill from a downloaded repository with scripts or high-risk commands is listed first and needs a yes, or --yes without a terminal."
     case .uninstall:
       "Moves every copy of a skill in your skills folders to the Trash, so you can put it back from there. A link goes on its own, and the folder it points to stays. Plugin and built-in copies stay too, since their tools manage them."
     case .suggest:
@@ -167,9 +167,9 @@ enum Command: String, CaseIterable {
     case .explain:
       "Asks AI what a skill does, when the agent uses it, and what it needs to work. If the app already explained this skill, you get that answer right away."
     case .install:
-      "Installs a skill from a GitHub URL or a local path. If the skill's SKILL.md specifies supported tools, it will only be linked to them, otherwise you can specify --to <tool>."
+      "Installs a skill from a GitHub URL or a local path into the Library, then links it to your tools. If the skill's SKILL.md specifies supported tools, it will only be linked to them, otherwise you can specify --to <tool>. If the download has scripts or high-risk commands, they're listed first and linking needs a yes, or --yes without a terminal."
     case .update:
-      "Updates a skill installed from GitHub by running git pull in its managed folder."
+      "Downloads a Library repository again, or copies its local folder again, and lists the added, changed and removed files, with the scripts and high-risk commands in them. The Library copy is replaced only after a yes, or --yes without a terminal, and the old copy goes to the Trash. Pass a skill from the repository or the repository's name."
     }
   }
 
@@ -202,6 +202,7 @@ enum Command: String, CaseIterable {
       return [
         ("--to <tool>", "The tool to add it to"),
         ("--all", "Add it to every tool you use that's missing it"),
+        ("--yes", "Add a flagged skill without asking"),
       ]
     case .uninstall:
       return [("--from <tool>", "Only the copy in this tool's skills folder, and the links to it")]
@@ -210,9 +211,12 @@ enum Command: String, CaseIterable {
     case .explain:
       return [("--fresh", "Ask again, even if the app saved an explanation")] + engine + [json]
     case .install:
-      return [("--to <tool>", "The tool to link it to (overrides SKILL.md frontmatter)")]
+      return [
+        ("--to <tool>", "The tool to link it to (overrides SKILL.md frontmatter)"),
+        ("--yes", "Link a flagged download without asking"),
+      ]
     case .update:
-      return []
+      return [("--yes", "Apply the changes without asking")]
     }
   }
 
