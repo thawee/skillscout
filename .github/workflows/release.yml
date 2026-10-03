@@ -1,0 +1,83 @@
+# Builds Skillscout Mod and publishes a GitHub release when a vX.Y.Z tag is pushed.
+# The release notes come from docs/releases/<tag>.md; the update dialog shows the text above "## Install".
+# Run it by hand to publish a tag that was pushed before this workflow, or to rebuild a release.
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to release, like v1.5.0"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-26
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - name: Check the tag
+        run: |
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::$TAG isn't a vX.Y.Z tag."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v5
+        with:
+          ref: refs/tags/${{ env.TAG }}
+
+      - name: Check the version and release notes
+        run: |
+          VERSION=$(sed -n 's/^ *MARKETING_VERSION: "\(.*\)"$/\1/p' project.yml)
+          if [ "v$VERSION" != "$TAG" ]; then
+            echo "::error::MARKETING_VERSION is $VERSION but the tag is $TAG. The app refuses updates whose version doesn't match."
+            exit 1
+          fi
+          # The notes come from the tag, or, for a tag pushed before its notes, from the commit this run started on.
+          NOTES="$RUNNER_TEMP/notes.md"
+          if [ -f "docs/releases/$TAG.md" ]; then
+            cp "docs/releases/$TAG.md" "$NOTES"
+          elif git fetch --quiet --depth=1 origin "$GITHUB_SHA" && git show "$GITHUB_SHA:docs/releases/$TAG.md" > "$NOTES" 2>/dev/null; then
+            echo "Using the release notes from $GITHUB_SHA."
+          else
+            echo "::error::Add the release notes in docs/releases/$TAG.md, with the new features above ## Install."
+            exit 1
+          fi
+          if ! grep -q '^## Install' "$NOTES"; then
+            echo "::error::docs/releases/$TAG.md needs an ## Install section."
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "NOTES=$NOTES" >> "$GITHUB_ENV"
+
+      - name: Show the toolchain
+        run: xcodebuild -version
+
+      - name: Run the unit tests
+        run: xcodebuild test -project Skillscout.xcodeproj -scheme SkillscoutTests -destination 'platform=macOS' -quiet
+
+      - name: Build the release zip
+        run: scripts/build-release.sh
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ZIP="dist/Skillscout-Mod-$VERSION.zip"
+          printf '\nSHA-256: `%s`\n' "$(shasum -a 256 "$ZIP" | cut -d ' ' -f 1)" >> "$NOTES"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ZIP" --clobber
+            gh release edit "$TAG" --title "Skillscout Mod $VERSION" --notes-file "$NOTES"
+          else
+            gh release create "$TAG" "$ZIP" --verify-tag --title "Skillscout Mod $VERSION" --notes-file "$NOTES"
+          fi
