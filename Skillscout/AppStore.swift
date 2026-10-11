@@ -7,6 +7,12 @@ final class AppStore {
   var skills: [Skill] = []
   var prompts: [Prompt] = []
   var usage: [Skill.ID: SkillUsage] = [:]
+  var usageScope = UsageScope()
+  var reportInspectionRevision = 0
+  var reportUsageRevision = 0
+  var loadedLookbackDays = 60
+  var usageProjects: [String] = []
+  var suggestionSaveIssues: [Suggestion.ID: [String]] = [:]
   /// The tools you use, in `Tool.allCases` order. Skillscout ignores the others.
   var tools: [Tool] = Tool.enabled
   var suggestions: [Suggestion] = []
@@ -17,7 +23,28 @@ final class AppStore {
   var skillsetNotes: [String: [String]] = [:]
   var preferredSources: [Skill.ID: String] = [:]
   var isManagingSkillsets = false
+  var projectState = ProjectState()
+  var projectInventories: [UUID: ProjectInventory] = [:]
+  var projectIssues: [UUID: [String]] = [:]
+  var projectNotes: [UUID: [String]] = [:]
+  var isManagingProjects = false
+  @ObservationIgnored var projectWatcher: FileWatcher?
+  @ObservationIgnored var projectWatchPaths: [String] = []
+  @ObservationIgnored var projectRefreshTask: Task<Void, Never>?
+  @ObservationIgnored var projectRefreshRevision = 0
   var registrySkills: [RegistrySkill] = []
+  var repositories: [RepositoryEntry] = []
+  var repositoryPreviews: [RepositoryID: RepositoryPreview] = [:]
+  var repositoryChecks: [RepositoryID: RepositoryCheck] = [:]
+  var repositoryErrors: [RepositoryID: String] = [:]
+  var repositoryBusy: Set<RepositoryID> = []
+  var repositoryContents: [RepositoryID: [RepositorySkill]] = [:]
+  var isCheckingRepositories = false
+  var isPreparingRepositoryUpdate = false
+  var isApplyingRepositoryUpdate = false
+  @ObservationIgnored var repositoryLoadGeneration = 0
+  @ObservationIgnored var repositoryLoadTask: Task<([RepositoryEntry], [RepositoryID: [RepositorySkill]]), Never>?
+  @ObservationIgnored var repositoryTasks: [RepositoryID: Task<Void, Never>] = [:]
   var explanations: [String: String] = [:]
   var dismissed: [String] = []
   /// Pairs of your skills that read alike, most alike first.
@@ -38,6 +65,7 @@ final class AppStore {
   var pendingReviewedAdd: PendingReviewedAdd?
   var importNote: String?
   var addConflict: SkillInstaller.AddConflict?
+  var pendingSkillAdd: SkillAddPresentation?
   var searchRequests = 0
   /// Copies waiting for you to confirm, before they go to the Trash.
   var removal: Removal?
@@ -51,14 +79,20 @@ final class AppStore {
   @ObservationIgnored private var allPrompts: [Prompt] = []
   @ObservationIgnored private var uses: [SkillUse] = []
   @ObservationIgnored private var watcher: FileWatcher?
+  @ObservationIgnored private var watchedRoots: [String] = []
   @ObservationIgnored private var started = false
   @ObservationIgnored private var skillsDirty = false
   @ObservationIgnored private var promptsDirty = false
   @ObservationIgnored private var refreshTask: Task<Void, Never>?
+  @ObservationIgnored private var skillsRefreshRevision = 0
+  @ObservationIgnored private var appliedSkillsRefreshRevision = 0
+  @ObservationIgnored private var promptsRefreshRevision = 0
   @ObservationIgnored private var saveTask: Task<Void, Never>?
   @ObservationIgnored private var lastAutoAttempt: Date?
 
   private let stateFile = Paths.stateFile
+
+  var recordedSkillUses: [SkillUse] { uses }
 
   var newPromptCount: Int {
     prompts.count(where: { !analyzedIDs.contains($0.id) })
@@ -75,12 +109,11 @@ final class AppStore {
   }
 
   var registeredLocalSources: [RegistrySkill] {
-    registrySkills.filter { source in
-      guard source.repo.hasPrefix("/") else { return false }
-      let repo = SkillInstaller.repoName(for: source.repo)
-      let marker = Paths.at(".config/skillscout/skills/\(repo)/.skillscout-local-source")
-      return (try? String(contentsOf: marker, encoding: .utf8)) != source.repo
-    }
+    // An import adds a suffix when the folder name is taken, so read every repository's marker.
+    let root = RepositoryLibrary.managedRoot
+    let repos = (try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? []
+    let installed = Set(repos.compactMap { try? String(contentsOf: root.appending(path: "\($0)/.skillscout-local-source"), encoding: .utf8) })
+    return registrySkills.filter { $0.repo.hasPrefix("/") && !installed.contains($0.repo) }
   }
 
   func loadRegistry() async {
@@ -89,6 +122,7 @@ final class AppStore {
       let defaultRepos = Set(allSkills.map(\.repo))
       allSkills.append(contentsOf: CustomRegistry.shared.fetch().filter { !defaultRepos.contains($0.repo) })
       registrySkills = allSkills
+      await reloadRepositories()
     } catch {
       errorMessage = "Failed to load skills from the registry: \(error.localizedDescription)"
     }
@@ -99,11 +133,7 @@ final class AppStore {
   }
 
   func preferredSource(for skill: Skill) -> SkillCopy? {
-    let candidates = SkillInstaller.installableSources(for: skill)
-    if let path = preferredSources[skill.id] {
-      return candidates.first { $0.resolved.path == path }
-    }
-    return SkillInstaller.defaultSource(for: skill)
+    SkillInstaller.skillsetSource(skill, preferredSources: preferredSources)
   }
 
   @discardableResult
@@ -127,14 +157,18 @@ final class AppStore {
   func start() async {
     guard !started else { return }
     started = true
+    RepositoryLibrary.cleanupExpiredPreviews()
     UserDefaults.standard.register(defaults: ["lookbackDays": 60, "autoAnalyze": true, "autoThreshold": 40])
     loadState()
     await refreshSkills()
     await refreshPrompts()
+    recoverProjects()
+    rebuildProjectWatcher()
 
-    let folders = [".agents", ".config/agents", ".config/skillscout/skills", ".gemini/antigravity-cli"] + Tool.allCases.flatMap(\.homeFolders)
-    let paths = folders.map { Paths.at($0).path }.filter { FileManager.default.fileExists(atPath: $0) }
-    watcher = FileWatcher(paths: paths) { [weak self] changed in
+    let folders = [".agents", ".config/agents", ".config/skillscout/skills", ".config/skillscout/drafts", ".gemini/antigravity-cli"] + Tool.allCases.flatMap(\.homeFolders)
+    let watchedHome = Paths.home.standardizedFileURL
+    watchedRoots = folders.map { watchedHome.appending(path: $0).path }
+    watcher = FileWatcher(paths: FileWatcher.watchPaths(for: watchedRoots)) { [weak self] changed in
       Task { @MainActor in self?.handle(changed) }
     }
   }
@@ -146,26 +180,98 @@ final class AppStore {
   }
 
   func refreshSkills() async {
+    skillsRefreshRevision += 1
+    let revision = skillsRefreshRevision
     let dismissed = Set(dismissedPairs)
-    (skills, similar, plugins) = await Task.detached {
+    let snapshot = await Task.detached {
       let skills = SkillScanner.scan()
       return (skills, SkillSimilarity.pairs(in: skills, dismissed: dismissed), PluginScanner.scan())
     }.value
+    guard revision >= appliedSkillsRefreshRevision else { return }
+    appliedSkillsRefreshRevision = revision
+    (skills, similar, plugins) = snapshot
+    reportInspectionRevision += 1
     applyTools()
+    await refreshProjectInventories()
+    await reloadRepositories()
   }
 
   func refreshPrompts() async {
+    promptsRefreshRevision += 1
+    let revision = promptsRefreshRevision
     isLoadingPrompts = true
-    (allPrompts, uses) = await library.load(lookbackDays: UserDefaults.standard.integer(forKey: "lookbackDays"))
+    let days = UserDefaults.standard.integer(forKey: "lookbackDays")
+    let loaded = await library.load(lookbackDays: days)
+    // A newer load started meanwhile, and it applies its own results.
+    guard revision == promptsRefreshRevision else { return }
+    loadedLookbackDays = days
+    if let scopeDays = usageScope.days, scopeDays >= loadedLookbackDays { usageScope.days = nil }
+    (allPrompts, uses) = loaded
     applyTools()
     isLoadingPrompts = false
     await maybeAnalyzeAutomatically()
   }
 
   private func applyTools() {
+    reportUsageRevision += 1
     let enabled = Set(tools)
     prompts = allPrompts.filter { enabled.contains($0.tool) }
-    usage = SkillUsage.tally(uses.filter { enabled.contains($0.tool) }, skills: skills, aliases: SkillAliases.load())
+    let enabledUses = uses.filter { enabled.contains($0.tool) }
+    usageProjects = Array(Set(enabledUses.map(\.project))).sorted()
+    usage = SkillUsage.tally(usageScope.filter(enabledUses), skills: skills, aliases: SkillAliases.load())
+  }
+
+  func setUsageScope(_ scope: UsageScope) {
+    usageScope = scope
+    if let days = usageScope.days, days >= loadedLookbackDays { usageScope.days = nil }
+    applyTools()
+  }
+
+  func usageReport(scope: UsageScope, tool: Tool? = nil, includeSystemSkills: Bool = true, now: Date = Date()) -> UsageReport {
+    _ = reportUsageRevision
+    let readers = tool.map { Set([$0]) } ?? Set(tools)
+    let reportSkills = includeSystemSkills ? skills : skills.filter { $0.isInLibrary || !$0.isSystemOnly(in: readers) }
+    return UsageReport(uses: uses, skills: reportSkills, enabledTools: Set(tools), scope: scope, tool: tool,
+      loadedDays: loadedLookbackDays, aliases: SkillAliases.load(), now: now)
+  }
+
+  var usageScopeDescription: String { usageScope.description(loadedDays: loadedLookbackDays) }
+
+  func savedSkill(for suggestion: Suggestion) -> Skill? {
+    suggestion.savedSkill(among: skills, aliases: SkillAliases.load())
+  }
+
+  func addReviewed(_ requests: [SkillAddRequest]) async -> [SkillAddResult] {
+    guard !isManagingSkillsets else {
+      return requests.map { SkillAddResult(request: $0, outcome: .failed("Wait for skillset changes to finish.")) }
+    }
+    isManagingSkillsets = true
+    defer { isManagingSkillsets = false }
+    await refreshSkills()
+    let currentSkills = skills
+    let enabled = Set(tools)
+    let results = await Task.detached { requests.map { request in
+      enabled.contains(request.tool) ? SkillInstaller.addReviewed(request, among: currentSkills)
+        : SkillAddResult(request: request, outcome: .failed("This destination is disabled. Enable it in Settings and review again."))
+    } }.value
+    await refreshSkills()
+    return results
+  }
+
+  func replaceReviewed(_ request: SkillAddRequest, conflict: SkillInstaller.AddConflict) async -> SkillAddResult {
+    guard !isManagingSkillsets else {
+      return SkillAddResult(request: request, outcome: .failed("Wait for skillset changes to finish."))
+    }
+    isManagingSkillsets = true
+    defer { isManagingSkillsets = false }
+    await refreshSkills()
+    let currentSkills = skills
+    guard tools.contains(request.tool) else {
+      return SkillAddResult(request: request, outcome: .failed("This destination is disabled. Enable it in Settings and review again."))
+    }
+    let result = await Task.detached { SkillInstaller.replaceReviewed(request, conflict: conflict, among: currentSkills) }.value
+    await refreshSkills()
+    return result
   }
 
   private static let chatFolders = [
@@ -175,10 +281,16 @@ final class AppStore {
   ]
 
   private func handle(_ changed: [String]) {
-    for path in changed {
+    for changedPath in changed {
+      let path = URL(fileURLWithPath: changedPath).standardizedFileURL.path
+      guard watchedRoots.contains(where: { path == $0 || path.hasPrefix($0 + "/") || $0.hasPrefix(path + "/") }) else { continue }
+      if watchedRoots.contains(where: { path == $0 || $0.hasPrefix(path + "/") }) {
+        skillsDirty = true
+        promptsDirty = true
+      }
       if Self.chatFolders.contains(where: path.contains) || path.hasSuffix("/.claude/history.jsonl") {
         promptsDirty = true
-      } else if path.contains("/skills") || path.contains("/plugins/cache/") || path.contains("/plugins/local/")
+      } else if path.contains("/skills") || path.contains("/skillscout/drafts") || path.contains("/plugins/cache/") || path.contains("/plugins/local/")
         || path.hasSuffix("/.claude/settings.json") {
         skillsDirty = true
       }
@@ -232,11 +344,11 @@ final class AppStore {
     await analyze()
   }
 
-  func explain(_ skill: Skill) async {
-    let key = skill.primary.contentHash
+  func explain(_ skill: Skill, from source: SkillCopy? = nil) async {
+    let key = (source ?? skill.primary).contentHash
     let busyKey = "explain:\(key)"
     guard explanations[key] == nil, !busy.contains(busyKey),
-          let text = try? String(contentsOf: skill.skillFile, encoding: .utf8)
+          let text = try? String(contentsOf: (source ?? skill.primary).resolved.appending(path: "SKILL.md"), encoding: .utf8)
     else { return }
 
     busy.insert(busyKey)
@@ -252,6 +364,7 @@ final class AppStore {
   /// Adds a skill to a tool. A source from a downloaded repository with scripts or high-risk commands
   /// is shown for review first, unless the user already reviewed it.
   func add(_ skill: Skill, to tool: Tool, from source: SkillCopy? = nil, reviewed: Bool = false) async {
+    guard tools.contains(tool) else { return }
     if !reviewed, let chosen = source ?? preferredSource(for: skill), SkillInstaller.isFromLibrary(chosen) {
       let review = SkillReview.inspect(chosen.resolved)
       if review.needsReview {
@@ -271,6 +384,7 @@ final class AppStore {
   }
 
   func replaceInstallation(_ conflict: SkillInstaller.AddConflict) async {
+    guard tools.contains(conflict.tool) else { return }
     do {
       _ = try SkillInstaller.replace(conflict)
       setPreferredSource(conflict.source, for: conflict.skill)
@@ -290,17 +404,30 @@ final class AppStore {
   }
 
   func moveToCentral(_ skill: Skill) async {
+    guard !isManagingSkillsets else {
+      errorMessage = "Wait for skillset changes to finish, then move \(skill.name) to Library."
+      return
+    }
+    guard saveState() else { return }
+    let owned = Set(skillsetEntries.filter(SkillInstaller.skillsetEntryIsUnchanged))
     do {
-      _ = try SkillInstaller.moveToCentral(skill)
-      await refreshSkills()
+      let destination = try SkillInstaller.moveToCentral(skill).destination
+      skillsetState.relocateSources(SkillInstaller.centralMoves(skill, to: destination), ownedBefore: owned)
+      saveState()
     } catch {
       errorMessage = error.localizedDescription
     }
+    await refreshSkills()
   }
 
   func rename(_ skill: Skill, to name: String) async {
+    guard !isManagingSkillsets, saveState() else { return }
+    let owned = Set(skillsetEntries.filter(SkillInstaller.skillsetEntryIsUnchanged))
+    let moves = SkillInstaller.renameFolders(skill, to: name)
     do {
       try SkillInstaller.rename(skill, to: name, among: skills)
+      skillsetState.migrateSkill(from: skill.id, to: name, movedFolders: moves, merging: false, ownedBefore: owned)
+      saveState()
       await refreshSkills()
       revealRequest = name
     } catch {
@@ -332,10 +459,15 @@ final class AppStore {
     }
   }
 
-  func merge(_ plan: SkillInstaller.MergePlan) async {
-    guard let draft = mergeDrafts[plan.id] else { return }
+  @discardableResult
+  func merge(_ plan: SkillInstaller.MergePlan) async -> [URL] {
+    guard !isManagingSkillsets, let draft = mergeDrafts[plan.id], saveState() else { return [] }
+    let owned = Set(skillsetEntries.filter(SkillInstaller.skillsetEntryIsUnchanged))
+    var trashed: [URL] = []
     do {
-      try SkillInstaller.merge(plan, markdown: draft)
+      trashed = try SkillInstaller.merge(plan, markdown: draft)
+      skillsetState.migrateSkill(from: plan.merged.id, to: plan.kept.id, movedFolders: plan.replacedFolders, merging: true, ownedBefore: owned)
+      saveState()
       mergeDrafts[plan.id] = nil
       await refreshSkills()
       revealRequest = plan.kept.id
@@ -343,6 +475,7 @@ final class AppStore {
       errorMessage = error.localizedDescription
       await refreshSkills()
     }
+    return trashed
   }
 
   func draft(_ id: Suggestion.ID) async {
@@ -367,8 +500,10 @@ final class AppStore {
   func save(_ id: Suggestion.ID, to target: SaveTarget) async {
     guard let index = suggestions.firstIndex(where: { $0.id == id }), let draft = suggestions[index].draft else { return }
     do {
-      let folder = try SkillInstaller.save(markdown: draft, fallbackName: suggestions[index].name, to: target)
-      suggestions[index].savedTo = folder.path
+      let result = try SkillInstaller.saveDraft(markdown: draft, fallbackName: suggestions[index].name, to: target)
+      suggestions[index].savedTo = result.folder.path
+      suggestions[index].savedSkillID = result.skillID
+      suggestionSaveIssues[id] = result.issues
       saveState()
       await refreshSkills()
     } catch {
@@ -409,6 +544,7 @@ final class AppStore {
     var skillsetIssues: [String: [String]]?
     var preferredSources: [Skill.ID: String]?
     var dismissedPairs: [String]?
+    var projectState: ProjectState?
   }
 
   private func loadState() {
@@ -426,6 +562,7 @@ final class AppStore {
     skillsetIssues = state.skillsetIssues ?? [:]
     preferredSources = state.preferredSources ?? [:]
     dismissedPairs = state.dismissedPairs ?? []
+    projectState = state.projectState ?? ProjectState()
   }
 
   @discardableResult
@@ -443,7 +580,8 @@ final class AppStore {
       skillsetEntries: skillsetEntries,
       skillsetIssues: skillsetIssues,
       preferredSources: preferredSources,
-      dismissedPairs: dismissedPairs
+      dismissedPairs: dismissedPairs,
+      projectState: projectState
     )
     do {
       let data = try JSONEncoder().encode(state)
@@ -499,97 +637,42 @@ final class AppStore {
 
   /// Applies or discards the previewed update, and returns where the previous copy went in the Trash.
   @discardableResult
-  func finishRepoUpdate(apply: Bool) async -> [URL] {
-    guard let update = pendingRepoUpdate else { return [] }
-    pendingRepoUpdate = nil
+  func finishRepoUpdate(apply: Bool, replaceLocalEdits: Bool = false) async -> [URL] {
+    guard let update = pendingRepoUpdate, !isApplyingRepositoryUpdate else { return [] }
     guard apply else {
+      pendingRepoUpdate = nil
       SkillInstaller.discardRepoUpdate(update)
       return []
     }
+    guard !isManagingSkillsets else { return [] }
+    isApplyingRepositoryUpdate = true
+    isManagingSkillsets = true
+    defer { isApplyingRepositoryUpdate = false; isManagingSkillsets = false }
     var trashed: [URL] = []
-    do { trashed = try SkillInstaller.applyRepoUpdate(update) }
+    do {
+      trashed = try await Task.detached { try SkillInstaller.applyRepoUpdate(update, replaceLocalEdits: replaceLocalEdits) }.value
+    }
     catch { errorMessage = error.localizedDescription }
+    pendingRepoUpdate = nil
     await refreshSkills()
     return trashed
   }
 
-  func repairLibrary() async -> String {
-    var fixedSymlinks = 0
-    var renamedRepos = 0
-    var deletedSymlinks = 0
-    let fm = FileManager.default
-
-    // 1. Rename incorrectly named managed repos
-    let managedRoot = SkillRoot.all.first { $0.kind == .managed }!.url
-    if let enumerator = fm.enumerator(at: managedRoot, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles, .skipsPackageDescendants]) {
-      while let folder = enumerator.nextObject() as? URL {
-        enumerator.skipDescendants()
-        let gitConfig = folder.appending(path: ".git/config")
-        if let configStr = try? String(contentsOf: gitConfig, encoding: .utf8) {
-          if let range = configStr.range(of: "url = ") {
-            let urlStr = String(configStr[range.upperBound...].split(separator: "\n").first!.trimmingCharacters(in: .whitespacesAndNewlines))
-            let expectedName: String
-            if urlStr.hasPrefix("http"), let url = URL(string: urlStr) {
-               expectedName = SkillInstaller.slug(url.path.replacingOccurrences(of: ".git", with: ""))
-            } else if urlStr.hasPrefix("git@") {
-               let path = urlStr.components(separatedBy: ":").last?.replacingOccurrences(of: ".git", with: "") ?? urlStr
-               expectedName = SkillInstaller.slug(path)
-            } else {
-               expectedName = SkillInstaller.slug(URL(string: urlStr)?.lastPathComponent.replacingOccurrences(of: ".git", with: "") ?? urlStr)
-            }
-            if folder.lastPathComponent != expectedName {
-               let newFolder = managedRoot.appending(path: expectedName)
-               if !fm.fileExists(atPath: newFolder.path) {
-                 try? fm.moveItem(at: folder, to: newFolder)
-                 renamedRepos += 1
-                 // Now update all symlinks pointing to `folder`
-                 for root in SkillRoot.all.filter({ $0.kind != .managed && $0.kind != .plugin }) {
-                   if let entries = try? fm.contentsOfDirectory(at: root.url, includingPropertiesForKeys: [.isSymbolicLinkKey], options: [.skipsHiddenFiles]) {
-                     for entry in entries {
-                       if let isSymlink = (try? entry.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink, isSymlink {
-                         if let target = try? fm.destinationOfSymbolicLink(atPath: entry.path) {
-                           let absoluteTarget = URL(fileURLWithPath: target, relativeTo: entry.deletingLastPathComponent()).standardizedFileURL
-                           if absoluteTarget.path.hasPrefix(folder.path) {
-                             let remainder = absoluteTarget.path.dropFirst(folder.path.count)
-                             let newTarget = newFolder.path + remainder
-                             try? fm.removeItem(at: entry)
-                             try? fm.createSymbolicLink(at: entry, withDestinationURL: URL(fileURLWithPath: newTarget))
-                             fixedSymlinks += 1
-                           }
-                         }
-                       }
-                     }
-                   }
-                 }
-               }
-            }
-          }
-        }
-      }
+  func repairLibrary() async -> SkillInstaller.LibraryRepairResult {
+    guard !isManagingSkillsets else {
+      return SkillInstaller.LibraryRepairResult(issues: ["Wait for skillset changes to finish"])
     }
-
-    // 2. Delete broken symlinks
-    for root in SkillRoot.all.filter({ $0.kind != .managed && $0.kind != .plugin }) {
-      if let entries = try? fm.contentsOfDirectory(at: root.url, includingPropertiesForKeys: [.isSymbolicLinkKey], options: [.skipsHiddenFiles]) {
-        for entry in entries {
-          if let isSymlink = (try? entry.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink, isSymlink {
-            if !fm.fileExists(atPath: entry.appending(path: "SKILL.md").path) && !fm.fileExists(atPath: entry.resolvingSymlinksInPath().path) {
-              try? fm.removeItem(at: entry)
-              deletedSymlinks += 1
-            }
-          }
-        }
-      }
+    guard saveState() else {
+      return SkillInstaller.LibraryRepairResult(issues: ["Repair stopped because state could not be saved"])
     }
-
+    let owned = Set(skillsetEntries.filter(SkillInstaller.skillsetEntryIsUnchanged))
+    var result = SkillInstaller.repairLibrary()
+    skillsetState.relocateFolders(result.movedFolders, removedPaths: result.removedPaths, ownedBefore: owned)
+    if !saveState() { result.issues.append("Repaired files, but ownership changes could not be saved. Keep the app open and retry") }
     await refreshSkills()
-
-    var msgs: [String] = []
-    if renamedRepos > 0 { msgs.append("Renamed \(renamedRepos) repos") }
-    if fixedSymlinks > 0 { msgs.append("Fixed \(fixedSymlinks) links") }
-    if deletedSymlinks > 0 { msgs.append("Deleted \(deletedSymlinks) broken links") }
-    return msgs.isEmpty ? "No issues found." : msgs.joined(separator: ", ") + "."
+    return result
   }
+
 }
 
 /// An Add to tool request waiting for the user to read the skill's scripts and flagged commands.
@@ -618,6 +701,7 @@ extension AppStore.SavedState {
       skillsetEntries: try container.decodeIfPresent([SkillsetEntry].self, forKey: .skillsetEntries),
       skillsetIssues: try container.decodeIfPresent([String: [String]].self, forKey: .skillsetIssues),
       preferredSources: try container.decodeIfPresent([Skill.ID: String].self, forKey: .preferredSources),
-      dismissedPairs: try container.decodeIfPresent([String].self, forKey: .dismissedPairs))
+      dismissedPairs: try container.decodeIfPresent([String].self, forKey: .dismissedPairs),
+      projectState: try container.decodeIfPresent(ProjectState.self, forKey: .projectState))
   }
 }

@@ -6,6 +6,8 @@ It knows 10 agents: Cursor, Claude Code, Codex, GitHub Copilot, Gemini CLI, Anti
 
 It also reads your chats. It counts a use every time an agent loads a skill, and it looks for requests you keep typing, so you can turn them into new skills.
 
+Read [Design](DESIGN.md) for the workspace model and interaction rationale, or [UI reference](UI.md) for the current screens, shared controls, and verification commands.
+
 Read [Flavio's original announcement and watch his 1-minute demo](https://flaviocopes.com/skillscout/). The demo shows the original app; this fork has additional screens and workflows.
 
 [![Watch the 1-minute Skillscout demo](docs/showreel-poster.jpg)](https://flaviocopes.com/skillscout/)
@@ -14,15 +16,19 @@ Read [Flavio's original announcement and watch his 1-minute demo](https://flavio
 
 Everything in the original stays: the agent map, usage counts, editing, renaming, merging similar skills and skill ideas. On top of that, the Mod edition adds:
 
-- **[Discover and Library](#discover-and-library)**: browse curated skill repositories, or add your own Git repository or local folder, and download them into a Library in `~/.config/skillscout/skills`. Then choose which skills each agent gets.
+- **[Discovery and Library](#discovery-and-library)**: browse curated skill repositories, or add your own Git repository or local folder, and download them into a Library in `~/.config/skillscout/skills`. Then choose which skills each agent gets.
 - **[Reviewing downloaded skills](#reviewing-downloaded-skills)**: a Contents section lists a downloaded skill's scripts and the commands worth reading, and Skillscout asks before adding a flagged skill to an agent.
 - **Update previews**: refreshing a Library repository shows the commit and every added, changed and removed file before anything is replaced.
 - **[Skillsets](#skillsets)**: group skills into collections, assign them to agents with a preview of each change, and export or import them as JSON to move them to another Mac.
 - **[Plugins](#plugins)**: a read-only view of the plugins installed in Claude Code, Codex and Cursor, with the hooks, MCP and language servers, monitors and executables they run without asking.
 - **Problems**: each skill you can edit is checked against the [Agent Skills specification](https://agentskills.io/specification).
+- **Batch add**: select one or more skills, choose tools and sources, inspect their contents, and review each result. Existing content stays until you explicitly replace it.
+- **Scoped usage**: filter recorded skill use by project and period within the loaded chat history. The same scope applies to counts and sorting.
+- **Saved ideas**: save an AI draft to the Library without installing it, or choose a tool destination. Open the saved skill, add it to a skillset, and see its actual availability and recorded use.
 - **Keep or replace**: when an agent already has a different copy of a skill, choose which one stays. The old copy goes to the Trash.
 - **More agents**: GitHub Copilot and Antigravity, for 10 in all.
-- **Sidebar filters**: Used, Used once and AI tools only, next to the original's Unused.
+- **Workspace management**: Library holds reusable sources and skillsets. Global manages home-level installations. Projects show available skills, including inherited Global skills, and default additions to the selected workspace. Agent chips filter availability.
+- **Visible choices**: Tool and short filter choices use wrapping chips. Projects, skillsets, sources, files and versions use searchable panels with the current choice visible. Filter panels scroll in shorter windows so skill lists stay usable.
 - **[More commands](#the-command-line-tool)**: `skillscout-mod skillset`, `plugins`, `install` and `update`, with a review before anything flagged is linked.
 
 Skillscout Mod has its own app name, `skillscout-mod` command, data folder and update channel, so it can sit next to the original Skillscout.
@@ -60,23 +66,25 @@ defaults write com.thawee.skillscout AppUpdaterAutomaticChecks -bool false
 ## Features
 
 - Every skill from your agents in one list, with a row of icons showing which agents load it
-- **Used** lists skills used in more than one chat within the selected lookback period
-- **AI tools only** lists personal skills in AI tool folders, outside the central and shared skill libraries
-- **Add to** links the skill folder into another agent's skills folder, so every agent loads the same file
+- **Library** lists reusable central, draft and shared sources, including those also installed globally
+- **Global** lists home-level installations readable by tools enabled in Settings, including personal skills outside Library and plugin or built-in skills. Agent filters, badges and new destination choices follow that enabled selection
+- **Projects** list skills available in the selected workspace. **Available here** includes inherited Global skills; **Project only** shows project copies readable by the selected agent
+- **Add skills…** chooses individual skills or a skillset and a destination. Global additions link or copy sources into agent folders; project additions make portable copies after a preview
 - If an AI tool already has a different installation, **Keep existing** leaves it in place or **Replace with selected source** moves it to Trash and installs your chosen source, restoring the previous entry if installation fails
 - **Uninstall** moves a skill to the Trash, from all your skills folders or from one of them
 - **Skillsets** group skills into reusable collections, with explicit assignments to each agent and previews of changes
+- Register workspace folders under **Projects** and use **Add skills…** to copy individual skills or a skillset into the selected project after a preview
 - **Edit** changes a skill's `SKILL.md` right in the app, in every copy that has the same text
 - **Rename** gives a skill a new name in its folders, its links and its `SKILL.md`, and keeps its usage
 - **Similar skills** pairs the skills that read alike, and **Merge with AI** turns two of them into one
-- **Used once** lists skills used in exactly one chat, and **Unused** the skills no chat touched, within the same lookback period
+- **Chat activity** lists **Used in 2+ chats**, **Used in 1 chat** and **No recorded use** within the selected period and project. No recorded use describes chat history, regardless of installation
 - Usage for each skill: how many chats, from which agents, in which projects, and when you last used it
 - The skills you created last come first, and you can sort by name or by use instead
 - Search by name or description with `⌘F`
 - **Explain with AI** asks Claude Code or Codex what a skill does, when the agent uses it, and what it needs to work
 - **Suggestions** finds the tasks you keep asking for and drafts a `SKILL.md` for each one
 - **Plugins** lists the plugins installed in Claude Code, Codex and Cursor, with their skills and what they run on your Mac without asking: hooks, MCP and language servers, monitors and executables. It only reads them
-- Plugin and built-in skills from Cursor, Claude Code and Codex, with a filter in the toolbar to show your skills, the plugin ones, the built-in ones, or all of them
+- Plugin and built-in skills from Cursor, Claude Code and Codex, with visible filter choices above skill lists to show your skills, the plugin ones, the built-in ones, or all of them
 - Every copy of a skill on disk, with a warning when two copies have different content
 - **Problems** checks each skill you can edit against the [Agent Skills specification](https://agentskills.io/specification): a missing name or description, a name that breaks the naming rules or doesn't match its folder, a description over 1024 characters, or a `SKILL.md` over the recommended 500 lines. `skillscout-mod show` lists them too
 - The list and the counts update while you work, as skills and chats change on disk
@@ -84,24 +92,54 @@ defaults write com.thawee.skillscout AppUpdaterAutomaticChecks -bool false
 - Updates from inside the app: it checks GitHub once a day, and **Install and Relaunch** puts the new version in place
 - Light and dark appearance following the macOS setting
 
-## Discover and Library
+## Discovery and Library
 
-Discover includes repositories from Android, Anthropic, Vercel, Matt Pocock, ComposioHQ, HumanLayer, Cursor, Next Level Builder, tt-a1i, and Addy Osmani by default. These are browsing suggestions; nothing is downloaded until you choose **Add to Library**.
+Discovery includes repositories from Android, Anthropic, Vercel, Matt Pocock, ComposioHQ, HumanLayer, Cursor, Next Level Builder, tt-a1i, and Addy Osmani by default. These are browsing suggestions; nothing is downloaded until you choose **Add to Library**.
 
-Choose **Add to Library** in Discover to download a repository into `~/.config/skillscout/skills`. Its skills appear in the library and under Sources; Discover creates no new AI-tool links. Choose **Browse skills** to open its source list, then use **Add to tool…** on a skill or put it in a skillset. A repository can contain many skills, so you choose which ones each tool gets.
+Open **Discovery**, the second sidebar item, and choose **Git repositories** or **Local folders** inside the screen. Browse curated, custom, and imported sources together. Select a source to see its details and searchable skill list. Imported sources stay visible even when no agent uses their skills.
 
-Use **Add Custom Source** to save a Git repository URL or choose a local folder containing one or more `SKILL.md` files. Adding a local source to Library copies the folder; **Refresh from Folder** updates that copy after you edit the original. Existing links to skills in the Library copy stay in place.
-Registered local folders also appear under **Sources** before import, where you can open their Discover details and choose **Add to Library**. After import, the Source row browses the copied skills.
+Choose **Load skills** to inspect a temporary preview without adding anything to Library or an agent. **Add to Library** imports that exact snapshot into `~/.config/skillscout/skills`. Open a skill and use **Add skills…**, or add it to a skillset, to make it available to agents. The skill detail stays tied to the selected repository when other repositories contain the same skill name.
 
-**Re-download** or **Refresh from Folder** stages a replacement and shows what would change before touching the library copy: the commit it came from, the added, changed and removed files, and any scripts or high-risk commands in the new and changed files. Choose **Update** to put it in place, or **Cancel** to discard it. If the source is missing, the replacement would break an existing tool link, or the library copy changed since the preview, the current copy stays. The Discover details show the commit of the downloaded copy.
+Use **Add source** to register a Git repository URL or local folder. Adding a local source to Library copies its files. **Refresh from Folder** reviews changes from the original folder before replacing that copy.
+
+**Check for updates** compares an installed Git repository with its tracked branch. **Check all repositories** checks each installed Git source without applying anything. An available update has a **Review update…** action. Failed checks remain visible and never imply that a repository is up to date.
+
+**Choose version…** lets you track a branch or pin a tag or full commit. A tag pin records its resolved commit and stays there if the remote tag moves. A pinned source changes only when you choose another version. You can pin a full commit even when the repository has no tags. Private HTTPS sources can retry checks and reviewed updates with a temporary personal access token; the version picker also accepts one. Tokens are never saved in repository metadata.
+
+Every update or version change compares the previous upstream version, your Library copy, and the incoming version. Unrelated local edits are preserved; non-overlapping text edits merge automatically. Conflicting files offer **Keep mine**, **Use GitHub** (or **Use incoming**), and **Merge** for supported text. The merge editor shows the three versions for reference. Older imports without a recoverable baseline require explicit choices when equality cannot establish a safe result.
+
+Choose **Review choices** to inspect the actual resulting files, scripts, flagged commands, and installation impact, then **Apply update**. Back returns to decisions and discards that reviewed result. Existing agent links receive the approved Library contents at their current paths. Independent agent copies and project copies stay unchanged and require separate updates; modified project copies remain protected. New skills appear in Library without creating agent links or changing skillset membership. A new skill beneath an already linked parent folder can become visible to that folder's readers.
+
+Updates that would break a linked skill, or whose current, incoming, or reviewed contents changed, are refused. The previous Library copy goes to Trash. A verified upstream archive supports later comparisons while keeping preserved local edits separate from the upstream baseline. The CLI retains its explicit `--replace-local-edits` option, which replaces the entire snapshot.
 
 ### Reviewing downloaded skills
 
-Agents follow a skill's instructions and can run the scripts beside it, so skills from downloaded repositories show a **Contents** section listing their scripts and the lines worth reading: commands that download and run a script, decode hidden content, use `sudo`, or delete from the home or root folder, plus notes for `eval`, `chmod` and network downloads. **Add to tool…** asks first when a downloaded skill has scripts or high-risk commands, and a skillset's **Apply…** preview marks those skills. The checks are a heuristic, so a skill without flags still deserves a look before you trust it. **Remove from Library…** moves the repository and links into it to the Trash after confirmation; independent copies stay. Adding a custom source to Discover only saves its address or path until you choose **Add to Library**. The CLI's `skillscout-mod install` still links skills to enabled or supported tools by default, after listing any scripts or high-risk commands and asking first.
+Agents follow a skill's instructions and can run the scripts beside it, so skills from downloaded repositories show a **Contents** section listing their scripts and the lines worth reading: commands that download and run a script, decode hidden content, use `sudo`, or delete from the home or root folder, plus notes for `eval`, `chmod` and network downloads. **Add skills…** asks first when a downloaded skill has scripts or high-risk commands, and a skillset's **Apply…** preview marks those skills. The checks are a heuristic, so a skill without flags still deserves a look before you trust it. **Remove from Library…** moves the repository and links into it to the Trash after confirmation; independent copies stay. Adding a custom source to Discovery only saves its address or path until you choose **Add to Library**. The CLI's `skillscout-mod install` still links skills to enabled or supported tools by default, after listing any scripts or high-risk commands and asking first.
+
+## Project skills
+
+Open **Projects** in the sidebar and choose **Register project…**. Select a workspace folder. Registration only reads its skills; it does not import them into Library. Projects with the same folder name remain separate, with their full paths shown. The inventory scans known skill roots at that registered folder. Register a nested workspace separately to inspect its own roots; ancestor and nested discovery rules differ between agents.
+
+Choose an **Agent** to see which skills it can use in this project. **Available here** combines project copies with **Inherited from Global** skills; **Project only** narrows the list to project copies. A skill in both locations appears once with both badges. Each project remembers its filters during the window session. Chat counts follow the selected agent, period and enabled history settings. The availability filter does not distinguish the source used in a chat. Use **Manage in Global…** to manage inherited installations. Project files can be inspected and revealed in Finder.
+
+Choose **Add skills…**, select individual skills or a skillset, and review the project destination and every affected agent. Project installation supports these groups:
+
+| Target | Project folder | Tools that read it |
+|---|---|---|
+| Shared | `.agents/skills` | Codex, Cursor, GitHub Copilot, Gemini CLI, Antigravity, OpenCode, Droid, Pi and Amp |
+| Claude | `.claude/skills` | Claude Code, Cursor, GitHub Copilot, OpenCode and Amp |
+
+The inventory also reads `.cursor/skills`, `.codex/skills` for Cursor interoperability, `.github/skills`, `.gemini/skills`, `.agent/skills`, `.opencode/skills`, `.factory/skills` and `.pi/skills`. An agent may require workspace trust or have its own precedence rules before loading these files.
+
+The preview shows additions, updates, removals, kept files and conflicts, with source contents to review. Applying copies supporting files as well as `SKILL.md`. Copies do not depend on global symlinks; embedded links must be relative and stay inside the skill tree. Existing identical copies remain unowned. Different preexisting files block application, and changed app-owned files are preserved. Project-folder replacement, symlinked destination ancestors and a changed preview also stop application.
+
+Individual additions are tracked separately from skillset templates and survive restart. **Remove from project…** previews removal from the selected project group, including its assignment snapshots. Global sources and central skillset membership stay unchanged. Modified or unowned project files remain with an explanation. Assignments retain the membership that was applied. Editing or deleting a shared skillset never silently changes project files; update or unassign it through a new preview. Overlapping assignments share their members. Unassigning moves only unchanged app-owned copies that no remaining assignment needs to Trash. **Forget project…** preserves all files and stops tracking the folder; finish recovery of an interrupted operation first.
+
+Project chat counts match recorded working-directory paths and the selected period and enabled tools. Nested registered projects take precedence over their parents. History that supplies only a project name is excluded from these exact counts; no matching by folder name is attempted. Registration and assignment state survive app restart, and watched skill folders refresh after external changes. Project management is available in the app; the CLI continues to manage global skills and skillsets.
 
 ## Skillsets
 
-Create a skillset in the sidebar, then use **Edit…** to select its members from the library and sources. Use **Manage…** to review and change its tool assignments. You can also select multiple skills in a list, right-click, and choose **Add to skillset**. In a skillset list, **Remove from skillset** or Delete changes membership; it doesn't uninstall the skill.
+Create a skillset in the sidebar, then use **Edit…** to select its members from the library and sources. Use **Manage…** to review and change its tool assignments. You can also select multiple skills in a list, right-click, and choose **Add to skillset**. In a skillset list, **Remove from this skillset** or Delete changes membership; it doesn't uninstall the skill.
 
 If multiple repositories provide a skill with the same name, choose its source when adding it to a tool or in the skillset editor. Skillscout saves that choice and shows all repository copies in the skill's Installation section.
 
@@ -109,7 +147,7 @@ Choose **Apply…** for an agent to preview additions, existing installations, r
 
 **Unassign…** in a management row's action menu removes only unchanged links or copies that Skillscout created for skillsets and that no remaining assignment needs. Personal installations and modified copies stay. Agents can still read skills from shared folders or other agents' folders, so **Not assigned** can coexist with available skills; the assignment row explains inherited sources. Existing skillsets migrate as unassigned collections, without claiming ownership of previous installations.
 
-Right-click a skillset and choose **Export Skillset…** to save it as JSON, with the Git repository each Library skill came from. Skills from local folders are listed without a source, since their paths don't carry over to another Mac. **Import Skillset…** under the skillsets adds one from a file, unassigned, under a new name if the name is taken, and lists the skills this Mac doesn't have yet with the sources to add in Discover. Importing never downloads anything.
+Right-click a skillset and choose **Export Skillset…** to save it as JSON, with the Git repository each Library skill came from. Skills from local folders are listed without a source, since their paths don't carry over to another Mac. **Import Skillset…** under the skillsets adds one from a file, unassigned, under a new name if the name is taken, and lists the skills this Mac doesn't have yet with the sources to add in Discovery. Importing never downloads anything.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png" />
@@ -145,13 +183,13 @@ Some folders are read by more than one agent. `~/.agents/skills` is a shared fol
 
 Skillscout knows these rules, so for every skill it tells you which agents load it and from which folder.
 
-It lists your own skills first. Pick **Plugin skills**, **Built-in skills** or **All skills** in the toolbar to see the plugin skills from `~/.cursor/plugins`, `~/.claude/plugins/cache` and `~/.codex/plugins/cache`, and the built-in skills of Cursor and Codex.
+Open **Library** to browse reusable sources, or **Global** to inspect installed personal, plugin and built-in skills. Plugin skills come from `~/.cursor/plugins`, `~/.claude/plugins/cache` and `~/.codex/plugins/cache`; Cursor and Codex also provide built-in skills.
 
-Skillscout turns on the agents it finds on your Mac. You can turn any of them off in Settings, and Skillscout stops showing its skills and reading its chats.
+Skillscout enables chat history for the agents it finds on your Mac. Turning an agent off in Settings excludes its chats from counts. Global and project availability remain visible independently of those history settings.
 
 ## Adding a skill to more agents
 
-Pick a skill, and the **Installation** section shows its library source and which agents load each copy. Use **Add to tool…** to make it available to another agent.
+Pick a skill, and the **Installation** section shows its library source and which agents load each copy. Use **Add skills…** to make it available to another agent.
 
 Adding a skill creates a symbolic link to the skill folder inside that agent's skills folder. The agents all load the same `SKILL.md`, so when you edit it, every one of them gets the change.
 
@@ -159,11 +197,13 @@ Plugin skills get copied instead of linked, because a plugin update replaces its
 
 ## Removing a skill
 
-Pick a skill and click **Remove** next to a copy under **Installation**. The toolbar's Trash button, the list context menu, and Delete remove all user-managed copies. You can select multiple skills to uninstall them together. Skillscout moves the selected folders and links to the Trash, so you can put them back from there.
+Pick a skill and use **Remove from tool…** beside its tool in **Installation**. When viewing a tool's skill list, its right-click action, the toolbar's Trash button and Delete use that tool. You can select several skills to remove them together. In Global with All enabled agents selected, choose the agent from the removal menu. Library source removal remains separate from installation removal. Delete in a skillset only removes membership.
 
-To take a skill away from some agents only, click **Remove** next to one of its folders. If other folders link to that one, the links go too, since they'd point to nothing. When you remove a link, the folder it points to stays.
+Right-click actions follow the selected destination. Library offers catalog actions and **Add skills…**. Global offers installation management for the selected agent, with affected-agent previews for shared folders. Global usage counts cover all loaded history; use Dashboard project and period filters for usage analysis. Personal installations outside Library can offer **Move to Library** when the source can safely move: a real folder in an agent's skills folder moves into Library, identical copies in other agent folders go to the Trash, and every agent folder gets a link. A skill that only links to a folder elsewhere stays where it is. If a step fails, the earlier steps are undone. A skill you moved into Library stays editable; skills from a Library repository stay as downloaded. A skillset offers **Remove from this skillset**, which changes template membership rather than uninstalling copies. Protected skills retain Finder actions and hide unsupported edits or moves.
 
-Before anything moves, Skillscout tells you which agents will stop loading the skill.
+Some agents read the same installations, including folders owned by other agents. Those actions say **Remove shared installation…** and group enabled tools with the same removal plan. Review also discloses effects on readers disabled in Settings. Disabling a tool changes normal visibility and choices; it does not uninstall skills or remove assignments. Re-enable a tool to manage its retained assignments. Independent installations stay. When removing a physical folder, links to that folder go too, since they'd point to nothing. When removing a link, its Library source stays.
+
+**Show locations** lists paths and Finder links. **Remove everywhere…** is under **More removal options**; Library sources also have **Remove source…** in their source menu. Skillscout moves selected folders and links to the Trash, so you can restore them. The confirmation explains which agents lose access and which can still load a remaining copy.
 
 Plugin and built-in skills stay where they are. Their agents manage them, so uninstall the plugin to remove its skills.
 
@@ -183,6 +223,8 @@ Skillscout renames the skill's folders in your skills folders, creates its links
 
 Chats that used the old name keep counting for the skill.
 
+Skillset memberships, applied assignments and ownership records follow the new name, so unassigning still removes only Skillscout's unchanged installations.
+
 ## Merging similar skills
 
 After a while, you end up with two skills that do almost the same job. **Similar skills** in the sidebar lists the pairs that read alike, and the words they share.
@@ -197,6 +239,8 @@ Pick a pair to see the two skills side by side. Choose the name to keep and clic
 - links the kept skill into the other one's folders, so the agents that loaded the other skill load the kept one
 
 Chats that used the other skill count for the kept one from then on.
+
+Skillsets replace the merged skill with the kept one. If a skillset contained both, it keeps one member.
 
 If two skills look alike but do different jobs, click **They're different skills**, and Skillscout won't pair them again.
 
@@ -238,7 +282,10 @@ The command reads the same skills and chats as the app, and follows its settings
 | `skillscout-mod similar` | Lists the pairs of skills that read alike |
 | `skillscout-mod add <skill> --to <tool>` | Adds a skill to another agent |
 | `skillscout-mod install <url_or_path>` | Adds a repository or local skill to the managed Library |
-| `skillscout-mod update <skill>` | Shows the changes to a Library repository and applies them after you confirm |
+| `skillscout-mod update <skill-or-repository>` | Reviews repository changes and applies them after confirmation |
+| `skillscout-mod update <repository> --check` | Checks the installed ref without applying an update |
+| `skillscout-mod update --all --check` | Checks all installed Git repositories |
+| `skillscout-mod update <repository> --tag <name>` | Reviews switching to a pinned tag |
 | `skillscout-mod rename <skill> <new-name>` | Gives a skill a new name |
 | `skillscout-mod merge <skill> <other>` | Merges the other skill into the first one with AI |
 | `skillscout-mod uninstall <skill>` | Moves a skill to the Trash |
@@ -321,7 +368,7 @@ skillscout-mod skillset import engineer.json
 skillscout-mod install https://github.com/example/skills --no-link
 ```
 
-`apply`, `unassign` and `import` change the app's saved state, so they stop while Skillscout Mod is open. Quit the app first, and it picks up the change the next time it opens.
+`apply`, `unassign`, `import`, `rename` and `merge` change the app's saved state, so they stop while Skillscout Mod is open. Quit the app first, and it picks up the change the next time it opens.
 
 `uninstall` moves every copy of a skill to the Trash. Pass `--from` with one agent to remove only the copy in that agent's skills folder, which undoes an `add`:
 
@@ -360,11 +407,17 @@ Most commands take `--json`, so you can use Skillscout from scripts:
 skillscout-mod list --unused --json
 ```
 
+## Dashboard
+
+**Dashboard** is the first sidebar item and opens when you launch the app. It summarizes recorded skill use by period, enabled tool and project. It counts distinct chats containing recognized skills, shows last use, and lists skills with no recorded use in the selected period. Dashboard filters are independent of the skill lists. History is limited to the loaded lookback window and retained chats may be incomplete.
+
+Library review shows similar skills, differing copies, and the bytes and lines in each unique source's `SKILL.md`. Local review findings flag scripts and commands worth inspecting. Dashboard makes no AI calls. Instruction size does not measure actual token consumption, findings do not prove safety, and usage counts do not measure output quality.
+
 ## Privacy
 
 Skillscout reads your skill folders, your agents' plugin folders and your chats on your Mac, and has no accounts or analytics. It shows the commands plugins run but never their environment values. The only request it makes on its own goes to GitHub: once a day, it asks whether there's a newer version of Skillscout, and it downloads one only when you click **Install and Relaunch**.
 
-Discover reads a registry bundled with the app. Adding a repository to Library, re-downloading it, and the CLI's `update` command run Git against the repository you select. These operations contact its host and download skill files; they don't send your chats.
+Discovery reads a registry bundled with the app. Loading a skill preview, adding a repository to Library, checking branches or tags for updates, listing versions, and applying a version run Git against the sources you select. Check all checks the installed Git sources; commit pins stay fixed without contacting their hosts. These actions are user initiated and contact repository hosts without sending your chats. Temporary previews stay outside Library and create no agent links. Branch, tag, and commit options are also available on the CLI's install and update commands.
 
 Your chats leave your Mac only through the AI features. **Explain with AI**, **Find repeated tasks**, **Draft the skill with AI** and **Merge with AI** run the Codex CLI or the Claude Code CLI you're already logged in to, so the prompt goes to OpenAI or Anthropic under your own account. To find skill ideas, that prompt includes up to 2,000 of your recent messages, each cut to 220 characters, with the agent and project it came from. To merge two skills, it includes both `SKILL.md` files and the names of their other files.
 
@@ -405,6 +458,7 @@ Unit tests for the core files live in `Tests/`, and a functional check runs the 
 ```sh
 xcodebuild test -scheme SkillscoutTests
 python3 scripts/functional-check.py
+python3 scripts/functional-check.py --projects
 ```
 
 The app icon is drawn in code. Edit `scripts/render-icon.swift`, then write a new `Skillscout/AppIcon.icon`:

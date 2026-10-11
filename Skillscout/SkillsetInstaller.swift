@@ -1,11 +1,31 @@
 import CryptoKit
 import Foundation
 
+struct SkillsetIssue: Identifiable {
+  enum Reason {
+    case missingSource
+    case chooseSource
+    case differentContent(URL)
+    case builtIn
+    case destination(URL)
+  }
+  let skillID: Skill.ID
+  let reason: Reason
+  let message: String
+  var id: Skill.ID { skillID }
+}
+
 struct SkillsetPlan {
   var additions: [Skill] = []
   var removals: [SkillsetEntry] = []
   var kept = 0
   var issues: [String] = []
+  var issueDetails: [SkillsetIssue] = []
+
+  mutating func addIssue(_ id: Skill.ID, reason: SkillsetIssue.Reason, message: String) {
+    issues.append(message)
+    issueDetails.append(SkillsetIssue(skillID: id, reason: reason, message: message))
+  }
 }
 
 extension SkillInstaller {
@@ -15,9 +35,10 @@ extension SkillInstaller {
 
   static func skillsetSource(_ skill: Skill, preferredSources: [Skill.ID: String] = [:]) -> SkillCopy? {
     let sources = installableSources(for: skill)
-    if let path = preferredSources[skill.id] {
-      return sources.first { $0.resolved.path == path }
+    if let path = preferredSources[skill.id], let preferred = sources.first(where: { $0.resolved.path == path }) {
+      return preferred
     }
+    // A saved choice whose copy moved or went away no longer applies.
     return defaultSource(for: skill)
   }
 
@@ -27,12 +48,12 @@ extension SkillInstaller {
     plan.removals = entries.filter { $0.tool == tool && !desired.contains($0.skillID) }
     for id in desired.sorted() {
       guard let skill = skills.first(where: { $0.id == id }) else {
-        plan.issues.append("\(id): source is missing. Restore it or remove it from the skillset.")
+        plan.addIssue(id, reason: .missingSource, message: "\(id): source is missing. Restore it or remove it from the skillset.")
         continue
       }
       let source = skillsetSource(skill, preferredSources: preferredSources)
       if source == nil && installableSources(for: skill).count > 1 {
-        plan.issues.append("\(id): choose a source in the skillset editor before applying.")
+        plan.addIssue(id, reason: .chooseSource, message: "\(id): choose a source before applying.")
         continue
       }
       let providers = skill.copies.filter { $0.root.readBy.contains(tool) }
@@ -46,17 +67,17 @@ extension SkillInstaller {
       }
       if let provider {
         if let source, provider.contentHash != source.contentHash {
-          plan.issues.append("\(id): \(tool.name) already has different content. Its existing installation will be kept.")
+          plan.addIssue(id, reason: .differentContent(provider.folder), message: "\(id): \(tool.name) already has different content. Its existing installation will be kept.")
         } else {
           plan.kept += 1
         }
       } else if source == nil {
-        plan.issues.append("\(id): built into another tool and cannot be installed here.")
+        plan.addIssue(id, reason: .builtIn, message: "\(id): built into another tool and cannot be installed here.")
       } else {
         let name = slug(skill.name)
         let destination = tool.skillsFolder.appending(path: name)
         if name.isEmpty || (try? FileManager.default.attributesOfItem(atPath: destination.path)) != nil {
-          plan.issues.append("\(id): the destination already exists or its name is invalid. Nothing will be overwritten.")
+          plan.addIssue(id, reason: .destination(destination), message: "\(id): the destination already exists or its name is invalid. Nothing will be overwritten.")
         } else {
           plan.additions.append(skill)
         }
@@ -95,14 +116,7 @@ extension SkillInstaller {
       throw Failure.managed(folder)
     }
     guard (try? fm.attributesOfItem(atPath: folder.path)) != nil else { return (nil, []) }
-    let unchanged: Bool
-    if let destination = entry.linkDestination {
-      unchanged = (try? fm.destinationOfSymbolicLink(atPath: folder.path)) == destination
-    } else {
-      let isLink = (try? folder.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink ?? false
-      unchanged = !isLink && entry.fingerprint != nil && (try? skillsetFingerprint(folder)) == entry.fingerprint
-    }
-    guard unchanged else { return ("Kept \(entry.skillID): its installation was changed outside Skillscout.", []) }
+    guard skillsetEntryIsUnchanged(entry) else { return ("Kept \(entry.skillID): its installation was changed outside Skillscout.", []) }
     let referenced = skills.flatMap(\.copies).contains { copy in
       guard copy.isSymlink,
             !entries.contains(where: { entryPath(URL(fileURLWithPath: $0.path)) == entryPath(copy.folder) }),
@@ -115,6 +129,20 @@ extension SkillInstaller {
     var result: NSURL?
     try fm.trashItem(at: folder, resultingItemURL: &result)
     return (nil, result.map { [$0 as URL] } ?? [])
+  }
+
+  /// An existing receipt still matches an installation in its tool's skills folder.
+  static func skillsetEntryIsUnchanged(_ entry: SkillsetEntry) -> Bool {
+    let fm = FileManager.default
+    let folder = URL(fileURLWithPath: entry.path)
+    guard folder.deletingLastPathComponent().resolvingSymlinksInPath().path == entry.tool.skillsFolder.resolvingSymlinksInPath().path,
+          (try? fm.attributesOfItem(atPath: folder.path)) != nil else { return false }
+    if let destination = entry.linkDestination {
+      return (try? fm.destinationOfSymbolicLink(atPath: folder.path)) == destination
+    } else {
+      let isLink = (try? folder.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink ?? false
+      return !isLink && entry.fingerprint != nil && (try? skillsetFingerprint(folder)) == entry.fingerprint
+    }
   }
 
   /// Include supporting files so editing a copied plugin's script also protects it from removal.

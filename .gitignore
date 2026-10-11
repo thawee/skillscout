@@ -5,3 +5,4 @@ DerivedData/
 xcuserdata/
 .cursor/hooks/state/
 /skillscout-showreel.mp4
+__pycache__/

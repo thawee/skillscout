@@ -32,11 +32,9 @@ struct SettingsView: View {
       }
 
       Section {
-        Picker("Engine", selection: $engine) {
-          ForEach(AIEngineKind.allCases) { kind in
-            Text(kind.name).tag(kind.rawValue)
-          }
-        }
+        ChoiceChips(title: "Engine", options: AIEngineKind.allCases.map {
+          ChoiceOption(value: $0.rawValue, title: $0.name)
+        }, selection: $engine)
         if engine == AIEngineKind.claude.rawValue {
           TextField("Model", text: $claudeModel)
         } else {
@@ -49,11 +47,9 @@ struct SettingsView: View {
       }
 
       Section {
-        Picker("Read messages from the last", selection: $lookbackDays) {
-          ForEach([30, 60, 90, 180], id: \.self) { days in
-            Text("\(days) days").tag(days)
-          }
-        }
+        ChoiceChips(title: "Read messages from the last", options: [30, 60, 90, 180].map {
+          ChoiceOption(value: $0, title: "\($0) days")
+        }, selection: $lookbackDays)
         Toggle("Analyze automatically", isOn: $autoAnalyze)
         Stepper("After \(autoThreshold) new messages", value: $autoThreshold, in: 10...500, step: 10)
           .disabled(!autoAnalyze)
@@ -66,7 +62,7 @@ struct SettingsView: View {
       Section {
         Button("Repair Library") {
           Task {
-            repairMessage = await store.repairLibrary()
+            repairMessage = await store.repairLibrary().message
           }
         }
         if let repairMessage {
@@ -77,7 +73,7 @@ struct SettingsView: View {
       } header: {
         Text("Maintenance")
       } footer: {
-        Text("Fixes folder names for older downloaded repositories and removes broken symlinks.")
+        Text("Fixes folder names for older downloaded repositories and moves links to missing Library skills to Trash. Other broken links stay.")
       }
     }
     .formStyle(.grouped)

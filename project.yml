@@ -43,6 +43,14 @@ targets:
       - Skillscout/PromptLibrary.swift
       - Skillscout/PromptLibrary+Tools.swift
       - Skillscout/SkillInstaller.swift
+      - Skillscout/SkillActions.swift
+      - Skillscout/UsageReport.swift
+      - Skillscout/RepositoryLibrary.swift
+      - Skillscout/RepositoryMerge.swift
+      - Skillscout/RepositoryUpdate.swift
+      - Skillscout/RepositoryUpdateImpact.swift
+      - Skillscout/ProjectLibrary.swift
+      - Skillscout/ProjectSkillInstaller.swift
       - Skillscout/SkillsetInstaller.swift
       - Skillscout/Analyzer.swift
       - Skillscout/AIEngine.swift
@@ -70,6 +78,14 @@ targets:
       - Skillscout/PromptLibrary.swift
       - Skillscout/PromptLibrary+Tools.swift
       - Skillscout/SkillInstaller.swift
+      - Skillscout/SkillActions.swift
+      - Skillscout/UsageReport.swift
+      - Skillscout/RepositoryLibrary.swift
+      - Skillscout/RepositoryMerge.swift
+      - Skillscout/RepositoryUpdate.swift
+      - Skillscout/RepositoryUpdateImpact.swift
+      - Skillscout/ProjectLibrary.swift
+      - Skillscout/ProjectSkillInstaller.swift
       - Skillscout/SkillsetInstaller.swift
       - Skillscout/Analyzer.swift
       - Skillscout/AIEngine.swift

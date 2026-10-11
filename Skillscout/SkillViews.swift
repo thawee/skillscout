@@ -1,64 +1,273 @@
 import SwiftUI
 
+enum SkillListEmptyState {
+  case fresh, search, source, skillset, scope, noTools
+}
+
+struct SkillListEmptyView: View {
+  let reason: SkillListEmptyState
+  var browse: () -> Void = {}
+  var addFolder: () -> Void = {}
+  var clearSearch: () -> Void = {}
+  var showAll: () -> Void = {}
+  var addSkills: () -> Void = {}
+
+  private var title: String {
+    switch reason {
+    case .noTools: "No enabled tools"
+    case .fresh: "Build your skill library"
+    case .search: "No matching skills"
+    case .source: "No skills of this type"
+    case .skillset: "This skillset is empty"
+    case .scope: "No skills in this view"
+    }
+  }
+
+  var body: some View {
+    ContentUnavailableView {
+      Label(title, systemImage: "square.stack.3d.up.slash")
+    } description: {
+      switch reason {
+      case .noTools: Text("Enable an AI tool in Settings to see its Global skills.")
+      case .fresh: Text("Browse skills or add a local folder to start using them with your tools.")
+      case .search: Text("Try another name or description.")
+      case .source: Text("Other skill types may be available in your library.")
+      case .skillset: Text("Choose skills from your library before assigning this skillset to a tool.")
+      case .scope: Text("Try all skills or another usage scope. Recorded use depends on the chats your tools retain.")
+      }
+    } actions: {
+      switch reason {
+      case .noTools: SettingsLink { Text("Open Settings") }
+      case .fresh:
+        VStack(spacing: 8) {
+          Button("Browse Discovery", action: browse)
+          Button("Add local folder", action: addFolder)
+        }
+      case .search: Button("Clear search", action: clearSearch)
+      case .source: Button("Show all skill types", action: showAll)
+      case .skillset: Button("Add skills", action: addSkills)
+      case .scope: Button("Show all skills", action: showAll)
+      }
+    }
+  }
+}
+
+/// The view a skill is shown in. Each one leads with the facts and actions for its purpose.
+enum SkillListContext: Equatable {
+  case library
+  case global(Tool?)
+  case activity
+  case skillset(UUID)
+  case discovery
+  case plugin
+
+  var tool: Tool? { if case .global(let tool) = self { tool } else { nil } }
+  var isGlobal: Bool { if case .global = self { true } else { false } }
+  var skillsetID: UUID? { if case .skillset(let id) = self { id } else { nil } }
+  /// Only Library and Chat activity have their own project and period filters.
+  var usesAllLoadedHistory: Bool { self != .library && self != .activity }
+  /// Edit and Rename belong to Library, where sources are stored.
+  var editsSkills: Bool { self == .library }
+  /// Only Library shows Skillscout's own storage folders. Other views name them as the Library.
+  var showsLibraryStorage: Bool { self == .library }
+  /// Library and Global add, remove and move installations. Other views link to them.
+  var managesInstallations: Bool { self == .library || isGlobal }
+
+  var detailSections: [SkillDetailSection] {
+    switch self {
+    case .library: [.problems, .sources, .contents, .skillsets, .usage, .explanation, .file]
+    case .global: [.problems, .sources, .contents, .skillsets, .usage, .file]
+    case .activity: [.usage, .sources, .file]
+    case .skillset: [.skillsets, .sources, .usage, .file]
+    case .discovery: [.contents, .problems, .sources, .explanation, .file]
+    case .plugin: [.contents, .sources, .usage, .file]
+    }
+  }
+
+  func removal(for skills: [Skill], selectedCount: Int) -> Removal? {
+    if let tool { return .from(tool, skills: skills, selectedCount: selectedCount) }
+    return nil
+  }
+}
+
+enum SkillDetailSection {
+  case problems, sources, contents, skillsets, usage, explanation, file
+}
+
+private struct OpenInLibraryKey: EnvironmentKey {
+  static let defaultValue: (@MainActor (Skill.ID) -> Void)? = nil
+}
+
+extension EnvironmentValues {
+  /// Shows a skill in Library. Views outside Library link there instead of editing in place.
+  var openInLibrary: (@MainActor (Skill.ID) -> Void)? {
+    get { self[OpenInLibraryKey.self] }
+    set { self[OpenInLibraryKey.self] = newValue }
+  }
+}
+
+struct SkillContextMenu: View {
+  @Environment(AppStore.self) private var store
+  @Environment(\.openInLibrary) private var openInLibrary
+  let ids: Set<Skill.ID>
+  let context: SkillListContext
+  var manageGlobal: (Skill.ID, Tool?) -> Void = { _, _ in }
+
+  private var skills: [Skill] { ids.sorted().compactMap { store.skill($0) } }
+  private var addableIDs: Set<Skill.ID> {
+    Set(skills.filter { !SkillInstaller.installableSources(for: $0).isEmpty }.map(\.id))
+  }
+  private var destinationSets: [Skillset] {
+    store.skillsets.filter { $0.id != context.skillsetID && !addableIDs.isSubset(of: $0.skills) }
+  }
+  private var removal: Removal? { context.removal(for: skills, selectedCount: ids.count) }
+
+  /// Outside Library, the folder an agent reads, never Skillscout's own storage.
+  private func revealedCopy(of skill: Skill) -> SkillCopy? {
+    let preferred = context.tool.flatMap { skill.provider(for: $0) } ?? store.preferredSource(for: skill) ?? skill.primary
+    if context.showsLibraryStorage || Paths.libraryLocation(preferred.folder) == nil { return preferred }
+    return skill.copies.first { Paths.libraryLocation($0.folder) == nil }
+  }
+
+  var body: some View {
+    if !ids.isEmpty {
+      switch context {
+      case .skillset(let skillsetID):
+        Button("Remove from this skillset") { store.setSkillMembership(ids, in: skillsetID, included: false) }
+          .disabled(store.isManagingSkillsets)
+        addToSkillset
+        addToTool
+      case .global:
+        if context.tool != nil, let removal {
+          Button(removal.actionLabel, role: .destructive) { store.removal = removal }
+        }
+        if skills.count == 1, let skill = skills.first, SkillInstaller.canMoveToCentral(skill) {
+          Button("Move to Library") { Task { await store.moveToCentral(skill) } }
+            .disabled(store.isManagingSkillsets)
+        }
+        addToTool
+        addToSkillset
+      case .library:
+        addToTool
+        addToSkillset
+      case .activity, .discovery, .plugin:
+        EmptyView()
+      }
+      if !context.showsLibraryStorage, skills.count == 1, let skill = skills.first, skill.isInLibrary, let openInLibrary {
+        Button("Open in Library") { openInLibrary(skill.id) }
+      }
+      if skills.count == 1, let skill = skills.first {
+        Divider()
+        if context.editsSkills {
+          if SkillInstaller.canEdit(skill) { Button("Edit SKILL.md…") { store.editing = skill } }
+          if SkillInstaller.canRename(skill) { Button("Rename…") { store.renaming = skill } }
+        }
+        if let copy = revealedCopy(of: skill) {
+          Button("Reveal in Finder") { Finder.reveal(copy.folder) }
+        }
+        if let plugin = store.plugins.first(where: { plugin in
+          skill.copies.contains { copy in
+            copy.root.kind == .plugin && (context.tool.map { copy.root.readBy.contains($0) } ?? true)
+              && copy.resolved.path.hasPrefix(plugin.folder.resolvingSymlinksInPath().path + "/")
+          }
+        }) {
+          Button("Show plugin in Finder") { Finder.reveal(plugin.folder) }
+        }
+      }
+      if context == .library || context == .activity, let skill = skills.first, skills.count == 1, !skill.availableIn.intersection(store.tools).isEmpty {
+        Button("Manage in Global…") { manageGlobal(skill.id, nil) }
+      }
+      if context.isGlobal {
+        if skills.contains(where: { !$0.removableCopies.filter { !$0.root.readBy.isEmpty }.isEmpty }) {
+          Divider()
+          Menu("Remove from tool") {
+            ForEach(store.tools) { tool in
+              if let removal = Removal.from(tool, skills: skills, selectedCount: ids.count) {
+                Button(tool.name + (removal.isShared ? " (shared installation)…" : "…"), role: .destructive) { store.removal = removal }
+              }
+            }
+          }
+        }
+
+      }
+    }
+  }
+
+  @ViewBuilder private var addToTool: some View {
+    if !addableIDs.isEmpty {
+      Button("Add skills…") {
+        store.pendingSkillAdd = SkillAddPresentation(skillIDs: addableIDs.sorted(), tool: context.tool)
+      }
+      .disabled(store.isManagingSkillsets)
+    }
+  }
+
+  @ViewBuilder private var addToSkillset: some View {
+    if !addableIDs.isEmpty, !destinationSets.isEmpty {
+      Menu(context.skillsetID == nil ? "Add to skillset" : "Add to another skillset") {
+        ForEach(destinationSets) { skillset in
+          Button(skillset.name) { store.setSkillMembership(addableIDs, in: skillset.id, included: true) }
+        }
+      }
+      .disabled(store.isManagingSkillsets)
+    }
+  }
+}
+
 struct SkillList: View {
   @Environment(AppStore.self) private var store
   let skills: [Skill]
   @Binding var selection: Set<Skill.ID>
-  var skillsetID: UUID?
+  var context = SkillListContext.library
+  var usageOverride: [Skill.ID: SkillUsage]?
+  var manageGlobal: (Skill.ID, Tool?) -> Void = { _, _ in }
+  var emptyState = SkillListEmptyState.scope
+  var browse: () -> Void = {}
+  var addFolder: () -> Void = {}
+  var clearSearch: () -> Void = {}
+  var showAll: () -> Void = {}
+  var addSkills: () -> Void = {}
+  @State private var choosingRemoval = false
 
   var body: some View {
     List(skills, selection: $selection) { skill in
-      SkillRow(skill: skill)
+      SkillRow(skill: skill, usageOverride: usageOverride, tool: context.tool)
     }
     .contextMenu(forSelectionType: Skill.ID.self) { ids in
-      if !ids.isEmpty {
-        Menu("Add to skillset") {
-          ForEach(store.skillsets) { skillset in
-            Button(skillset.name) { store.setSkillMembership(ids, in: skillset.id, included: true) }
-          }
-        }
-        .disabled(store.skillsets.isEmpty || store.isManagingSkillsets)
-        if let skillsetID {
-          Button("Remove from skillset") { store.setSkillMembership(ids, in: skillsetID, included: false) }
-            .disabled(store.isManagingSkillsets)
-        }
-      }
-      if ids.count == 1, let skill = store.skill(ids.first), skill.isPersonal {
-        Button("Edit SKILL.md…") { store.editing = skill }
-        Button("Rename…") { store.renaming = skill }
-      }
-      if let removal = removal(for: ids) {
-        Button(ids.count == 1 ? "Uninstall" : "Uninstall selected skills…", role: .destructive) {
-          store.removal = removal
-        }
-      }
+      SkillContextMenu(ids: ids, context: context, manageGlobal: manageGlobal)
     }
     .onDeleteCommand {
-      if let skillsetID {
-        store.setSkillMembership(selection, in: skillsetID, included: false)
-      } else {
-        store.removal = removal(for: selection)
+      guard !store.isManagingSkillsets else { return }
+      if let id = context.skillsetID {
+        store.setSkillMembership(selection, in: id, included: false)
+      } else if context.tool != nil {
+        store.removal = context.removal(for: selection.compactMap { store.skill($0) }, selectedCount: selection.count)
+      } else if context.isGlobal {
+        choosingRemoval = store.tools.contains { Removal.from($0, skills: selection.compactMap { store.skill($0) }, selectedCount: selection.count) != nil }
+      }
+    }
+    .confirmationDialog("Remove selected skills", isPresented: $choosingRemoval) {
+      ForEach(store.tools) { tool in
+        if let removal = Removal.from(tool, skills: selection.compactMap { store.skill($0) }, selectedCount: selection.count) {
+          Button(tool.name + (removal.isShared ? " (shared installation)…" : "…"), role: .destructive) { store.removal = removal }
+        }
       }
     }
     .overlay {
       if skills.isEmpty {
-        ContentUnavailableView("No skills here", systemImage: "square.stack.3d.up.slash")
+        SkillListEmptyView(reason: emptyState, browse: browse, addFolder: addFolder,
+          clearSearch: clearSearch, showAll: showAll, addSkills: addSkills)
       }
     }
     .navigationSplitViewColumnWidth(min: 320, ideal: 400)
-  }
-
-  private func removal(for ids: Set<Skill.ID>) -> Removal? {
-    let removable = ids.compactMap { store.skill($0) }.filter(\.isPersonal)
-    guard !removable.isEmpty else { return nil }
-    if ids.count == 1 { return .uninstall(removable[0]) }
-    return .uninstall(removable, selectedCount: ids.count)
   }
 }
 
 struct SkillRow: View {
   @Environment(AppStore.self) private var store
   let skill: Skill
+  var usageOverride: [Skill.ID: SkillUsage]?
+  var tool: Tool? = nil
 
   var body: some View {
     let activeTools = store.tools.filter { skill.availableIn.contains($0) }
@@ -68,13 +277,11 @@ struct SkillRow: View {
           .font(.body.weight(.semibold))
           .lineLimit(1)
         Spacer()
-        if let usage = store.usage[skill.id] {
-          Text("^[\(usage.chats) chat](inflect: true)")
-            .font(.caption)
-            .monospacedDigit()
-            .foregroundStyle(.secondary)
-            .fixedSize()
-        }
+        Text("^[\((usageOverride ?? store.usage)[skill.id]?.chats ?? 0) chat](inflect: true)")
+          .font(.caption)
+          .monospacedDigit()
+          .foregroundStyle(.secondary)
+          .fixedSize()
       }
       if !skill.description.isEmpty {
         Text(skill.description)
@@ -82,21 +289,19 @@ struct SkillRow: View {
           .foregroundStyle(.secondary)
           .lineLimit(2)
       }
-      HStack(spacing: 4) {
+      let readers = tool.map { Set([$0]) } ?? Set(store.tools)
+      if skill.isSystemOnly(in: readers) {
+        Text("System · Managed by \(skill.systemOwners(in: readers).map(\.name).formatted())")
+          .font(.caption).foregroundStyle(.secondary)
+      }
+      Group {
         if activeTools.isEmpty {
-          Text("Not added to a tool")
+          Text(skill.availableIn.isEmpty ? "Not added to a tool" : "Not available to enabled tools")
             .font(.caption)
             .foregroundStyle(.tertiary)
         } else {
-          ForEach(Array(activeTools.prefix(2))) { tool in ToolBadge(tool: tool) }
-          if activeTools.count > 2 {
-            Text("+\(activeTools.count - 2)")
-              .font(.caption2.weight(.semibold))
-              .fixedSize(horizontal: true, vertical: false)
-              .foregroundStyle(.secondary)
-              .padding(.horizontal, 6)
-              .padding(.vertical, 2)
-              .background(Capsule().fill(.quaternary))
+          LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 110), spacing: 4, alignment: .leading)], alignment: .leading, spacing: 4) {
+            ForEach(activeTools) { tool in ToolBadge(tool: tool) }
           }
         }
       }
@@ -110,10 +315,63 @@ struct SkillRow: View {
 struct SkillDetail: View {
   @Environment(AppStore.self) private var store
   let skill: Skill
+  var installationSource: SkillCopy? = nil
+  let context: SkillListContext
+  var usageOverride: [Skill.ID: SkillUsage]?
+  var manageGlobal: (Skill.ID, Tool?) -> Void = { _, _ in }
+  @Environment(\.openInLibrary) private var openInLibrary
   @State private var content = ""
+  @State private var selectedDescription = ""
   @State private var review: SkillReview?
   @State private var problems: [String] = []
-  @AppStorage("lookbackDays") private var lookbackDays = 60
+  @State private var selectedPlugin: InstalledPlugin?
+
+  private var displayedUsage: [Skill.ID: SkillUsage] {
+    if let usageOverride { return usageOverride }
+    if context.usesAllLoadedHistory {
+      return store.usageReport(scope: UsageScope(), tool: context.tool).usage
+    }
+    return store.usage
+  }
+
+  private func supplyingPlugins(for readers: [Tool]) -> [InstalledPlugin] {
+    store.plugins.filter { plugin in
+      store.tools.contains(plugin.tool) && skill.copies.contains { copy in
+        let folder = copy.folder.standardizedFileURL.path
+        let provider = plugin.folder.standardizedFileURL.path
+        return copy.root.kind == .plugin && !copy.root.readBy.isDisjoint(with: readers)
+          && (folder == provider || folder.hasPrefix(provider + "/"))
+      }
+    }
+  }
+
+  private var managesPersonalCopies: Bool {
+    guard let installationSource else { return skill.isPersonal }
+    return installationSource.root.kind != .plugin && installationSource.root.kind != .builtIn && skill.isPersonal
+  }
+
+  private func place(_ url: URL) -> String {
+    context.showsLibraryStorage ? Paths.abbreviate(url) : Paths.describe(url)
+  }
+
+  private var storedInLibrary: Bool { skill.copies.contains(where: \.isInLibraryStorage) }
+
+  private var systemReaders: Set<Tool> { context.tool.map { Set([$0]) } ?? Set(store.tools) }
+
+  private var removalToolGroups: [[Tool]] {
+    var groups: [[Tool]] = []
+    var positions: [[String]: Int] = [:]
+    for tool in store.tools where skill.availableIn.contains(tool) && (context.tool.map { $0 == tool } ?? true) {
+      let folders = skill.copiesRemoving(from: tool).map(\.folder.path).sorted()
+      if let index = positions[folders] {
+        groups[index].append(tool)
+      } else {
+        positions[folders] = groups.count
+        groups.append([tool])
+      }
+    }
+    return groups
+  }
 
   var body: some View {
     ScrollView {
@@ -121,79 +379,132 @@ struct SkillDetail: View {
         VStack(alignment: .leading, spacing: 6) {
           Text(skill.name)
             .font(.largeTitle.bold())
-          if !skill.description.isEmpty {
-            Text(skill.description)
+          if !(installationSource == nil ? skill.description : selectedDescription).isEmpty {
+            Text(installationSource == nil ? skill.description : selectedDescription)
               .font(.title3)
               .foregroundStyle(.secondary)
           }
         }
         .textSelection(.enabled)
 
-        if !problems.isEmpty {
-          DetailSection("Problems") {
-            VStack(alignment: .leading, spacing: 6) {
-              ForEach(problems, id: \.self) { problem in
-                Label(problem, systemImage: "exclamationmark.triangle")
-                  .foregroundStyle(.orange)
-                  .fixedSize(horizontal: false, vertical: true)
-              }
-              Text("Checked against the Agent Skills specification. Agents may skip the skill, rename it or cut its description.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-            }
-          }
+        if skill.isSystemOnly(in: systemReaders) {
+          Text("System · Managed by \(skill.systemOwners(in: systemReaders).map(\.name).formatted())")
+            .font(.callout).foregroundStyle(.secondary)
         }
-        DetailSection("Installation") {
-          installations
-        }
-        if let review {
-          DetailSection("Contents") {
-            VStack(alignment: .leading, spacing: 8) {
-              Text("\(review.files.count == 1 ? "1 file" : "\(review.files.count) files") from a downloaded repository: \(review.summary.lowercased()).")
-                .foregroundStyle(.secondary)
-              ReviewFindingsView(review: review)
-            }
-          }
-        }
-        if !store.skillsets.isEmpty {
-          DetailSection("Skillsets") {
-            ForEach(store.skillsets) { skillset in
-              Toggle(skillset.name, isOn: Binding(
-                get: { skillset.skills.contains(skill.id) },
-                set: { included in store.setSkillMembership([skill.id], in: skillset.id, included: included) }
-              ))
-              .disabled(store.isManagingSkillsets)
-            }
-          }
-        }
-        DetailSection("Usage") {
-          usageSummary
-        }
-        DetailSection("What it does") {
-          explanation
-        }
-        DetailSection("SKILL.md") {
-          file
-        }
+
+        ForEach(context.detailSections, id: \.self) { section($0) }
       }
       .padding(28)
       .frame(maxWidth: 820, alignment: .leading)
       .frame(maxWidth: .infinity, alignment: .leading)
     }
-    .task(id: skill.primary) {
-      content = (try? String(contentsOf: skill.skillFile, encoding: .utf8)) ?? ""
-      review = skill.copies.first(where: SkillInstaller.isFromLibrary).map { SkillReview.inspect($0.resolved) }
-      problems = SkillLint.problems(for: skill)
+    .task(id: installationSource ?? skill.primary) {
+      let source = installationSource ?? skill.primary
+      content = (try? String(contentsOf: source.resolved.appending(path: "SKILL.md"), encoding: .utf8)) ?? ""
+      review = source.root.kind == .managed || source.root.kind == .plugin ? SkillReview.inspect(source.resolved) : nil
+      selectedDescription = Frontmatter.parse(content)["description"] ?? ""
+      problems = installationSource == nil ? SkillLint.problems(for: skill)
+        : SkillLint.problems(content, folderName: source.folder.lastPathComponent)
+    }
+    .sheet(item: $selectedPlugin) { plugin in
+      VStack(spacing: 0) {
+        HStack {
+          Text("Plugin provider").font(.headline)
+          Spacer()
+          Button("Close") { selectedPlugin = nil }.keyboardShortcut(.cancelAction)
+        }.padding()
+        PluginDetail(plugin: plugin)
+      }.frame(width: 820, height: 700)
+    }
+    .onChange(of: store.tools) {
+      if let plugin = selectedPlugin, !store.tools.contains(plugin.tool) { selectedPlugin = nil }
+    }
+  }
+
+  @ViewBuilder
+  private func section(_ section: SkillDetailSection) -> some View {
+    switch section {
+    case .problems:
+      if !problems.isEmpty {
+        DetailSection("Problems") {
+          VStack(alignment: .leading, spacing: 6) {
+            ForEach(problems, id: \.self) { problem in
+              Label(problem, systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            Text("Checked against the Agent Skills specification. Agents may skip the skill, rename it or cut its description.")
+              .font(.callout)
+              .foregroundStyle(.secondary)
+          }
+        }
+      }
+    case .sources:
+      DetailSection(context.isGlobal ? "Global availability" : "Sources") {
+        installations
+      }
+    case .contents:
+      if let review {
+        DetailSection("Contents") {
+          VStack(alignment: .leading, spacing: 8) {
+            Text("\(review.files.count == 1 ? "1 file" : "\(review.files.count) files") from this source: \(review.summary.lowercased()).")
+              .foregroundStyle(.secondary)
+            ReviewFindingsView(review: review)
+          }
+        }
+      }
+    case .skillsets:
+      DetailSection("Skillsets") {
+        memberships
+      }
+    case .usage:
+      DetailSection("Usage") {
+        usageSummary
+      }
+    case .explanation:
+      DetailSection("What it does") {
+        explanation
+      }
+    case .file:
+      DetailSection("SKILL.md") {
+        if context == .activity {
+          DisclosureGroup("Show SKILL.md") { file }
+        } else {
+          file
+        }
+      }
+    }
+  }
+
+  @ViewBuilder
+  private var memberships: some View {
+    if let skillsetID = context.skillsetID, let skillset = store.skillsets.first(where: { $0.id == skillsetID }) {
+      VStack(alignment: .leading, spacing: 8) {
+        Text("Member of \(skillset.name)")
+        if let source = store.preferredSource(for: skill) {
+          Text("Source: \(source.sourceLabel)").font(.callout).foregroundStyle(.secondary)
+        }
+        Button("Remove from \(skillset.name)") { store.setSkillMembership([skill.id], in: skillset.id, included: false) }
+          .buttonStyle(.link)
+          .disabled(store.isManagingSkillsets)
+        Text("Removing membership does not uninstall the skill.").font(.caption).foregroundStyle(.secondary)
+      }
+    } else {
+      let members = store.skillsets.filter { $0.skills.contains(skill.id) }
+      Text(members.isEmpty ? "Not in a skillset" : "In \(members.map(\.name).formatted(.list(type: .and)))")
+        .foregroundStyle(members.isEmpty ? .secondary : .primary)
     }
   }
 
   @ViewBuilder
   private var usageSummary: some View {
-    if let usage = store.usage[skill.id] {
+    let scopeDescription = context.usesAllLoadedHistory ? UsageScope().description(loadedDays: store.loadedLookbackDays) : store.usageScopeDescription
+    if !context.usesAllLoadedHistory { UsageScopeControls() }
+    if let usage = displayedUsage[skill.id] {
       VStack(alignment: .leading, spacing: 10) {
-        Text("Used in ^[\(usage.chats) chat](inflect: true) in the last \(lookbackDays) days, most recently \(usage.lastUsed, format: .relative(presentation: .named)).")
+        Text("Used in ^[\(usage.chats) chat](inflect: true) in \(scopeDescription), most recently \(usage.lastUsed, format: .relative(presentation: .named)).")
         HStack(spacing: 14) {
-          ForEach(Tool.allCases.filter { usage.byTool[$0] != nil }) { tool in
+          ForEach(store.tools.filter { usage.byTool[$0] != nil }) { tool in
             HStack(spacing: 5) {
               ToolBadge(tool: tool)
               Text("\(usage.byTool[tool] ?? 0)")
@@ -209,17 +520,17 @@ struct SkillDetail: View {
         }
       }
     } else {
-      Text("Not used in the last \(lookbackDays) days.")
+      Text("No recorded use in \(scopeDescription).")
         .foregroundStyle(.secondary)
     }
-    Text("A use is a chat where the agent read this skill, or where you attached it yourself.")
+    Text(context.tool.map { store.tools.contains($0) ? "Chat counts for \($0.name). Counts come from retained chats." : "\($0.name) history is disabled. Chat counts are zero." } ?? "A recorded use is a chat where the agent read this skill, or where you attached it yourself. Counts come from retained chats.")
       .font(.caption)
       .foregroundStyle(.tertiary)
   }
 
   @ViewBuilder
   private var explanation: some View {
-    let key = skill.primary.contentHash
+    let key = (installationSource ?? skill.primary).contentHash
     if let text = store.explanations[key] {
       Text(text)
         .textSelection(.enabled)
@@ -231,7 +542,7 @@ struct SkillDetail: View {
       }
     } else {
       Button {
-        Task { await store.explain(skill) }
+        Task { await store.explain(skill, from: installationSource) }
       } label: {
         Label("Explain with AI", systemImage: "sparkles")
       }
@@ -240,34 +551,65 @@ struct SkillDetail: View {
 
   private var installations: some View {
     VStack(alignment: .leading, spacing: 12) {
-      if !store.tools.isEmpty {
-        if skill.isBuiltInOnly {
-          Text("Built-in skills stay with their original tool.")
+      if context.managesInstallations, !store.tools.isEmpty {
+        if skill.isSystemOnly(in: systemReaders) {
+          Text("Built-in skills cannot be removed individually. Manage them in their original tool.")
             .font(.callout)
             .foregroundStyle(.secondary)
         } else {
-          Menu(skill.isPluginOnly ? "Copy to tool…" : "Add to tool…") {
-            let sources = SkillInstaller.installableSources(for: skill)
-            ForEach(store.tools) { tool in
-              if sources.count <= 1 {
-                Button(skill.availableIn.contains(tool) ? "\(tool.name) (installed)" : tool.name) { Task { await store.add(skill, to: tool) } }
-              } else {
-                Menu(skill.availableIn.contains(tool) ? "\(tool.name) (installed)" : tool.name) {
-                  ForEach(sources) { source in
-                    Button("\(source.sourceLabel) · \(Paths.abbreviate(source.resolved))") {
-                      Task { await store.add(skill, to: tool, from: source) }
-                    }
-                  }
+          SkillSelectionActions(skills: [skill], initialSources: installationSource.map { [skill.id: $0.resolved.path] } ?? [:], initialTool: context.tool)
+        }
+      }
+      HStack(spacing: 14) {
+        if !context.showsLibraryStorage, skill.isInLibrary, let openInLibrary {
+          Button("Open in Library") { openInLibrary(skill.id) }
+        }
+        if context == .library || context == .activity, !skill.availableIn.intersection(store.tools).isEmpty {
+          Button("Manage in Global…") { manageGlobal(skill.id, context.tool) }
+        }
+      }
+      ForEach(Array(removalToolGroups.enumerated()), id: \.offset) { _, tools in
+        VStack(alignment: .leading, spacing: 4) {
+          LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), alignment: .leading)], alignment: .leading, spacing: 4) {
+            ForEach(tools) { tool in ToolBadge(tool: tool) }
+          }
+          if let tool = tools.first {
+            if context.isGlobal, let removal = Removal.from(tool, skills: [skill], selectedCount: 1) {
+              Button(removal.actionLabel) { store.removal = removal }
+                .buttonStyle(.link)
+            }
+          }
+          let protectedTools = tools.filter { tool in
+            skill.copies.contains { $0.root.readBy.contains(tool) && ($0.root.kind == .plugin || $0.root.kind == .builtIn) }
+          }
+          if !protectedTools.isEmpty {
+            Text("Plugin and built-in skills cannot be removed individually. Manage their providers in the original tool.")
+              .font(.caption)
+              .foregroundStyle(.secondary)
+            if context.isGlobal {
+              ForEach(supplyingPlugins(for: tools)) { plugin in
+                HStack(spacing: 8) {
+                  Text("Provided by \(plugin.name)").font(.callout)
+                  ToolBadge(tool: plugin.tool)
+                  Button("View plugin…") { selectedPlugin = plugin }
+                    .buttonStyle(.link)
                 }
               }
             }
           }
         }
       }
-      let created = skill.created(usage: store.usage[skill.id])
+      let created = skill.created(usage: displayedUsage[skill.id])
       if created != .distantPast {
         Text("Created \(created, format: .dateTime.day().month(.wide).year())")
           .foregroundStyle(.secondary)
+      }
+      if !context.showsLibraryStorage, storedInLibrary {
+        if installationGroups.isEmpty {
+          Text("Stored in Library. Not added to an agent.").font(.callout).foregroundStyle(.secondary)
+        } else if installationGroups.joined().contains(where: { $0.isSymlink && $0.isInLibraryStorage }) {
+          Text("Agents load this skill from Library.").font(.callout).foregroundStyle(.secondary)
+        }
       }
       ForEach(Array(installationGroups.enumerated()), id: \.offset) { _, copies in
         let source = copies.first(where: { !$0.isSymlink }) ?? copies[0]
@@ -277,7 +619,7 @@ struct SkillDetail: View {
             Spacer()
             Menu {
               Button("Show source in Finder") { Finder.reveal(source.folder) }
-              if skill.removableCopies.contains(source) {
+              if context == .library && !source.isSymlink && source.root.readBy.isEmpty && skill.removableCopies.contains(source) {
                 Button("Remove source…", role: .destructive) { store.removal = .copy(source, of: skill) }
               }
             } label: {
@@ -288,12 +630,12 @@ struct SkillDetail: View {
             .accessibilityLabel("Source actions")
           }
           readersView(for: copies)
-          Text("\(copies.count) \(copies.count == 1 ? "location" : "locations") · \(Paths.abbreviate(source.resolved))")
+          Text("\(copies.count) \(copies.count == 1 ? "location" : "locations") · \(place(source.resolved))")
             .font(.caption)
             .foregroundStyle(.secondary)
             .lineLimit(1)
             .truncationMode(.middle)
-            .help(source.resolved.path)
+            .help(context.showsLibraryStorage ? source.resolved.path : place(source.resolved))
           DisclosureGroup("Show locations") {
             ForEach(copies) { copy in
               VStack(alignment: .leading, spacing: 3) {
@@ -301,11 +643,8 @@ struct SkillDetail: View {
                   Text(copy.root.label).font(.caption.weight(.medium))
                   Spacer()
                   Button("Finder") { Finder.reveal(copy.folder) }.buttonStyle(.link)
-                  if skill.removableCopies.contains(copy) {
-                    Button("Remove…") { store.removal = .copy(copy, of: skill) }.buttonStyle(.link)
-                  }
                 }
-                Text(copy.isSymlink ? "\(Paths.abbreviate(copy.folder)) → \(Paths.abbreviate(copy.resolved))" : Paths.abbreviate(copy.folder))
+                Text(copy.isSymlink ? "\(Paths.abbreviate(copy.folder)) → \(place(copy.resolved))" : Paths.abbreviate(copy.folder))
                   .font(.caption.monospaced())
                   .foregroundStyle(.secondary)
                   .textSelection(.enabled)
@@ -323,17 +662,16 @@ struct SkillDetail: View {
           .font(.callout)
           .foregroundStyle(.orange)
       }
-      if skill.isPersonal {
-        Button("Rename…") { store.renaming = skill }
-        if skill.removableCopies.count > 1 {
-          Button("Remove all user copies", role: .destructive) { store.removal = .uninstall(skill) }
-        }
-        if !skill.copies.contains(where: { $0.root.kind == .managed || $0.root.kind == .shared }) {
-          Button("Move to Central") {
+      if managesPersonalCopies {
+        if context.editsSkills, SkillInstaller.canRename(skill) { Button("Rename…") { store.renaming = skill } }
+        if context.managesInstallations, !skill.copies.contains(where: { $0.root.kind == .managed || $0.root.kind == .shared || $0.root.kind == .drafts }) {
+          Button("Move to Library") {
             Task { await store.moveToCentral(skill) }
           }
+          .disabled(store.isManagingSkillsets)
         }
-      } else if let plugin = skill.copies.first(where: { $0.root.kind == .plugin }) {
+      } else if let plugin = installationSource?.root.kind == .plugin ? installationSource
+          : skill.copies.first(where: { $0.root.kind == .plugin }) {
         Text("It comes from the \(plugin.sourceLabel), so uninstall the plugin to remove it.")
           .font(.callout)
           .foregroundStyle(.secondary)
@@ -342,10 +680,11 @@ struct SkillDetail: View {
   }
 
   private var installationGroups: [[SkillCopy]] {
+    let copies = context.showsLibraryStorage ? skill.copies : skill.copies.filter { Paths.libraryLocation($0.folder) == nil }
     var seen = Set<String>()
-    return skill.copies.compactMap { copy in
+    return copies.compactMap { copy in
       guard seen.insert(copy.resolved.path).inserted else { return nil }
-      return skill.copies.filter { $0.resolved.path == copy.resolved.path }
+      return copies.filter { $0.resolved.path == copy.resolved.path }
     }
   }
 
@@ -361,7 +700,7 @@ struct SkillDetail: View {
         .font(.callout)
         .foregroundStyle(.secondary)
     } else {
-      Text("Loaded by")
+      Text("Available to")
         .font(.caption)
         .foregroundStyle(.secondary)
       ViewThatFits(in: .horizontal) {
@@ -382,12 +721,19 @@ struct SkillDetail: View {
   private var file: some View {
     VStack(alignment: .leading, spacing: 8) {
       HStack(spacing: 14) {
-        if skill.isPersonal {
+        if managesPersonalCopies, context.editsSkills, SkillInstaller.canEdit(skill) {
           Button("Edit") { store.editing = skill }
         }
-        Button("Open in editor") { Finder.open(skill.skillFile) }
+        if context.showsLibraryStorage || !(installationSource ?? skill.primary).isInLibraryStorage {
+          Button("Open in editor") { Finder.open((installationSource ?? skill.primary).resolved.appending(path: "SKILL.md")) }
+        }
       }
       .buttonStyle(.link)
+      if managesPersonalCopies, context.isGlobal, !skill.isInLibrary {
+        Text("Move this skill to Library to edit or rename it.").font(.caption).foregroundStyle(.secondary)
+      } else if !context.showsLibraryStorage, (installationSource ?? skill.primary).isInLibraryStorage {
+        Text("Open this skill in Library to edit it.").font(.caption).foregroundStyle(.secondary)
+      }
       Text(content)
         .font(.system(.callout, design: .monospaced))
         .textSelection(.enabled)
@@ -400,72 +746,132 @@ struct SkillDetail: View {
 
 /// Copies of a skill on their way to the Trash, with the words that confirm it.
 struct Removal {
+  enum Scope {
+    case everywhere, tool(Tool), source
+  }
+
   let skills: [Skill]
   let copies: [SkillCopy]
   let selectedCount: Int
+  let scope: Scope
 
   static func uninstall(_ skill: Skill) -> Removal {
-    Removal(skills: [skill], copies: skill.removableCopies, selectedCount: 1)
+    uninstall([skill], selectedCount: 1)
   }
 
   static func uninstall(_ skills: [Skill], selectedCount: Int) -> Removal {
-    var seen = Set<String>()
-    let ordered = skills.sorted { $0.name < $1.name }
-    let copies = ordered.flatMap(\.removableCopies)
-      .filter { seen.insert($0.folder.standardizedFileURL.path).inserted }
-      .sorted { $0.folder.pathComponents.count > $1.folder.pathComponents.count }
-    return Removal(skills: ordered, copies: copies, selectedCount: selectedCount)
+    let ordered = skills.filter(\.isPersonal).sorted { $0.name < $1.name }
+    return Removal(skills: ordered, copies: orderedCopies(ordered.flatMap(\.removableCopies)),
+      selectedCount: selectedCount, scope: .everywhere)
+  }
+
+  static func from(_ tool: Tool, skills: [Skill], selectedCount: Int) -> Removal? {
+    let ordered = skills.filter { !$0.copiesRemoving(from: tool).isEmpty }.sorted { $0.name < $1.name }
+    guard !ordered.isEmpty else { return nil }
+    return Removal(skills: ordered, copies: orderedCopies(ordered.flatMap { $0.copiesRemoving(from: tool) }),
+      selectedCount: selectedCount, scope: .tool(tool))
   }
 
   static func copy(_ copy: SkillCopy, of skill: Skill) -> Removal {
-    Removal(skills: [skill], copies: skill.copiesGoing(with: copy), selectedCount: 1)
+    Removal(skills: [skill], copies: orderedCopies(skill.copiesGoing(with: copy)), selectedCount: 1, scope: .source)
   }
+
+  private static func orderedCopies(_ copies: [SkillCopy]) -> [SkillCopy] {
+    var seen = Set<String>()
+    return copies.filter { seen.insert($0.folder.standardizedFileURL.path).inserted }
+      .sorted {
+        let firstDepth = $0.folder.pathComponents.count
+        let secondDepth = $1.folder.pathComponents.count
+        return firstDepth == secondDepth ? $0.folder.path < $1.folder.path : firstDepth > secondDepth
+      }
+  }
+
+  private func plannedCopies(for skill: Skill) -> [SkillCopy] {
+    let folders = Set(copies.map { $0.folder.standardizedFileURL.path })
+    return skill.copies.filter { folders.contains($0.folder.standardizedFileURL.path) }
+  }
+
+  var affectedTools: [Tool] {
+    let readers = Set(copies.flatMap(\.root.readBy))
+    return Tool.allCases.filter(readers.contains)
+  }
+
+  var isShared: Bool {
+    guard case .tool(let tool) = scope else { return false }
+    return affectedTools.contains { $0 != tool }
+  }
+
+  var actionLabel: String {
+    switch scope {
+    case .tool(let tool): isShared ? "Remove shared installation…" : "Remove from \(tool.name)…"
+    case .everywhere: "Remove everywhere…"
+    case .source: "Remove source…"
+    }
+  }
+
+  var confirmationLabel: String { actionLabel.replacingOccurrences(of: "…", with: "") }
 
   var title: String {
-    if selectedCount > 1 {
-      return "Uninstall \(skills.count) selected \(skills.count == 1 ? "skill" : "skills")?"
+    let names = selectedCount > 1 ? "\(skills.count) selected \(skills.count == 1 ? "skill" : "skills")" : skills[0].name
+    switch scope {
+    case .tool(let tool):
+      return isShared ? "Remove shared installation for \(names)?" : "Remove \(names) from \(tool.name)?"
+    case .everywhere: return "Remove \(names) everywhere?"
+    case .source: return "Remove source for \(names)?"
     }
-    let skill = skills[0]
-    if copies.count == skill.copies.count { return "Uninstall \(skill.name)?" }
-    if copies.count > 1 { return "Remove \(skill.name) from \(copies.count) locations?" }
-    return "Remove \(skill.name) from \(Paths.abbreviate(copies[0].root.url))?"
   }
 
-  func message(tools: [Tool]) -> String {
-    if selectedCount > 1 {
-      var sentences = ["Skillscout moves \(copies.count) user-managed folders or links to the Trash."]
-      let skipped = selectedCount - skills.count
-      if skipped > 0 {
-        sentences.append("\(skipped) selected \(skipped == 1 ? "skill has" : "skills have") no removable copies and will be kept.")
-      }
-      let losing = tools.filter { tool in
-        skills.contains { $0.toolsLosing($0.removableCopies).contains(tool) }
-      }
-      if !losing.isEmpty {
-        sentences.append("\(losing.map(\.name).formatted(.list(type: .and))) will stop loading at least one selected skill.")
-      }
-      return sentences.joined(separator: " ")
-    }
-    let skill = skills[0]
-    let folders = copies.map { Paths.abbreviate($0.root.url) }
-    var sentences = ["Skillscout moves it to the Trash from \(folders.formatted(.list(type: .and)))."]
+  func message() -> String { formattedMessage(enabledTools: Tool.allCases) }
 
-    let losing = tools.filter(skill.toolsLosing(copies).contains)
-    if losing.isEmpty {
-      sentences.append("Your agents still load it from another folder.")
-    } else if losing == tools.filter(skill.availableIn.contains) {
-      sentences.append("None of your agents will load it anymore.")
-    } else {
-      sentences.append("\(losing.map(\.name).formatted(.list(type: .and))) will stop loading it.")
-    }
+  func message(enabledTools: [Tool]) -> String { formattedMessage(enabledTools: enabledTools) }
 
-    let targets = skill.linkTargetsKept(copies)
+  private func formattedMessage(enabledTools: [Tool]) -> String {
+    var sentences = ["Skillscout moves \(copies.count) user-managed \(copies.count == 1 ? "folder or link" : "folders or links") to the Trash."]
+    if case .source = scope {
+      let sources = copies.filter { !$0.isSymlink }.map { Paths.describe($0.folder) }
+      if !sources.isEmpty { sentences.append("Source locations: \(sources.formatted(.list(type: .and))).") }
+    }
+    let skipped = selectedCount - skills.count
+    if skipped > 0 {
+      let reason: String
+      if case .tool(let tool) = scope { reason = "no removable copies read by \(tool.name)" }
+      else { reason = "no removable copies" }
+      sentences.append("\(skipped) selected \(skipped == 1 ? "skill has" : "skills have") \(reason) and will be kept.")
+    }
+    if isShared && affectedTools.contains(where: enabledTools.contains) {
+      sentences.append("This installation is read by \(affectedTools.filter(enabledTools.contains).map(\.name).formatted(.list(type: .and))). Removing it affects those tools.")
+    }
+    let losing = enabledTools.filter { tool in
+      skills.contains { $0.toolsLosing(plannedCopies(for: $0)).contains(tool) }
+    }
+    if !losing.isEmpty {
+      sentences.append("\(losing.map(\.name).formatted(.list(type: .and))) will stop loading \(selectedCount > 1 ? "at least one selected skill" : "this skill").")
+    }
+    let remaining = enabledTools.filter { tool in
+      skills.contains { skill in
+        let removed = plannedCopies(for: skill)
+        return skill.copies.contains { !removed.contains($0) && $0.root.readBy.contains(tool) }
+      }
+    }
+    if !remaining.isEmpty {
+      sentences.append("\(remaining.map(\.name).formatted(.list(type: .and))) can still load \(selectedCount > 1 ? "selected skills" : "this skill") from remaining copies.")
+    }
+    let protected = enabledTools.filter { tool in
+      skills.contains { skill in
+        skill.copies.contains { ($0.root.kind == .plugin || $0.root.kind == .builtIn) && $0.root.readBy.contains(tool) }
+      }
+    }
+    if !protected.isEmpty {
+      sentences.append("Plugin or built-in access stays in \(protected.map(\.name).formatted(.list(type: .and))).")
+    }
+    if affectedTools.contains(where: { !enabledTools.contains($0) }) {
+      sentences.append("This removal also affects disabled tools that read the shared location. Enable them in Settings to see their availability.")
+    }
+    var seenTargets = Set<URL>()
+    let targets = skills.flatMap { $0.linkTargetsKept(plannedCopies(for: $0)) }
+      .filter { seenTargets.insert($0).inserted }
     if !targets.isEmpty {
-      let links = copies.count(where: { $0.isSymlink && targets.contains($0.resolved) })
-      sentences.append(
-        "\(links == 1 ? "The link points" : "The links point") to \(targets.map(Paths.abbreviate).formatted(.list(type: .and))), "
-          + "\(targets.count == 1 ? "which stays where it is" : "which stay where they are")."
-      )
+      sentences.append("The linked \(targets.count == 1 ? "source stays" : "sources stay") at \(targets.map(Paths.describe).formatted(.list(type: .and))).")
     }
     return sentences.joined(separator: " ")
   }
@@ -496,7 +902,7 @@ struct RenameSheet: View {
 
     let targets = skill.linkTargetsKept(skill.removableCopies)
     if !targets.isEmpty {
-      sentences.append("\(targets.map(Paths.abbreviate).formatted(.list(type: .and))), where the links point, \(targets.count == 1 ? "keeps its" : "keep their") folder name.")
+      sentences.append("\(targets.map(Paths.describe).formatted(.list(type: .and))), where the links point, \(targets.count == 1 ? "keeps its" : "keep their") folder name.")
     }
     if let plugin = skill.copies.first(where: { $0.root.kind == .plugin }) {
       sentences.append("The copy from the \(plugin.sourceLabel) keeps the old name.")
@@ -556,10 +962,10 @@ struct EditSheet: View {
 
   private var note: String {
     guard let edit else { return "" }
-    var sentences = ["Skillscout saves it to \(edit.files.map(Paths.abbreviate).formatted(.list(type: .and)))."]
+    var sentences = ["Skillscout saves it to \(edit.files.map(Paths.describe).formatted(.list(type: .and)))."]
     if !edit.otherFiles.isEmpty {
       let one = edit.otherFiles.count == 1
-      sentences.append("\(edit.otherFiles.map(Paths.abbreviate).formatted(.list(type: .and))) \(one ? "has" : "have") other text, so \(one ? "it stays as it is" : "they stay as they are").")
+      sentences.append("\(edit.otherFiles.map(Paths.describe).formatted(.list(type: .and))) \(one ? "has" : "have") other text, so \(one ? "it stays as it is" : "they stay as they are").")
     }
     if let plugin = skill.copies.first(where: { $0.root.kind == .plugin }) {
       sentences.append("The copy from the \(plugin.sourceLabel) stays as it is.")
@@ -627,6 +1033,18 @@ struct EditSheet: View {
       } catch {
         failure = error.localizedDescription
       }
+    }
+  }
+}
+
+struct DisabledReaderNotice: View {
+  let readers: Set<Tool>
+  @Environment(AppStore.self) private var store
+
+  var body: some View {
+    if !readers.subtracting(store.tools).isEmpty {
+      Text("This shared location also affects disabled tools. Enable them in Settings to see and manage their availability.")
+        .font(.caption).foregroundStyle(.orange)
     }
   }
 }

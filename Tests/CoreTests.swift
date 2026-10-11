@@ -15,6 +15,274 @@ private func skill(_ name: String, folder: URL, kind: SkillRoot.Kind = .user, de
   return Skill(name: name, description: description, copies: [copy])
 }
 
+@Suite struct SkillActionEligibilityTests {
+  private func linkedSkill(_ name: String, to folder: URL) -> Skill {
+    let link = Paths.at(".codex/skills/" + name)
+    let root = SkillRoot.all.first { $0.kind == .user && $0.owner == .codex }!
+    let copy = SkillCopy(folder: link, resolved: folder, root: root, pluginName: nil,
+      isSymlink: true, contentHash: "same", created: .distantPast)
+    return Skill(name: name, description: "", copies: [copy])
+  }
+
+  @Test func protectedLinkedSourcesCannotBeEditedRenamedOrMoved() throws {
+    for path in [".codex/plugins/cache/demo/skills/source", ".codex/skills/.system/source"] {
+      let linked = linkedSkill("eligibility-demo", to: Paths.at(path))
+      #expect(!SkillInstaller.canEdit(linked))
+      #expect(!SkillInstaller.canRename(linked))
+      #expect(!SkillInstaller.canMoveToCentral(linked))
+      #expect(throws: SkillInstaller.Failure.self) { try SkillInstaller.moveToCentral(linked) }
+    }
+  }
+
+  @Test func skillMovedIntoLibraryStaysEditable() {
+    let moved = linkedSkill("eligibility-demo", to: Paths.at(".config/skillscout/skills/moved-\(UUID().uuidString.lowercased())"))
+    #expect(SkillInstaller.canEdit(moved))
+    #expect(SkillInstaller.canRename(moved))
+    #expect(moved.managedRepos.isEmpty)
+  }
+
+  @Test func independentPersonalCopyCanBeEditedButProtectedCopyBlocksRenameAndMove() throws {
+    let folder = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let personal = skill("eligibility-" + UUID().uuidString.lowercased(), folder: folder)
+    let protected = linkedSkill(personal.name, to: Paths.at(".codex/plugins/cache/demo/skills/source"))
+    let mixed = Skill(name: personal.name, description: "", copies: personal.copies + protected.copies)
+    #expect(SkillInstaller.canEdit(mixed))
+    #expect(!SkillInstaller.canRename(mixed))
+    #expect(!SkillInstaller.canMoveToCentral(mixed))
+    #expect(SkillInstaller.canRename(personal))
+    #expect(SkillInstaller.canMoveToCentral(personal))
+    let different = SkillCopy(folder: folder.appending(path: "other"), resolved: folder.appending(path: "other"),
+      root: personal.primary.root, pluginName: nil, isSymlink: false, contentHash: "different", created: .distantPast)
+    #expect(!SkillInstaller.canMoveToCentral(Skill(name: personal.name, description: "", copies: personal.copies + [different])))
+  }
+}
+
+@Suite struct SkillInstallationClassificationTests {
+  private func copy(_ path: String, kind: SkillRoot.Kind, readers: Set<Tool>, target: String? = nil) -> SkillCopy {
+    let folder = URL(fileURLWithPath: "/made-up/" + path)
+    let root = SkillRoot(label: "Fixture", url: folder.deletingLastPathComponent(), kind: kind, owner: nil, readBy: readers)
+    return SkillCopy(folder: folder, resolved: target.map { URL(fileURLWithPath: "/made-up/" + $0) } ?? folder,
+      root: root, pluginName: nil, isSymlink: target != nil, contentHash: "fixture", created: .distantPast)
+  }
+
+  @Test func savedSourceThatNoLongerExistsFallsBackToTheDefault() {
+    let library = SkillRoot.all.first { $0.kind == .managed }!
+    let folder = Paths.at(".config/skillscout/skills/acme/review")
+    let copy = SkillCopy(folder: folder, resolved: folder, root: library, pluginName: nil, isSymlink: false, contentHash: "a", created: .distantPast)
+    let skill = Skill(name: "review", description: "", copies: [copy])
+    #expect(SkillInstaller.skillsetSource(skill, preferredSources: ["review": "/gone/review"]) == copy)
+  }
+
+  @Test func pluginErrorsNamePlugins() {
+    let plugin = SkillInstaller.Failure.managed(Paths.at(".claude/plugins/cache/demo/review")).errorDescription ?? ""
+    #expect(plugin.contains("plugin") && !plugin.contains("Library repository"))
+  }
+
+  @Test func cursorProjectNamesMatchTheProjectPath() {
+    let names = PromptLibrary.cursorProjectNames(forPath: "/Volumes/Work/demo.app/my_tool")
+    #expect(names.contains("Volumes-Work-demo.app-my-tool"))
+    #expect(names.contains("Volumes-Work-demo-app-my-tool"))
+    #expect(!names.contains("Volumes-Work-demo"))
+  }
+
+  @Test func libraryStorageIsNamedInsteadOfShown() {
+    #expect(Paths.describe(Paths.at(".config/skillscout/skills/acme/review")) == "Library · acme/review")
+    #expect(Paths.describe(Paths.at(".config/skillscout/drafts/idea")) == "Library drafts · idea")
+    #expect(Paths.describe(Paths.at(".config/skillscout/skills")) == "Library")
+    #expect(Paths.describe(Paths.at(".config/skillscout/skills-old/x")) == "~/.config/skillscout/skills-old/x")
+    #expect(Paths.describe(Paths.at(".claude/skills/review")) == "~/.claude/skills/review")
+    let root = SkillRoot.all.first { $0.kind == .user && $0.owner == .claude }!
+    let link = SkillCopy(folder: Paths.at(".claude/skills/review"), resolved: Paths.at(".config/skillscout/skills/acme/review"),
+      root: root, pluginName: nil, isSymlink: true, contentHash: "", created: .distantPast)
+    #expect(link.isInLibraryStorage)
+  }
+
+  @Test func centralSkillsAndDraftsWithoutReadersAreLibraryOnly() {
+    for kind in [SkillRoot.Kind.managed, .drafts] {
+      let source = copy("library/demo", kind: kind, readers: [])
+      let skill = Skill(name: "demo", description: "", copies: [source])
+      #expect(skill.isLibraryOnly)
+      #expect(!skill.isInstalledInAnyTool)
+      #expect(!skill.isOutsideLibrary)
+      #expect(skill.isVisible(in: [], includePlugins: false))
+    }
+  }
+
+  @Test func reusableCatalogMembershipIsSeparateFromGlobalAvailability() {
+    for kind in [SkillRoot.Kind.managed, .drafts, .shared] {
+      let readers: Set<Tool> = kind == .shared ? [.codex] : []
+      let skill = Skill(name: "catalog", description: "", copies: [copy("catalog/demo", kind: kind, readers: readers)])
+      #expect(skill.isInLibrary)
+      #expect(skill.isInstalledInAnyTool == (kind == .shared))
+    }
+    for kind in [SkillRoot.Kind.user, .plugin, .builtIn] {
+      let skill = Skill(name: "global", description: "", copies: [copy("global/demo", kind: kind, readers: [.codex])])
+      #expect(!skill.isInLibrary)
+      #expect(skill.isInstalledInAnyTool)
+    }
+  }
+
+  @Test func toolOnlySkillsOverlapInstalledAndOutsideLibrary() {
+    let source = copy("claude/demo", kind: .user, readers: [.claude, .cursor, .opencode])
+    let skill = Skill(name: "demo", description: "", copies: [source])
+    #expect(skill.isInstalledInAnyTool)
+    #expect(skill.isOutsideLibrary)
+    #expect(!skill.isLibraryOnly)
+    #expect(skill.isVisible(in: [.cursor], includePlugins: false))
+    #expect(!skill.isVisible(in: [.amp], includePlugins: false))
+  }
+
+  @Test func libraryLinksCountReadersEvenWhenTheirToolsAreDisabled() {
+    for kind in [SkillRoot.Kind.managed, .drafts] {
+      let source = copy("library/demo", kind: kind, readers: [])
+      let link = copy("amp/demo", kind: .user, readers: [.amp], target: "library/demo")
+      let skill = Skill(name: "demo", description: "", copies: [source, link])
+      #expect(skill.isVisible(in: [.codex], includePlugins: false))
+      #expect(skill.isInstalledInAnyTool)
+      #expect(!skill.isLibraryOnly)
+      #expect(!skill.isOutsideLibrary)
+      #expect(skill.availableIn == [.amp])
+    }
+  }
+
+  @Test func sharedSkillsAreInstalledThroughTheirReaders() {
+    let shared = copy("shared/demo", kind: .shared, readers: [.codex, .pi])
+    let personal = copy("amp/demo", kind: .user, readers: [.amp])
+    let skill = Skill(name: "demo", description: "", copies: [shared, personal])
+    #expect(skill.isInstalledInAnyTool)
+    #expect(!skill.isLibraryOnly)
+    #expect(!skill.isOutsideLibrary)
+  }
+
+  @Test func protectedSkillsAreInstalledButOutsideNeitherLibraryFilter() {
+    for kind in [SkillRoot.Kind.plugin, .builtIn] {
+      let source = copy("protected/demo", kind: kind, readers: [.codex])
+      let skill = Skill(name: "demo", description: "", copies: [source])
+      #expect(skill.isInstalledInAnyTool)
+      #expect(!skill.isLibraryOnly)
+      #expect(!skill.isOutsideLibrary)
+      #expect(skill.isVisible(in: [.codex], includePlugins: true))
+      #expect(!skill.isVisible(in: [.codex], includePlugins: false))
+    }
+  }
+}
+
+@Suite struct SystemSkillVisibilityTests {
+  private func copy(_ kind: SkillRoot.Kind, readers: Set<Tool>, owner: Tool? = nil) -> SkillCopy {
+    let folder = URL(fileURLWithPath: "/made-up/\(kind)/\(owner?.rawValue ?? "shared")")
+    let root = SkillRoot(label: "Fixture", url: folder, kind: kind, owner: owner, readBy: readers)
+    return SkillCopy(folder: folder, resolved: folder, root: root, pluginName: nil,
+      isSymlink: false, contentHash: "fixture", created: .distantPast)
+  }
+
+  @Test func systemClassificationUsesRelevantSourcesRatherThanSkillNames() {
+    let builtIn = copy(.builtIn, readers: [.codex], owner: .codex)
+    let personal = copy(.user, readers: [.gemini], owner: .gemini)
+    let mixed = Skill(name: "ordinary-name", description: "", copies: [builtIn, personal])
+    #expect(mixed.isSystemOnly(in: [.codex]))
+    #expect(!mixed.isSystemOnly(in: [.gemini]))
+    #expect(!mixed.isSystemOnly(in: [.codex, .gemini]))
+    #expect(!mixed.isSystemOnly(in: [.cursor]))
+    #expect(!mixed.isSystemOnly(in: []))
+    let namedSystem = Skill(name: "system-internal", description: "", copies: [personal])
+    #expect(!namedSystem.isSystemOnly(in: [.gemini]))
+  }
+
+  @Test func pluginAndPersonalCopiesKeepSystemIdentitiesVisible() {
+    let builtIn = copy(.builtIn, readers: [.codex], owner: .codex)
+    for kind in [SkillRoot.Kind.user, .shared, .plugin] {
+      let mixed = Skill(name: "demo", description: "", copies: [builtIn, copy(kind, readers: [.codex])])
+      #expect(!mixed.isSystemOnly(in: [.codex]))
+    }
+    let plugin = Skill(name: "pets", description: "", copies: [copy(.plugin, readers: [.codex], owner: .codex)])
+    #expect(!plugin.isSystemOnly(in: [.codex]))
+  }
+
+  @Test func systemOwnerLabelsFollowSupplyingRoots() {
+    let skill = Skill(name: "demo", description: "", copies: [
+      copy(.builtIn, readers: [.codex], owner: .codex),
+      copy(.builtIn, readers: [.cursor], owner: .cursor),
+      copy(.builtIn, readers: [.codex], owner: .codex)])
+    #expect(Set(skill.systemOwners(in: [.codex, .cursor])) == [.codex, .cursor])
+    #expect(skill.systemOwners(in: [.codex]) == [.codex])
+    #expect(skill.systemOwners(in: [.gemini]).isEmpty)
+  }
+}
+
+@Suite struct ToolRemovalTests {
+  private func copy(_ path: String, kind: SkillRoot.Kind = .user, readers: Set<Tool>, target: String? = nil) -> SkillCopy {
+    let folder = URL(fileURLWithPath: "/made-up/" + path)
+    let root = SkillRoot(label: "Fixture", url: folder.deletingLastPathComponent(), kind: kind, owner: nil, readBy: readers)
+    return SkillCopy(folder: folder, resolved: target.map { URL(fileURLWithPath: "/made-up/" + $0) } ?? folder,
+      root: root, pluginName: nil, isSymlink: target != nil, contentHash: "fixture", created: .distantPast)
+  }
+
+  @Test func removingToolLinkPreservesLibraryAndIndependentInstallation() {
+    let source = copy("library/demo", kind: .managed, readers: [])
+    let amp = copy("amp/demo", readers: [.amp], target: "library/demo")
+    let codex = copy("codex/demo", readers: [.codex, .cursor])
+    let skill = Skill(name: "demo", description: "", copies: [source, amp, codex])
+    let removed = skill.copiesRemoving(from: .amp)
+    #expect(removed == [amp])
+    #expect(skill.toolsLosing(removed) == [.amp])
+    #expect(skill.linkTargetsKept(removed) == [source.folder])
+    #expect(skill.copiesRemoving(from: .pi).isEmpty)
+  }
+
+  @Test func sharedAndInheritedProvidersNameAllReaders() {
+    let shared = copy("shared/demo", kind: .shared, readers: [.codex, .pi])
+    let inherited = copy("claude/demo", readers: [.claude, .cursor, .opencode])
+    let skill = Skill(name: "demo", description: "", copies: [shared, inherited])
+    #expect(skill.copiesRemoving(from: .codex) == [shared])
+    #expect(skill.toolsLosing(skill.copiesRemoving(from: .codex)) == [.codex, .pi])
+    #expect(skill.copiesRemoving(from: .cursor) == [inherited])
+    #expect(skill.toolsLosing(skill.copiesRemoving(from: .cursor)) == [.claude, .cursor, .opencode])
+  }
+
+  @Test func physicalSourceRemovalAlsoRemovesItsDependentLinks() {
+    let source = copy("codex/demo", readers: [.codex, .cursor])
+    let dependent = copy("amp/demo", readers: [.amp], target: "codex/demo")
+    let independent = copy("pi/demo", readers: [.pi])
+    let skill = Skill(name: "demo", description: "", copies: [source, dependent, independent])
+    let removed = skill.copiesRemoving(from: .codex)
+    #expect(Set(removed) == [source, dependent])
+    #expect(skill.toolsLosing(removed) == [.codex, .cursor, .amp])
+    #expect(!removed.contains(independent))
+    #expect(skill.linkTargetsKept(removed).isEmpty)
+  }
+
+  @Test func protectedProvidersRemainAvailableAfterPersonalRemoval() {
+    let personal = copy("codex/demo", readers: [.codex, .cursor])
+    let plugin = copy("plugin/demo", kind: .plugin, readers: [.codex])
+    let builtIn = copy("builtin/demo", kind: .builtIn, readers: [.codex])
+    let skill = Skill(name: "demo", description: "", copies: [personal, plugin, builtIn])
+    #expect(skill.copiesRemoving(from: .codex) == [personal])
+    #expect(skill.toolsLosing(skill.copiesRemoving(from: .codex)) == [.cursor])
+    let protected = Skill(name: "protected", description: "", copies: [plugin, builtIn])
+    #expect(protected.copiesRemoving(from: .codex).isEmpty)
+  }
+
+  @Test func overlappingProvidersAreDeduplicatedAndChildrenComeFirst() {
+    let parent = copy("codex/demo", readers: [.codex])
+    let child = copy("codex/demo/nested/demo", readers: [.codex])
+    let link = copy("amp/demo", readers: [.amp, .codex], target: "codex/demo")
+    let skill = Skill(name: "demo", description: "", copies: [parent, link, child, link])
+    let removed = skill.copiesRemoving(from: .codex)
+    #expect(removed.count == 3)
+    #expect(removed.first == child)
+    #expect(Set(removed) == [parent, child, link])
+  }
+
+  @Test func draftsRemainWhenTheirToolLinksAreRemoved() {
+    let source = copy("drafts/demo", kind: .drafts, readers: [])
+    let link = copy("pi/demo", readers: [.pi], target: "drafts/demo")
+    let skill = Skill(name: "demo", description: "", copies: [source, link])
+    #expect(skill.copiesRemoving(from: .pi) == [link])
+    #expect(skill.linkTargetsKept(skill.copiesRemoving(from: .pi)) == [source.folder])
+  }
+}
+
 @Suite struct FrontmatterTests {
   @Test func readsPlainQuotedAndFoldedValues() {
     let text = "---\nname: \"demo\"\ndescription: >\n  Folded across\n  two lines\nother: 'x'\n---\n# Body\n"
@@ -331,5 +599,213 @@ private func skill(_ name: String, folder: URL, kind: SkillRoot.Kind = .user, de
     let plugins = PluginScanner.cachedPlugins(.codex, root: root, manifest: ".codex-plugin", depth: 2)
     #expect(plugins.map(\.version) == ["0.10.0"])
     #expect(plugins.first?.enabled == nil)
+  }
+}
+
+@Suite struct UsabilityTests {
+  @Test func filtersEventsBeforeAliasTallyAndChatDeduplication() {
+    let now = Date(timeIntervalSince1970: 2_000_000)
+    let current = skill("current", folder: URL(fileURLWithPath: "/fixtures/current"))
+    let uses = [
+      SkillUse(tool: .codex, chat: "same", project: "/work/app", date: now.addingTimeInterval(-12 * 86_400), folder: "old"),
+      SkillUse(tool: .codex, chat: "same", project: "/work/app", date: now.addingTimeInterval(-2 * 86_400), folder: "old"),
+      SkillUse(tool: .codex, chat: "same", project: "/work/app", date: now.addingTimeInterval(-86_400), folder: "current"),
+      SkillUse(tool: .codex, chat: "other", project: "/work/app-old", date: now, folder: "current"),
+    ]
+    let scoped = UsageScope(project: "/work/app", days: 7).filter(uses, now: now)
+    let counted = SkillUsage.tally(scoped, skills: [current], aliases: ["old": "middle", "middle": "current"])[current.id]
+    #expect(counted?.chats == 1)
+    #expect(counted?.projects == ["/work/app": 1])
+    #expect(counted?.firstUsed == now.addingTimeInterval(-2 * 86_400))
+    #expect(counted?.lastUsed == now.addingTimeInterval(-86_400))
+  }
+
+  @Test func savedIdentityPrefersActualCopyThenFollowsRenameAndMerge() {
+    let saved = skill("actual", folder: URL(fileURLWithPath: "/fixtures/saved"))
+    let merged = skill("merged", folder: URL(fileURLWithPath: "/fixtures/merged"))
+    var suggestion = Suggestion(name: "idea", title: "Idea", summary: "", why: "", examples: [], createdAt: .distantPast,
+      savedTo: "/fixtures/saved", savedSkillID: "old")
+    let aliases = ["old": "renamed", "renamed": "merged"]
+    #expect(suggestion.savedSkill(among: [saved, merged], aliases: aliases)?.id == "actual")
+    #expect(suggestion.savedSkill(among: [merged], aliases: aliases)?.id == "merged")
+    suggestion.savedSkillID = nil
+    suggestion.savedTo = "/fixtures/old"
+    #expect(suggestion.savedSkill(among: [merged], aliases: aliases)?.id == "merged")
+    #expect(SkillAliases.resolve("old", among: [merged], aliases: ["old": "loop", "loop": "old"]) == nil)
+  }
+
+  @Test func pluginNavigationMatchesItsFolderAndTool() {
+    let firstFolder = URL(fileURLWithPath: "/fixtures/plugins/one/1")
+    let secondFolder = URL(fileURLWithPath: "/fixtures/plugins/two/1")
+    let root = SkillRoot(label: "Plugins", url: URL(fileURLWithPath: "/fixtures/plugins"), kind: .plugin,
+      owner: .codex, readBy: [.codex])
+    let copies = [firstFolder, secondFolder].map { folder in
+      SkillCopy(folder: folder.appending(path: "skills/demo"), resolved: folder.appending(path: "skills/demo"),
+        root: root, pluginName: folder.deletingLastPathComponent().lastPathComponent, isSymlink: false,
+        contentHash: folder.path, created: .distantPast)
+    }
+    let grouped = Skill(name: "demo", description: "", copies: copies)
+    let plugin = InstalledPlugin(tool: .codex, name: "two", marketplace: nil, version: nil,
+      description: "", folder: secondFolder, enabled: true, skills: ["demo"], runs: [])
+    #expect(plugin.skillCopy(named: "demo", among: [grouped])?.copy == copies[1])
+    #expect(plugin.skillCopy(named: "missing", among: [grouped])?.copy == nil)
+  }
+
+  @Test func changedSupportingBytesRefuseReviewedAddition() throws {
+    let folder = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    try "---\nname: reviewed\n---\n".write(to: folder.appending(path: "SKILL.md"), atomically: true, encoding: .utf8)
+    let script = folder.appending(path: "run.sh")
+    try "original".write(to: script, atomically: true, encoding: .utf8)
+    let current = skill("reviewed", folder: folder, kind: .managed)
+    let request = SkillAddRequest(skillID: current.id, sourcePath: folder.path, tool: .codex,
+      reviewedFingerprint: try SkillInstaller.skillsetFingerprint(folder))
+    try "changed".write(to: script, atomically: true, encoding: .utf8)
+    let result = SkillInstaller.addReviewed(request, among: [current])
+    guard case .failed(let message) = result.outcome else { Issue.record("Changed script must block addition"); return }
+    #expect(message.contains("contents changed"))
+  }
+}
+
+extension UsabilityTests {
+  @Test func inspectedContentsDoNotFollowExternalOrNestedSymbolicLinks() throws {
+    let folder = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let source = folder.appending(path: "source")
+    let external = folder.appending(path: "external")
+    try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: external, withIntermediateDirectories: true)
+    try "private bytes".write(to: external.appending(path: "secret.txt"), atomically: true, encoding: .utf8)
+    try FileManager.default.createSymbolicLink(at: source.appending(path: "direct.txt"), withDestinationURL: external.appending(path: "secret.txt"))
+    try FileManager.default.createSymbolicLink(at: source.appending(path: "nested"), withDestinationURL: external)
+    let direct = try SkillContents.read("direct.txt", from: source)
+    let nested = try SkillContents.read("nested/secret.txt", from: source)
+    #expect(direct.contains("Contents are not followed"))
+    #expect(nested.contains("Contents are not followed"))
+    #expect(!direct.contains("private bytes") && !nested.contains("private bytes"))
+  }
+
+  @Test func keepingAConflictResolvesItWithoutClaimingAvailability() {
+    let outcome = SkillAddOutcome.kept(URL(fileURLWithPath: "/fixtures/existing"))
+    #expect(outcome.completed)
+    #expect(!outcome.becameAvailable)
+    #expect(outcome.message == "Skipped. Existing installation kept")
+  }
+}
+
+extension UsabilityTests {
+  @Test func libraryDraftsAreVisibleWithoutAgentLinks() {
+    let root = SkillRoot(label: "Drafts", url: URL(fileURLWithPath: "/fixtures"), kind: .drafts, owner: nil, readBy: [])
+    let folder = root.url.appending(path: "draft")
+    let copy = SkillCopy(folder: folder, resolved: folder, root: root, pluginName: nil, isSymlink: false,
+      contentHash: "draft", created: .distantPast)
+    let draft = Skill(name: "draft", description: "", copies: [copy])
+    #expect(draft.isPersonal)
+    #expect(!draft.isManaged)
+    #expect(draft.managedRepos.isEmpty)
+    #expect(draft.availableIn.isEmpty)
+    #expect(draft.isVisible(in: [], includePlugins: false))
+  }
+
+  @Test func scopeLabelsKeepStoredProjectNames() {
+    #expect(UsageScope(project: "demo", days: 7).description(loadedDays: 60) == "the last 7 days in demo")
+    #expect(UsageScope(project: "Unknown", days: nil).description(loadedDays: 30) == "the last 30 days in Unknown")
+    #expect(UsageScope.projectLabel("") == "Unknown project")
+  }
+
+  @Test func changedReviewCannotReuseACompletedResult() {
+    let previous = SkillAddRequest(skillID: "demo", sourcePath: "/fixture/plugin", tool: .codex, reviewedFingerprint: "old bytes")
+    let refreshed = SkillAddRequest(skillID: "demo", sourcePath: "/fixture/plugin", tool: .codex, reviewedFingerprint: "new bytes")
+    let result = SkillAddResult(request: previous, outcome: .added(URL(fileURLWithPath: "/fixture/installed")))
+    #expect(result.matches(previous))
+    #expect(!result.matches(refreshed))
+  }
+}
+
+@Suite struct UsageReportTests {
+  private let now = Date(timeIntervalSince1970: 1_760_000_000)
+
+  private func use(_ folder: String, chat: String = "chat", tool: Tool = .codex, project: String = "Project A", days: Double = 1) -> SkillUse {
+    SkillUse(tool: tool, chat: chat, project: project, date: now.addingTimeInterval(-days * 86_400), folder: folder)
+  }
+
+  @Test func overlappingSkillsAndRepeatedEventsCountDistinctChats() {
+    let a = skill("alpha", folder: URL(fileURLWithPath: "/fixture/alpha"))
+    let b = skill("beta", folder: URL(fileURLWithPath: "/fixture/beta"))
+    let events = [use("alpha", days: 2), use("alpha"), use("beta"), use("old-alpha"),
+      use("alpha", tool: .claude), use("alpha", project: "Project B"), use("unknown")]
+    let report = UsageReport(uses: events, skills: [a, b], enabledTools: [.codex, .claude],
+      scope: UsageScope(), loadedDays: 30, aliases: ["old-alpha": "alpha"], now: now)
+    #expect(report.chats == 3)
+    #expect(report.usage[a.id]?.chats == 3)
+    #expect(report.usage[b.id]?.chats == 1)
+    #expect(report.byTool[.codex] == 2)
+    #expect(report.byTool[.claude] == 1)
+    #expect(report.byProject["Project A"] == 2)
+    #expect(report.byProject["Project B"] == 1)
+    #expect(report.days.reduce(0) { $0 + $1.chats } == report.chats)
+    #expect(report.usage[a.id]?.firstUsed == now.addingTimeInterval(-2 * 86_400))
+    #expect(SkillUsage.tally(events, skills: [a, b], aliases: ["old-alpha": "alpha"])[a.id]?.chats == 3)
+  }
+
+  @Test func filtersRespectLoadedWindowEnabledToolsAndProjects() {
+    let a = skill("alpha", folder: URL(fileURLWithPath: "/fixture/alpha"))
+    let b = skill("beta", folder: URL(fileURLWithPath: "/fixture/beta"))
+    let events = [use("alpha", chat: "recent"), use("alpha", chat: "old", days: 45),
+      use("alpha", chat: "disabled", tool: .claude), use("alpha", project: "Project B"),
+      use("beta", chat: "last-month", days: 20), use("alpha", chat: "future", days: -1)]
+    let scope = UsageScope(project: "Project A", days: 7)
+    let report = UsageReport(uses: events, skills: [a, b], enabledTools: [.codex], scope: scope,
+      tool: .codex, loadedDays: 30, now: now)
+    #expect(report.chats == 1)
+    #expect(report.usedSkills == 1)
+    #expect(report.unrecordedSkills.map(\.id) == [b.id])
+    #expect(report.projects == ["Project A", "Project B"])
+    #expect(report.scope == scope)
+    #expect(report.window.start == now.addingTimeInterval(-7 * 86_400))
+    #expect(report.window.end == now)
+    let loaded = UsageReport(uses: events, skills: [a, b], enabledTools: [.codex], scope: UsageScope(days: 90), loadedDays: 30, now: now)
+    #expect(loaded.scope.days == nil)
+    #expect(loaded.chats == 3)
+  }
+
+  @Test func inspectionDeduplicatesSourcesAndRefreshesChangedScripts() async throws {
+    let folder = try temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let text = "# Instruction\nอ่าน\n"
+    try text.write(to: folder.appending(path: "SKILL.md"), atomically: true, encoding: .utf8)
+    let a = skill("alpha", folder: folder)
+    let b = skill("beta", folder: folder)
+    let inspector = ReportInspector()
+    let initial = await inspector.inspect([a, b])
+    #expect(initial.count == 1)
+    #expect(initial[0].skillIDs == ["alpha", "beta"])
+    #expect(initial[0].bytes == text.utf8.count)
+    #expect(initial[0].lines == 2)
+    #expect(initial[0].review?.needsReview == false)
+    try "sudo echo fixture\n".write(to: folder.appending(path: "run.sh"), atomically: true, encoding: .utf8)
+    let changed = await inspector.inspect([a, b])
+    #expect(changed[0].review?.scripts.count == 1)
+    #expect(changed[0].review?.findings.contains(where: \.highRisk) == true)
+    let missing = skill("missing", folder: folder.appending(path: "missing"))
+    let unavailable = await inspector.inspect([missing])
+    #expect(unavailable[0].bytes == nil && unavailable[0].review == nil)
+    #expect(unavailable[0].unavailable != nil)
+  }
+
+  @Test func historicalToolUseSurvivesUnassignmentAndUnknownProjectCanBeFiltered() {
+    let folder = URL(fileURLWithPath: "/fixture/historical")
+    let root = SkillRoot.all.first { $0.kind == .managed }!
+    let copy = SkillCopy(folder: folder, resolved: folder, root: root, pluginName: nil,
+      isSymlink: false, contentHash: "fixture", created: .distantPast)
+    let historical = Skill(name: "historical", description: "", copies: [copy])
+    let events = [use("historical", chat: "unknown-project", project: ""),
+      use("historical", chat: "named-project")]
+    let report = UsageReport(uses: events, skills: [historical], enabledTools: [.codex],
+      scope: UsageScope(project: "", days: 7), tool: .codex, loadedDays: 30, now: now)
+    #expect(!historical.availableIn.contains(.codex))
+    #expect(report.skills.map(\.id) == [historical.id])
+    #expect(report.chats == 1 && report.usage[historical.id]?.chats == 1)
+    #expect(report.byProject == ["": 1])
   }
 }

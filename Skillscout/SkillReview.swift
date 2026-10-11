@@ -42,7 +42,7 @@ struct SkillReview: Sendable {
   }
 
   static let scriptExtensions: Set<String> = ["sh", "bash", "zsh", "fish", "py", "js", "mjs", "cjs", "ts", "rb", "pl", "php", "ps1", "command", "applescript", "scpt"]
-  private static let skippedNames: Set<String> = [".git", "node_modules", ".DS_Store", ".skillscout-local-source"]
+  private static let skippedNames: Set<String> = [".git", "node_modules", ".DS_Store", ".skillscout-local-source", ".skillscout-repository.json", RepositoryLibrary.upstreamMarkerName]
   private static let maxScannedSize = 512 * 1024
 
   private static let rules: [(pattern: String, reason: String, highRisk: Bool)] = [
@@ -62,8 +62,8 @@ struct SkillReview: Sendable {
   static func inspect(_ folder: URL) -> SkillReview {
     var files: [File] = []
     var findings: [Finding] = []
-    for (url, path) in regularFiles(in: folder) {
-      if isLink(url) {
+    for (url, path, isLink) in regularFiles(in: folder) {
+      if isLink {
         files.append(File(path: path, size: 0, isScript: false))
         continue
       }
@@ -88,8 +88,8 @@ struct SkillReview: Sendable {
   /// A content hash for each file, keyed by its path relative to the folder.
   static func fingerprints(_ folder: URL) -> [String: String] {
     var result: [String: String] = [:]
-    for (url, path) in regularFiles(in: folder) {
-      let data = isLink(url)
+    for (url, path, isLink) in regularFiles(in: folder) {
+      let data = isLink
         ? (try? FileManager.default.destinationOfSymbolicLink(atPath: url.path)).map { Data("link:\($0)".utf8) }
         : try? Data(contentsOf: url)
       guard let data else { continue }
@@ -98,17 +98,13 @@ struct SkillReview: Sendable {
     return result
   }
 
-  private static func isLink(_ url: URL) -> Bool {
-    (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink == true
-  }
-
   /// Regular files under the folder with their relative paths, skipping Git data, dependencies and Skillscout markers.
   /// Symbolic links are listed but not followed.
-  private static func regularFiles(in folder: URL) -> [(URL, String)] {
+  private static func regularFiles(in folder: URL) -> [(URL, String, Bool)] {
     // Resolve the folder itself, since an installed skill is often a link, then list it by relative path.
     let base = folder.resolvingSymlinksInPath()
     guard let enumerator = FileManager.default.enumerator(atPath: base.path) else { return [] }
-    var result: [(URL, String)] = []
+    var result: [(URL, String, Bool)] = []
     while let path = enumerator.nextObject() as? String {
       if skippedNames.contains((path as NSString).lastPathComponent) {
         enumerator.skipDescendants()
@@ -116,7 +112,7 @@ struct SkillReview: Sendable {
       }
       let type = enumerator.fileAttributes?[.type] as? FileAttributeType
       guard type == .typeRegular || type == .typeSymbolicLink else { continue }
-      result.append((base.appending(path: path), path))
+      result.append((base.appending(path: path), path, type == .typeSymbolicLink))
     }
     return result
   }

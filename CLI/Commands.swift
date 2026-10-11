@@ -178,7 +178,7 @@ enum Commands {
     }
     let sourceWidth = skill.copies.map(\.sourceLabel.count).max() ?? 0
     for copy in skill.copies {
-      let path = copy.isSymlink ? "\(Paths.abbreviate(copy.folder)) → \(Paths.abbreviate(copy.resolved))" : Paths.abbreviate(copy.folder)
+      let path = copy.isSymlink ? "\(Paths.describe(copy.folder)) → \(Paths.describe(copy.resolved))" : Paths.describe(copy.folder)
       print("  \(Terminal.pad(copy.sourceLabel, sourceWidth))  \(path)")
     }
     if skill.copiesDiffer {
@@ -375,9 +375,9 @@ enum Commands {
 
     try SkillInstaller.remove(removed)
     for copy in removed {
-      print("Moved \(copy.isSymlink ? "the link " : "")\(Paths.abbreviate(copy.folder)) to the Trash")
+      print("Moved \(copy.isSymlink ? "the link " : "")\(Paths.describe(copy.folder)) to the Trash")
     }
-    let targets = skill.linkTargetsKept(removed).map(Paths.abbreviate)
+    let targets = skill.linkTargetsKept(removed).map(Paths.describe)
     if !targets.isEmpty {
       print(dim("\(Terminal.list(targets)) \(targets.count == 1 ? "stays where it is" : "stay where they are")."))
     }
@@ -398,9 +398,15 @@ enum Commands {
     let skill = try library.skill(named: name)
     guard skill.isPersonal else { throw leftAlone(skill) }
 
+    try refuseWhileAppRuns()
+    var state = try SkillsetState.load()
+    try state.save()
+    let owned = Set(state.entries.filter(SkillInstaller.skillsetEntryIsUnchanged))
     try SkillInstaller.rename(skill, to: newName, among: library.skills)
-    print("Renamed \(skill.name) to \(bold(newName)) in \(Terminal.list(skill.removableCopies.map { Paths.abbreviate($0.root.url) }))")
-    let targets = skill.linkTargetsKept(skill.removableCopies).map(Paths.abbreviate)
+    state.migrateSkill(from: skill.id, to: newName, movedFolders: SkillInstaller.renameFolders(skill, to: newName), merging: false, ownedBefore: owned)
+    try state.save()
+    print("Renamed \(skill.name) to \(bold(newName)) in \(Terminal.list(skill.removableCopies.map { Paths.describe($0.root.url) }))")
+    let targets = skill.linkTargetsKept(skill.removableCopies).map(Paths.describe)
     if !targets.isEmpty {
       print(dim("\(Terminal.list(targets)), where the links point, \(targets.count == 1 ? "keeps its" : "keep their") folder name."))
     }
@@ -427,15 +433,21 @@ enum Commands {
       return
     }
 
+    try refuseWhileAppRuns()
+    var state = try SkillsetState.load()
+    try state.save()
+    let owned = Set(state.entries.filter(SkillInstaller.skillsetEntryIsUnchanged))
     try SkillInstaller.merge(plan, markdown: markdown)
-    print("Wrote the merged SKILL.md into \(Terminal.list(plan.folders.map(Paths.abbreviate)))")
+    state.migrateSkill(from: merged.id, to: kept.id, movedFolders: plan.replacedFolders, merging: true, ownedBefore: owned)
+    try state.save()
+    print("Wrote the merged SKILL.md into \(Terminal.list(plan.folders.map(Paths.describe)))")
     if !plan.copiedFiles.isEmpty {
       print("Copied \(plural(plan.copiedFiles.count, "file")) from \(merged.name)")
     }
     if !plan.skippedFiles.isEmpty {
       print(dim("\(plural(plan.skippedFiles.count, "file")) from \(merged.name) stayed out, because \(kept.name) has files at the same paths."))
     }
-    print("Moved \(merged.name) to the Trash from \(Terminal.list(merged.removableCopies.map { Paths.abbreviate($0.root.url) }))")
+    print("Moved \(merged.name) to the Trash from \(Terminal.list(merged.removableCopies.map { Paths.describe($0.root.url) }))")
     for link in plan.links {
       print("Linked \(kept.name) into \(Paths.abbreviate(link.deletingLastPathComponent()))")
     }
@@ -542,6 +554,7 @@ enum Commands {
 
   static func install(_ args: Arguments) async throws {
     let source = try args.single("skill url or path")
+    let ref = try repositoryRef(args) ?? .defaultBranch
     var explicit: [Tool]? = nil
     if let tool = try args.tool("to") {
       explicit = [tool]
@@ -551,13 +564,13 @@ enum Commands {
     let destination: URL
     do {
       // Download into the Library first, which agents don't read, so the files can be reviewed before linking.
-      destination = try await SkillInstaller.install(source: source, explicitTools: [])
+      destination = try await SkillInstaller.install(source: source, explicitTools: [], ref: ref)
     } catch {
       Terminal.clearStatus()
       throw error
     }
     Terminal.clearStatus()
-    print("Installed to \(Paths.abbreviate(destination))")
+    print("Installed to \(Paths.describe(destination))")
     guard !args.flag("no-link") else {
       print("Kept in the Library without links. Add its skills to tools with skillscout-mod add or a skillset.")
       return
@@ -582,12 +595,49 @@ enum Commands {
   }
 
   static func update(_ args: Arguments) async throws {
+    let ref = try repositoryRef(args)
+    if args.flag("all") {
+      guard args.flag("check"), args.positional.isEmpty, ref == nil else {
+        throw CLIError(message: "Use update --all --check without a skill name or version option.", usage: true)
+      }
+      let repositories = RepositoryLibrary.inventory(catalog: [])
+        .filter { $0.source.isGit && $0.installedFolder != nil }
+      var results: [[String: String]] = []
+      var failed = false
+      for entry in repositories {
+        do {
+          let check = try await RepositoryLibrary.check(entry: entry)
+          results.append(["repository": entry.name, "message": check.message,
+            "installedCommit": check.installedCommit ?? "", "latestCommit": check.latestCommit ?? ""])
+          if !args.json { print("\(entry.name): \(check.message)") }
+        } catch {
+          failed = true
+          results.append(["repository": entry.name, "error": error.localizedDescription])
+          if !args.json { print("\(entry.name): check failed: \(error.localizedDescription)") }
+        }
+      }
+      if args.json { try printJSON(results) }
+      else if repositories.isEmpty { print("No installed Git repositories.") }
+      if failed { throw CLIError(message: "One or more repository checks failed. No installations were changed.") }
+      return
+    }
+    if args.flag("check"), ref != nil {
+      throw CLIError(message: "Use --check to check the installed version. Omit it to review a version change.", usage: true)
+    }
+    if args.json && !args.flag("check") {
+      throw CLIError(message: "--json requires --check.", usage: true)
+    }
     let query = try args.single("skill")
     let library = await Library.load(days: 1, readChats: false)
     let repo: String
-    if let skill = library.skills.first(where: { $0.name.localizedCaseInsensitiveCompare(query) == .orderedSame }) {
+    if FileManager.default.fileExists(atPath: SkillInstaller.managedRepoFolder(query).path), query == SkillInstaller.slug(query) {
+      repo = query
+    } else if let skill = library.skills.first(where: { $0.name.localizedCaseInsensitiveCompare(query) == .orderedSame }) {
       guard let name = skill.managedRepos.first else {
         throw CLIError(message: "\(skill.name) isn't in the Library, so there's nothing to update. Add its repository with skillscout-mod install.")
+      }
+      guard skill.managedRepos.count == 1 else {
+        throw CLIError(message: "\(skill.name) has multiple repository sources. Pass a repository name: \(skill.managedRepos.joined(separator: ", ")).")
       }
       repo = name
     } else if FileManager.default.fileExists(atPath: SkillInstaller.managedRepoFolder(SkillInstaller.slug(query)).path) {
@@ -596,10 +646,22 @@ enum Commands {
       throw CLIError(message: "Couldn't find a skill or Library repository named \(query).")
     }
 
+    if args.flag("check") {
+      guard let entry = RepositoryLibrary.inventory(catalog: []).first(where: { $0.installedFolder?.lastPathComponent == repo }) else {
+        throw CLIError(message: "Couldn't read repository \(repo).")
+      }
+      let check = try await RepositoryLibrary.check(entry: entry)
+      if args.json {
+        try printJSON(["repository": repo, "message": check.message,
+          "installedCommit": check.installedCommit ?? "", "latestCommit": check.latestCommit ?? ""])
+      } else { print("\(repo): \(check.message)") }
+      return
+    }
+
     Terminal.status("Checking \(repo) for changes...")
     let update: RepoUpdate
     do {
-      update = try await SkillInstaller.prepareRepoUpdate(name: repo)
+      update = try await SkillInstaller.prepareRepoUpdate(name: repo, ref: ref)
     } catch {
       Terminal.clearStatus()
       throw error
@@ -609,6 +671,7 @@ enum Commands {
 
     print(bold("Update \(repo)"))
     print("  \(dim(update.source))")
+    print("  \(update.selectedRef.label)")
     switch (update.oldCommit, update.newCommit) {
     case let (old?, new?) where old != new: print("  Commit \(old) → \(new)")
     case let (_, new?): print("  Commit \(new)")
@@ -617,6 +680,9 @@ enum Commands {
     guard update.hasChanges else {
       print("No changes.")
       return
+    }
+    if update.hasLocalEdits && !args.flag("replace-local-edits") {
+      throw CLIError(message: "The Library copy has local edits. Review them and pass --replace-local-edits to explicitly replace them.")
     }
     for (label, paths) in [("Added", update.added), ("Changed", update.changed), ("Removed", update.removed)] where !paths.isEmpty {
       print()
@@ -634,7 +700,21 @@ enum Commands {
       print("Nothing changed.")
       return
     }
-    try SkillInstaller.applyRepoUpdate(update)
+    try SkillInstaller.applyRepoUpdate(update, replaceLocalEdits: args.flag("replace-local-edits"))
     print("Updated \(repo).")
+  }
+
+  private static func repositoryRef(_ args: Arguments) throws -> RepositoryRef? {
+    let options = ["branch", "tag", "commit"].compactMap { name in args.option(name).map { (name, $0) } }
+    guard options.count <= 1 else { throw CLIError(message: "Choose only one of --branch, --tag, or --commit.", usage: true) }
+    guard let (name, value) = options.first else { return nil }
+    guard !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+      throw CLIError(message: "--\(name) needs a nonempty value.", usage: true)
+    }
+    switch name {
+    case "branch": return .branch(value)
+    case "tag": return .tag(name: value, commit: nil)
+    default: return .commit(value)
+    }
   }
 }

@@ -15,9 +15,10 @@ struct SkillsetHeader: View {
           Spacer()
           Button("Edit…") { showingEditor = true }
             .help("Edit skills in \(skillset.name)")
+            .accessibilityLabel("Edit skills in \(skillset.name)")
             .disabled(store.isManagingSkillsets)
         }
-        let assigned = Tool.allCases.filter { store.assignment(for: skillset.id, to: $0) != nil }
+        let assigned = store.tools.filter { store.assignment(for: skillset.id, to: $0) != nil }
         let incomplete = assigned.count { store.skillsetStatus(skillset, to: $0).available < skillset.skills.count }
         HStack(spacing: 10) {
           Text("\(skillset.skills.count) skills · \(assigned.count) assigned")
@@ -27,8 +28,12 @@ struct SkillsetHeader: View {
               .font(.caption).foregroundStyle(.orange)
           }
           Spacer(minLength: 0)
-          Button("Manage…") { showingAssignments = true }
-            .help("Manage tool assignments for \(skillset.name)")
+          Button("Add skills…") { store.pendingSkillAdd = SkillAddPresentation(skillsetID: skillsetID) }
+            .help("Add this skillset to Global or a project for \(skillset.name)")
+            .accessibilityLabel("Manage tool assignments for \(skillset.name)")
+        }
+        if store.skillsetAssignments.contains(where: { $0.skillsetID == skillset.id && !store.tools.contains($0.tool) }) {
+          Text("Assignments for disabled tools are retained. Enable those tools in Settings to manage them.").font(.caption).foregroundStyle(.secondary)
         }
         let missing = skillset.skills.filter { store.skill($0) == nil }.sorted()
         if !missing.isEmpty {
@@ -38,6 +43,7 @@ struct SkillsetHeader: View {
                 Label(id, systemImage: "exclamationmark.triangle")
                 Spacer()
                 Button("Remove from skillset") { store.setSkillMembership([id], in: skillset.id, included: false) }
+                  .accessibilityLabel("Remove \(id) from \(skillset.name)")
               }
             }
           }
@@ -70,6 +76,7 @@ struct ToolSkillsetsView: View {
       Spacer(minLength: 0)
       Button("Manage…") { showingAssignments = true }
         .help("Manage skillsets for \(tool.name)")
+        .accessibilityLabel("Manage skillsets for \(tool.name)")
     }
     .padding(12)
     .background(.regularMaterial)
@@ -77,28 +84,77 @@ struct ToolSkillsetsView: View {
   }
 }
 
+struct ProjectSkillsetsView: View {
+  let project: RegisteredProject
+  var tool: Tool?
+  @Environment(AppStore.self) private var store
+  @State private var showingAssignments = false
+
+  var body: some View {
+    HStack(spacing: 10) {
+      let assigned = Set(store.projectState.assignments.filter { assignment in
+        assignment.projectID == project.id && assignment.individualSkillID == nil && !assignment.target.readBy.intersection(store.tools).isEmpty
+          && (tool.map(assignment.target.readBy.contains) ?? true)
+          && store.skillsets.contains(where: { $0.id == assignment.skillsetID })
+      }.map(\.skillsetID)).count
+      Text("\(assigned) of \(store.skillsets.count) skillsets assigned").font(.callout).foregroundStyle(.secondary)
+      Spacer(minLength: 0)
+      Button("Manage…") { showingAssignments = true }
+        .help("Manage skillsets for \(project.name)")
+        .accessibilityLabel("Manage skillsets for \(project.name)")
+        .accessibilityIdentifier("project-manage-skillsets")
+    }
+    .sheet(isPresented: $showingAssignments) { SkillsetAssignmentsSheet(tool: tool, project: project) }
+  }
+}
+
 struct SkillsetAssignmentsSheet: View {
   var skillsetID: UUID?
   var tool: Tool?
+  var project: RegisteredProject? = nil
   @Environment(AppStore.self) private var store
   @Environment(\.dismiss) private var dismiss
+  @State private var projectTarget: ProjectSkillTarget = .shared
+  @State private var applying: ProjectApplyRequest?
+
+  private var projectTargets: [ProjectSkillTarget] {
+    ProjectSkillTarget.allCases.filter { target in
+      !target.readBy.intersection(store.tools).isEmpty && (tool.map { store.tools.contains($0) && target.readBy.contains($0) } ?? true)
+    }
+  }
+  private var projectAssignments: [ProjectSkillsetAssignment] {
+    store.projectState.assignments.filter { $0.projectID == project?.id && $0.individualSkillID == nil && (skillsetID == nil || $0.skillsetID == skillsetID) }
+  }
+  private var canManageProject: Bool {
+    guard let project else { return false }
+    return store.projectInventories[project.id]?.status.isAvailable == true && store.projectState.pending == nil
+      && !store.isManagingProjects && !store.isManagingSkillsets && projectTargets.contains(projectTarget)
+  }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
-      Text(skillsetID.flatMap { id in store.skillsets.first(where: { $0.id == id })?.name }.map { "Assign \($0) to tools" }
-        ?? "Skillsets for \(tool?.name ?? "tool")")
+      Text(skillsetID.flatMap { id in store.skillsets.first(where: { $0.id == id })?.name }.map { "Assign \($0) to \(project?.name ?? "Global")" }
+        ?? "Skillsets for \(tool?.name ?? (project == nil ? "tool" : "enabled agents"))")
         .font(.title2.weight(.semibold))
+      if store.tools.isEmpty { Text("Enable a tool in Settings to manage assignments.").font(.caption).foregroundStyle(.secondary) }
+      if let project {
+        projectContext(project)
+      } else if store.skillsetAssignments.contains(where: { (skillsetID == nil || $0.skillsetID == skillsetID) && !store.tools.contains($0.tool) }) {
+        Text("Assignments for disabled tools are retained. Enable those tools in Settings to manage them.").font(.caption).foregroundStyle(.secondary)
+      }
       ScrollView {
         LazyVStack(alignment: .leading, spacing: 0) {
-          if let skillsetID {
-            ForEach(Tool.allCases.filter { store.tools.contains($0) || store.assignment(for: skillsetID, to: $0) != nil }) { candidate in
+          if project != nil {
+            projectRows
+          } else if let skillsetID {
+            ForEach(store.tools.filter { tool == nil || $0 == tool }) { candidate in
               SkillsetAssignmentView(skillsetID: skillsetID, tool: candidate)
               Divider()
             }
-            ForEach(Tool.allCases.filter { store.tools.contains($0) || store.assignment(for: skillsetID, to: $0) != nil }) { candidate in
+            ForEach(store.tools.filter { tool == nil || $0 == tool }) { candidate in
               toolMessages(candidate)
             }
-          } else if let tool {
+          } else if let tool, store.tools.contains(tool) {
             ForEach(store.skillsets) { skillset in
               SkillsetAssignmentView(skillsetID: skillset.id, tool: tool, showSkillsetName: true)
               Divider()
@@ -114,6 +170,102 @@ struct SkillsetAssignmentsSheet: View {
     }
     .padding(20)
     .frame(width: 620, height: 560)
+    .onAppear { normalizeProjectTarget(preferDefault: true) }
+    .onChange(of: store.tools) {
+      normalizeProjectTarget()
+      if let applying, !projectTargets.contains(applying.target) { self.applying = nil }
+    }
+    .sheet(item: $applying) { request in
+      if let project { ProjectApplySheet(project: project, request: request) }
+    }
+  }
+
+  @ViewBuilder private func projectContext(_ project: RegisteredProject) -> some View {
+    Text(project.name).font(.headline)
+    Text(Paths.abbreviate(project.url)).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+    if projectTargets.isEmpty {
+      Text("Enable a compatible tool in Settings to manage this project's assignments.").font(.caption).foregroundStyle(.secondary)
+    } else {
+      ChoiceChips(title: "Agent group", options: projectTargets.map {
+        ChoiceOption(value: $0, title: $0.label)
+      }, selection: $projectTarget)
+      Text(projectTarget.relativePath).font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary)
+      ProjectReaderBadges(tools: projectTarget.readBy)
+      DisabledReaderNotice(readers: projectTarget.readBy)
+    }
+    if projectAssignments.contains(where: { $0.target.readBy.intersection(store.tools).isEmpty }) {
+      Text("Assignments for disabled tools are retained. Enable those tools in Settings to manage them.").font(.caption).foregroundStyle(.secondary)
+    }
+    if let inventory = store.projectInventories[project.id], !inventory.status.isAvailable {
+      Text(inventory.status.label).font(.caption).foregroundStyle(.orange)
+    }
+    if store.projectState.pending != nil {
+      Text("A project operation needs recovery. Complete recovery in the project overview before managing assignments.").font(.caption).foregroundStyle(.orange)
+    }
+  }
+
+  @ViewBuilder private var projectRows: some View {
+    if projectTargets.contains(projectTarget) {
+      let skillsets = store.skillsets.filter { skillsetID == nil || $0.id == skillsetID }
+      ForEach(skillsets) { skillset in
+        projectRow(skillsetID: skillset.id)
+        Divider()
+      }
+      ForEach(projectAssignments.filter { assignment in
+        assignment.target == projectTarget && !store.skillsets.contains(where: { $0.id == assignment.skillsetID })
+      }, id: \.skillsetID) { assignment in
+        projectRow(skillsetID: assignment.skillsetID)
+        Divider()
+      }
+      if skillsets.isEmpty && !projectAssignments.contains(where: { $0.target == projectTarget }) {
+        Text("No skillsets available. Create a skillset in the sidebar to apply it here.").font(.callout).foregroundStyle(.secondary).padding(.vertical, 10)
+      }
+    }
+  }
+
+  private func projectRow(skillsetID id: UUID) -> some View {
+    let skillset = store.skillsets.first { $0.id == id }
+    let assignment = projectAssignments.first { $0.skillsetID == id && $0.target == projectTarget }
+    let pending = skillset.map { assignment != nil && $0.skills != assignment?.members } ?? false
+    let status = pending ? "Changes pending" : assignment != nil ? "Assigned" : "Not assigned"
+    let action = pending ? "Apply changes" : assignment != nil ? "Review" : "Apply"
+    return VStack(alignment: .leading, spacing: 6) {
+      HStack(spacing: 12) {
+        Label(skillset?.name ?? "Deleted skillset", systemImage: "folder")
+          .font(.subheadline.weight(.medium)).frame(maxWidth: .infinity, alignment: .leading)
+        Text(status).font(.caption).foregroundStyle(pending ? Color.orange : Color.secondary)
+        if let skillset {
+          Button("\(action)…") {
+            guard canManageProject else { return }
+            applying = ProjectApplyRequest(skillsetID: id, target: projectTarget)
+          }
+          .accessibilityIdentifier("project-skillset-apply-\(id.uuidString)")
+          .accessibilityLabel("\(action) \(skillset.name) for \(project?.name ?? "project")")
+          .disabled(!canManageProject || skillset.skills.isEmpty)
+        }
+        if assignment != nil {
+          Button("Unassign…", role: .destructive) {
+            guard canManageProject else { return }
+            applying = ProjectApplyRequest(skillsetID: id, target: projectTarget, unassign: true)
+          }
+          .accessibilityIdentifier("project-skillset-unassign-\(id.uuidString)")
+          .accessibilityLabel("Unassign \(skillset?.name ?? "deleted skillset") from \(project?.name ?? "project")")
+          .disabled(!canManageProject)
+        }
+      }.controlSize(.small)
+      Text("\(skillset?.skills.count ?? assignment?.members.count ?? 0) skills\(assignment.map { " · \($0.members.count) applied" } ?? "")")
+        .font(.caption).foregroundStyle(.secondary)
+      if skillset == nil {
+        Text("The membership snapshot is retained. Files stay in place until you unassign this skillset.").font(.caption).foregroundStyle(.orange)
+      }
+    }.padding(.vertical, 10)
+  }
+
+  private func normalizeProjectTarget(preferDefault: Bool = false) {
+    guard project != nil else { return }
+    let preferred: ProjectSkillTarget = tool == .claude ? .claude : .shared
+    if preferDefault, projectTargets.contains(preferred) { projectTarget = preferred }
+    else if !projectTargets.contains(projectTarget), let first = projectTargets.first { projectTarget = first }
   }
 
   @ViewBuilder
@@ -144,8 +296,9 @@ struct SkillsetAssignmentView: View {
   @State private var proposedAssignment = true
 
   var body: some View {
-    if let skillset = store.skillsets.first(where: { $0.id == skillsetID }) {
+    if store.tools.contains(tool), let skillset = store.skillsets.first(where: { $0.id == skillsetID }) {
       let status = store.skillsetStatus(skillset, to: tool)
+      let action = status.pending ? "Apply changes" : status.assigned ? ((store.skillsetIssues[tool.rawValue] ?? []).isEmpty && status.available == status.total ? "Review" : "Retry") : "Apply"
       VStack(alignment: .leading, spacing: 6) {
         HStack(spacing: 12) {
           Label(showSkillsetName ? skillset.name : tool.name, systemImage: showSkillsetName ? "folder" : tool.symbol)
@@ -155,10 +308,11 @@ struct SkillsetAssignmentView: View {
             .font(.caption)
             .foregroundStyle(status.pending || (status.assigned && status.available < status.total) ? .orange : .secondary)
             .lineLimit(1)
-          Button(status.pending ? "Apply changes…" : status.assigned ? ((store.skillsetIssues[tool.rawValue] ?? []).isEmpty && status.available == status.total ? "Review…" : "Retry…") : "Apply…") {
+          Button("\(action)…") {
             proposedAssignment = true
             showingPreview = true
           }
+          .accessibilityLabel("\(action) \(skillset.name) for \(tool.name)")
           .disabled(!status.assigned && skillset.skills.isEmpty)
           if status.assigned {
             Menu {
@@ -166,10 +320,12 @@ struct SkillsetAssignmentView: View {
                 proposedAssignment = false
                 showingPreview = true
               }
+              .accessibilityLabel("Unassign \(skillset.name) from \(tool.name)")
             } label: {
               Label("More actions", systemImage: "ellipsis")
             }
             .menuStyle(.borderlessButton)
+            .accessibilityLabel("More actions for \(skillset.name) in \(tool.name)")
           }
         }
         .controlSize(.small)
@@ -193,15 +349,20 @@ struct SkillsetPreview: View {
   let assigned: Bool
   @Environment(AppStore.self) private var store
   @Environment(\.dismiss) private var dismiss
+  @State private var inspecting: SkillCopy?
 
   var body: some View {
-    if let skillset = store.skillsets.first(where: { $0.id == skillsetID }) {
+    if store.tools.contains(tool), let skillset = store.skillsets.first(where: { $0.id == skillsetID }) {
       let plan = store.skillsetPreview(skillset, to: tool, assigned: assigned)
       let reviews = plan.additions.reduce(into: [Skill.ID: SkillReview]()) { $0[$1.id] = additionReview($1) }
+      let affected = SkillRoot.all.first { $0.url.standardizedFileURL == tool.skillsFolder.standardizedFileURL }?.readBy ?? [tool]
       VStack(alignment: .leading, spacing: 16) {
         Text("\(assigned ? "Apply" : "Unassign") \(skillset.name) \(assigned ? "to" : "from") \(tool.name)")
           .font(.headline)
         Text("Add \(plan.additions.count) · Keep \(plan.kept) existing · Remove up to \(plan.removals.count)")
+        Text("Affected agents: \(store.tools.filter(affected.contains).map(\.name).formatted())")
+          .font(.caption).foregroundStyle(.secondary)
+        DisabledReaderNotice(readers: Set(affected))
         Text("Other assigned skillsets keep the skills they need. Existing personal installations and modified copies stay.")
           .font(.callout).foregroundStyle(.secondary)
         ScrollView {
@@ -210,13 +371,21 @@ struct SkillsetPreview: View {
               if let review = reviews[skill.id] {
                 Label("Add \(skill.name): \(review.summary.lowercased())", systemImage: "exclamationmark.triangle")
                   .foregroundStyle(.orange)
-                  .help("From a downloaded repository. Open the skill to read its Contents before applying.")
+                  .help("Read this source's contents before applying.")
+                if let source = SkillInstaller.skillsetSource(skill, preferredSources: store.preferredSources) {
+                  Button("Inspect \(skill.name) contents") { inspecting = source }
+                }
               } else {
                 Label("Add \(skill.name)", systemImage: "plus")
               }
             }
             ForEach(plan.removals, id: \.path) { Label("Remove \($0.skillID)", systemImage: "minus") }
-            ForEach(plan.issues, id: \.self) { Label($0, systemImage: "exclamationmark.triangle").foregroundStyle(.orange) }
+            ForEach(plan.issueDetails) { issue in
+              VStack(alignment: .leading, spacing: 6) {
+                Label(issue.message, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
+                recovery(for: issue, skillset: skillset)
+              }
+            }
           }
           .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -225,7 +394,7 @@ struct SkillsetPreview: View {
           Text("Available changes can be applied now. Unresolved items remain visible for retry.").font(.caption)
         }
         if !reviews.isEmpty {
-          Text("Skills marked in orange come from downloaded repositories and have scripts or high-risk commands. Read their Contents before applying.")
+          Text("Skills marked in orange have scripts or high-risk commands. Read their Contents before applying.")
             .font(.caption).foregroundStyle(.secondary)
         }
         HStack {
@@ -233,6 +402,7 @@ struct SkillsetPreview: View {
           Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
           Button(assigned ? "Apply" : "Unassign") {
             Task {
+              guard store.tools.contains(tool) else { return }
               await store.applySkillset(id: skillset.id, to: tool, assigned: assigned)
               dismiss()
             }
@@ -245,6 +415,36 @@ struct SkillsetPreview: View {
       .frame(width: 540)
       .disabled(store.isManagingSkillsets)
       .interactiveDismissDisabled(store.isManagingSkillsets)
+      .sheet(item: $inspecting) { SkillContentsSheet(source: $0) }
+    } else {
+      VStack(alignment: .leading, spacing: 12) {
+        Text("This destination is disabled. Enable it in Settings and open a new preview.")
+        Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+      }.padding(24).frame(width: 540)
+    }
+  }
+
+  @ViewBuilder private func recovery(for issue: SkillsetIssue, skillset: Skillset) -> some View {
+    switch issue.reason {
+    case .missingSource:
+      if skillset.skills.contains(issue.skillID) {
+        Button("Remove missing member") { store.setSkillMembership([issue.skillID], in: skillset.id, included: false) }
+      }
+    case .chooseSource:
+      if let skill = store.skill(issue.skillID) {
+        let sources = SkillInstaller.installableSources(for: skill)
+        ChoiceAction(title: "Choose source", options: sources.map {
+          ChoiceOption(value: $0.resolved.path, title: $0.sourceLabel, detail: $0.visiblePath, symbol: "folder")
+        }) { path in
+          if let source = sources.first(where: { $0.resolved.path == path }) {
+            _ = store.setPreferredSource(source, for: skill)
+          }
+        }
+      }
+    case .differentContent(let folder), .destination(let folder):
+      Button("Open existing copy") { Finder.reveal(folder) }
+    case .builtIn:
+      Text("Use this skill in its original tool, or choose an installable skill.").font(.caption).foregroundStyle(.secondary)
     }
   }
 
@@ -293,14 +493,9 @@ struct SkillsetEditor: View {
             }
           }
           if sources.count > 1 {
-            Menu {
-              ForEach(sources) { source in
-                Button("\(source.sourceLabel) · \(Paths.abbreviate(source.resolved))") {
-                  store.setPreferredSource(source, for: skill)
-                }
-              }
-            } label: {
-              Text(store.preferredSource(for: skill).map { "Source: \($0.sourceLabel)" } ?? "Choose source…")
+            ChoiceAction(title: store.preferredSource(for: skill).map { "Source: \($0.sourceLabel)" } ?? "Choose source…",
+              options: sources.map { ChoiceOption(value: $0, title: $0.sourceLabel, detail: $0.visiblePath, symbol: "folder") }) { source in
+              store.setPreferredSource(source, for: skill)
             }
             .font(.caption)
           }

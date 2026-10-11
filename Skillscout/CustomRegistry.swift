@@ -41,7 +41,9 @@ struct CustomRegistry {
 
     private func normalizedSource(_ input: String) throws -> String {
         let value = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        if value.hasPrefix("https://") || value.hasPrefix("http://") || value.hasPrefix("git@") { return value }
+        if value.hasPrefix("https://") || value.hasPrefix("http://") || value.hasPrefix("ssh://") || value.hasPrefix("git@") {
+            return try RepositorySource(address: value).address
+        }
         let path = value.hasPrefix("file://") ? (URL(string: value)?.path ?? value) : value
         guard path.hasPrefix("/") || path.hasPrefix("~/") else { throw SourceError.invalidFolder }
         let folder = URL(fileURLWithPath: (path as NSString).expandingTildeInPath).standardizedFileURL

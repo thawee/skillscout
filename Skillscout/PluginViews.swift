@@ -43,8 +43,16 @@ struct PluginList: View {
   }
 }
 
+private struct PluginSkillSelection: Identifiable {
+  let skill: Skill
+  let copy: SkillCopy
+  var id: String { copy.id }
+}
+
 struct PluginDetail: View {
   let plugin: InstalledPlugin
+  @Environment(AppStore.self) private var store
+  @State private var selectedSkill: PluginSkillSelection?
 
   var body: some View {
     ScrollView {
@@ -105,7 +113,14 @@ struct PluginDetail: View {
           if plugin.skills.isEmpty {
             Text("No skills.").foregroundStyle(.secondary)
           } else {
-            Text(plugin.skills.formatted(.list(type: .and))).textSelection(.enabled)
+            ForEach(plugin.skills, id: \.self) { name in
+              if let match = plugin.skillCopy(named: name, among: store.skills) {
+                Button(name) { selectedSkill = PluginSkillSelection(skill: match.skill, copy: match.copy) }
+                  .buttonStyle(.link)
+              } else {
+                Text("\(name) · Source unavailable").foregroundStyle(.secondary).textSelection(.enabled)
+              }
+            }
           }
         }
 
@@ -115,6 +130,16 @@ struct PluginDetail: View {
       .padding(28)
       .frame(maxWidth: 820, alignment: .leading)
       .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    .sheet(item: $selectedSkill) { selection in
+      VStack(spacing: 0) {
+        HStack {
+          Text("\(plugin.name) / \(selection.skill.name)").font(.headline)
+          Spacer()
+          Button("Back to plugin") { selectedSkill = nil }.keyboardShortcut(.cancelAction)
+        }.padding()
+        SkillDetail(skill: selection.skill, installationSource: selection.copy, context: .plugin)
+      }.frame(width: 820, height: 700)
     }
   }
 

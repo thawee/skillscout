@@ -9,7 +9,7 @@ struct Arguments {
   private var flags: Set<String> = []
   private var options: [String: String] = [:]
 
-  private static let valued: Set<String> = ["days", "tool", "to", "from", "sort", "engine", "model", "output"]
+  private static let valued: Set<String> = ["days", "tool", "to", "from", "sort", "engine", "model", "output", "branch", "tag", "commit"]
 
   init(_ raw: [String]) throws {
     var queue = raw[...]
@@ -120,7 +120,7 @@ enum Command: String, CaseIterable {
     case .suggest: "suggest [options]"
     case .explain: "explain <skill> [options]"
     case .install: "install <url_or_path> [--to <tool> | --no-link]"
-    case .update: "update <skill>"
+    case .update: "update <skill-or-repository> | --all --check"
     case .skillset: "skillset <action> [<set> | <file>] [options]"
     case .plugins: "plugins [options]"
     }
@@ -223,9 +223,21 @@ enum Command: String, CaseIterable {
         ("--to <tool>", "The tool to link it to (overrides SKILL.md frontmatter)"),
         ("--no-link", "Only add it to the Library, without linking it to tools"),
         ("--yes", "Link a flagged download without asking"),
+        ("--branch <name>", "Track a branch"),
+        ("--tag <name>", "Pin a tag to its current commit"),
+        ("--commit <sha>", "Pin a commit"),
       ]
     case .update:
-      return [("--yes", "Apply the changes without asking")]
+      return [
+        ("--check", "Check for an update without changing the Library"),
+        ("--all", "Check all installed Git repositories; requires --check"),
+        ("--branch <name>", "Review switching to a tracked branch"),
+        ("--tag <name>", "Review pinning a tag to its current commit"),
+        ("--commit <sha>", "Review pinning a commit"),
+        ("--replace-local-edits", "Explicitly allow replacing local Library edits"),
+        ("--yes", "Apply the reviewed changes without asking"),
+        json,
+      ]
     case .plugins:
       return [json]
     case .skillset:

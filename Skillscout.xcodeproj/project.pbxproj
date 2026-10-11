@@ -9,27 +9,49 @@
 /* Begin PBXBuildFile section */
 		01A2AE019AB11C572862C32F /* SkillsetTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C869F111F332D93D6DC43741 /* SkillsetTransfer.swift */; };
 		0253CE05EEDB52B914C3625D /* Analyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B18AC56992256E677133D35C /* Analyzer.swift */; };
+		02E535F27BDDF5C4EB2EBC2D /* UsageReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ED59D8B041937C48C8DA639 /* UsageReport.swift */; };
+		0474F287CBF4086B13CFDAC6 /* RepositoryUpdateImpactViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46933578EAC457E1CAA3DB42 /* RepositoryUpdateImpactViews.swift */; };
 		059A5D5E6CD42EB94D7CF8DA /* AppUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365039D37C939DF6EA1C6600 /* AppUpdater.swift */; };
 		0727654346EF6DA1148B2D68 /* AppStore+Skillsets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0377BD2BDE684AA347A662DD /* AppStore+Skillsets.swift */; };
+		0A39A0BACF6822BBBFF792DC /* RepositoryUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDE39C54EC909813DE7C0315 /* RepositoryUpdate.swift */; };
 		0B4298E3428DA3452C8E316E /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8B95A883374ADCF2BB2A9A5 /* AppStore.swift */; };
+		0B8DACE2F382954B162647FE /* ProjectLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1238A0B0EE3C4588CB97705C /* ProjectLibrary.swift */; };
+		0CA700D9B81558C71FF5B34C /* SkillActionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54F1B5D66AEB24120C168165 /* SkillActionViews.swift */; };
+		0CBE607F8F57B6BC021097F6 /* RepositoryUpdateImpact.swift in Sources */ = {isa = PBXBuildFile; fileRef = B200EFC0406B2B0B423C9A48 /* RepositoryUpdateImpact.swift */; };
 		11E7DF1CFFE0D2991E331A43 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E320FCE90C51C4EA51E9B6 /* SettingsView.swift */; };
 		131CC0390532211BB9F54BA3 /* PluginScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1724D39BA2DCBF623F4A14 /* PluginScanner.swift */; };
+		152157737952EB4B24434289 /* ProjectTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E0250DCC16CC1ECC1416813 /* ProjectTests.swift */; };
+		195FAB6381B443FDAED9ECC5 /* AppStore+Projects.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFC7ADB0FFA1E65248C6ED42 /* AppStore+Projects.swift */; };
 		1AA8B6FE7B6BDE1160469406 /* SkillInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1D7A86C6C2F6A665C94583 /* SkillInstaller.swift */; };
+		1AFDD133C21E40B3DF53C896 /* RepositoryUpdateImpact.swift in Sources */ = {isa = PBXBuildFile; fileRef = B200EFC0406B2B0B423C9A48 /* RepositoryUpdateImpact.swift */; };
+		1D56D6FECA029ABA17B37FA1 /* SkillActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3457A2E1C3072F0DE4E6000 /* SkillActions.swift */; };
+		267A761ADED9C834982D61BE /* ReportsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C60B32B056C69C5AF7421D6 /* ReportsView.swift */; };
 		27C9E2A4A6BC1AD429CDF52B /* SkillsetInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAD0529B4BB35B1D34A4149E /* SkillsetInstaller.swift */; };
+		28D4EA002770F4835A6F1D55 /* SkillActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3457A2E1C3072F0DE4E6000 /* SkillActions.swift */; };
 		2C5FDD83D3C6E0EB313C3F95 /* SkillReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0E0DAF3A6CF8673C432C76C /* SkillReview.swift */; };
 		2F6073BEADFE16809A96C720 /* FileWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89D396BDA8C7A8F808C390DC /* FileWatcher.swift */; };
 		3057845395C604BF88151C8A /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64E4526107B440152D6AB925 /* Components.swift */; };
+		314BB3BAD0ACBECF5C5D4494 /* ProjectInstallerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 213EB26EEC4D026F65364804 /* ProjectInstallerTests.swift */; };
 		31F0312A63C31BCB33D669D0 /* SkillSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2F1910B2F3AC4B72EA3830 /* SkillSimilarity.swift */; };
 		32B08A40CB3F27CFE29EF8CE /* PluginViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 737812B0E9444153A1EA42FE /* PluginViews.swift */; };
+		33406FCA090C7C9118FC7A6E /* RepositoryLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7547C2F6AED1FDD3F3BF7C98 /* RepositoryLibrary.swift */; };
+		359295C6B7DA767E7D7D1D17 /* ProjectUsageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7A33788AAEA857D37BA6C92 /* ProjectUsageTests.swift */; };
 		378AA334FB694C25962B9245 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEA41E1474F7BE423B56D346 /* ContentView.swift */; };
+		38761BCB2565CFA33CA371FE /* ProjectSkillInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33BBF0940FB676E3C3A60ED /* ProjectSkillInstaller.swift */; };
+		394A7D6D150F490FDEF1F16C /* ProjectSkillInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33BBF0940FB676E3C3A60ED /* ProjectSkillInstaller.swift */; };
+		3CE187EADCBD17552C0B407E /* RepositoryLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7547C2F6AED1FDD3F3BF7C98 /* RepositoryLibrary.swift */; };
+		42F9A2C02ADFC2B069C0F987 /* RepositoryMerge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B4267BE8981F65769894C4E /* RepositoryMerge.swift */; };
 		4A585E671547357F3699831A /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E1EA96200BEB72A33D6E38 /* Models.swift */; };
 		54A880217300E0ABBE8DE26D /* PluginScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1724D39BA2DCBF623F4A14 /* PluginScanner.swift */; };
+		56460DB43815702262614465 /* ProjectLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1238A0B0EE3C4588CB97705C /* ProjectLibrary.swift */; };
 		56B2C0632C4077DB2FCB717D /* SkillReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0E0DAF3A6CF8673C432C76C /* SkillReview.swift */; };
 		5F85019D7561BB0D7566001B /* SuggestionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076A549C0CCE0367FE4D11D0 /* SuggestionViews.swift */; };
 		62C88BC3E3B945945C3EA296 /* PromptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53B6FF6B0D5A3694C197EBC0 /* PromptLibrary.swift */; };
 		63CEF43C596046DD34FB36F8 /* SkillsetTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C869F111F332D93D6DC43741 /* SkillsetTransfer.swift */; };
 		63D31CC01E1C27A3F28B0EE1 /* Skillsets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BF04406D1E3714347E3BD10 /* Skillsets.swift */; };
+		64C8E893ED4C430F5E3E5CCA /* ProjectSkillInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33BBF0940FB676E3C3A60ED /* ProjectSkillInstaller.swift */; };
 		65C46532FF8BCCB4B172F689 /* PromptLibrary+Tools.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06BC03210D288EFFD8FC48F /* PromptLibrary+Tools.swift */; };
+		67BA6EA471ADED24C7C9FB0A /* ProjectLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1238A0B0EE3C4588CB97705C /* ProjectLibrary.swift */; };
 		681E32575030D0E0B2D761D0 /* Analyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B18AC56992256E677133D35C /* Analyzer.swift */; };
 		6A3DB35F25B28E6CC9B0D70C /* SkillSimilarity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2F1910B2F3AC4B72EA3830 /* SkillSimilarity.swift */; };
 		6CA7602CF7C5E86F4D8442D7 /* SkillsetInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAD0529B4BB35B1D34A4149E /* SkillsetInstaller.swift */; };
@@ -38,7 +60,9 @@
 		72573D7336C236C38A5DA342 /* Registry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 756AC6D1B9CA7B46984721E7 /* Registry.swift */; };
 		7428972CE87CBDC6CA0A4568 /* SkillscoutApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBC9224FFE73C8083ADF7A81 /* SkillscoutApp.swift */; };
 		769B6AB81AA5DB52B5C8E72B /* SkillInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1D7A86C6C2F6A665C94583 /* SkillInstaller.swift */; };
+		76EB9621FCF7E9F801CC9F80 /* AppStore+Repositories.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1B4928FF442B99F6F06D303 /* AppStore+Repositories.swift */; };
 		796A56F34B6065273974C9B4 /* PromptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53B6FF6B0D5A3694C197EBC0 /* PromptLibrary.swift */; };
+		7AD0D920522E7E3AE995BCD6 /* UsageReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ED59D8B041937C48C8DA639 /* UsageReport.swift */; };
 		7D1ED7DC185BDC28054F80F3 /* SkillscoutCLI in Embed Dependencies */ = {isa = PBXBuildFile; fileRef = E26D1D5FD710CB617FB08F62 /* SkillscoutCLI */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		7EAA6460180F438E2323C891 /* SkillReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0E0DAF3A6CF8673C432C76C /* SkillReview.swift */; };
 		8263994162E058F7C967DBFE /* SkillScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E76FCD9E9E2549A3682D8F84 /* SkillScanner.swift */; };
@@ -48,7 +72,10 @@
 		8849E62C41F7A32518FB6B67 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 50C6B03A08C5B5CE4FA655E2 /* AppIcon.icon */; };
 		8DB4F2A4A84E5384AF234528 /* Commands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 414FE5AD94D9FE8882D117D9 /* Commands.swift */; };
 		8DF11C0CCCEF82D04196FBC0 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E1EA96200BEB72A33D6E38 /* Models.swift */; };
+		8E5A3B0C490F9D86245D5EE0 /* RepositoryUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDE39C54EC909813DE7C0315 /* RepositoryUpdate.swift */; };
+		91AA43624A15AA69FDF66C31 /* RepositoryMerge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B4267BE8981F65769894C4E /* RepositoryMerge.swift */; };
 		98CC14C18B56863D77169451 /* Plugins.swift in Sources */ = {isa = PBXBuildFile; fileRef = B571DCFEAA809EC5567D24DB /* Plugins.swift */; };
+		991A239890EC79E051406D93 /* RepositoryUpdateImpact.swift in Sources */ = {isa = PBXBuildFile; fileRef = B200EFC0406B2B0B423C9A48 /* RepositoryUpdateImpact.swift */; };
 		9D3695DC64486D9ED2CEC606 /* Registry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 756AC6D1B9CA7B46984721E7 /* Registry.swift */; };
 		A86AB87B505B940D7D4FE616 /* PromptLibrary+Tools.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06BC03210D288EFFD8FC48F /* PromptLibrary+Tools.swift */; };
 		A8E5EF8255CE60720E91CC0F /* SkillScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E76FCD9E9E2549A3682D8F84 /* SkillScanner.swift */; };
@@ -57,21 +84,32 @@
 		B2BC44AB7EADA260F6CCEF2F /* Registry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 756AC6D1B9CA7B46984721E7 /* Registry.swift */; };
 		B4CC45E0405F0B11817E9751 /* Analyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B18AC56992256E677133D35C /* Analyzer.swift */; };
 		B5A22C0947A1D605DD5A347F /* CommandLineTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B6744572DF35BB435E8324 /* CommandLineTool.swift */; };
+		B6DC1F30911DD12D6DEC93D0 /* ProjectViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BA2C1123EB529424750426F /* ProjectViews.swift */; };
+		BB7FCBB0DD42466E54CB7337 /* RepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 965BD38026A050B3269013EE /* RepositoryTests.swift */; };
 		BD66695BCC8D9CC8ED4ECECB /* SkillViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FAA2265543363EFFE7362C0 /* SkillViews.swift */; };
 		C3040FC3DE85AD54F35F5AB5 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 470A830374A881BA320C6298 /* main.swift */; };
+		C830A1AF67BA0B7417A843E4 /* RepositoryMerge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B4267BE8981F65769894C4E /* RepositoryMerge.swift */; };
 		CB528AE33C415D88F3FCFCA7 /* CoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6E23123CD6141D9B083D467 /* CoreTests.swift */; };
+		CC9EB613FF290F051DCCDC13 /* RepositoryLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7547C2F6AED1FDD3F3BF7C98 /* RepositoryLibrary.swift */; };
 		CF3ADAB9F71D5CA8F6E70456 /* PluginScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1724D39BA2DCBF623F4A14 /* PluginScanner.swift */; };
 		D74C3DF23F315DC08035D237 /* SkillsetTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C869F111F332D93D6DC43741 /* SkillsetTransfer.swift */; };
 		D8C564B443D00A0E4E8EB73C /* SkillsetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F37839C6B57A808494AC4C7 /* SkillsetViews.swift */; };
 		DBB251FE54D449EE803CFF26 /* CustomRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 033B0F3CAC9D7A9BD8E4535E /* CustomRegistry.swift */; };
+		DC091714C374DE972DB89825 /* UsageReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ED59D8B041937C48C8DA639 /* UsageReport.swift */; };
+		DD2D4F0F501FABC72B272782 /* RepositoryMergeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC7F57460885522B914AFFC9 /* RepositoryMergeTests.swift */; };
 		DD6BE7DE0CE5849AC0A467D9 /* PromptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53B6FF6B0D5A3694C197EBC0 /* PromptLibrary.swift */; };
 		DDE9E1A704C7AF903D6BA424 /* PromptLibrary+Tools.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06BC03210D288EFFD8FC48F /* PromptLibrary+Tools.swift */; };
+		DF9DAA0E110C7B6854660FC7 /* RepositoryImpactTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB366C49ABD26E175BF2641D /* RepositoryImpactTests.swift */; };
+		E4B5A111E7E3976C42A79539 /* RepositoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41BEF20D63166E49FEA138C0 /* RepositoryViews.swift */; };
 		E7CD521610EFFCD1E25B6D72 /* AIEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEF9DD364F39E0F1EC34650C /* AIEngine.swift */; };
 		E99E842A075096D58387BF01 /* AIEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEF9DD364F39E0F1EC34650C /* AIEngine.swift */; };
 		EBC9C35E6066C01AA02170F5 /* registry.json in Resources */ = {isa = PBXBuildFile; fileRef = 76CC09375ECB6FC9E16C667E /* registry.json */; };
 		EE8F257BD637BB6F32AA736B /* Library.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BA987BB62340C0FAE33523 /* Library.swift */; };
 		F0493751556236295D27D37F /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E1EA96200BEB72A33D6E38 /* Models.swift */; };
+		F0D2B2CDA6CBE3A7D57FD8BB /* SkillActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3457A2E1C3072F0DE4E6000 /* SkillActions.swift */; };
 		F203EA260EEB52DF58DADC49 /* SkillsetInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAD0529B4BB35B1D34A4149E /* SkillsetInstaller.swift */; };
+		F5F62B5F0B377ADC85D58D83 /* RepositoryUpdateViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D9B8060B134B596277775A /* RepositoryUpdateViews.swift */; };
+		FAB3909A8884F098A9D027EC /* RepositoryUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDE39C54EC909813DE7C0315 /* RepositoryUpdate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -103,43 +141,65 @@
 		0377BD2BDE684AA347A662DD /* AppStore+Skillsets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Skillsets.swift"; sourceTree = "<group>"; };
 		076A549C0CCE0367FE4D11D0 /* SuggestionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestionViews.swift; sourceTree = "<group>"; };
 		0FAA2265543363EFFE7362C0 /* SkillViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillViews.swift; sourceTree = "<group>"; };
+		1238A0B0EE3C4588CB97705C /* ProjectLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectLibrary.swift; sourceTree = "<group>"; };
 		13E320FCE90C51C4EA51E9B6 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		1A5CBBA64E4A150D837018A9 /* Skillscout.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Skillscout.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1B2F1910B2F3AC4B72EA3830 /* SkillSimilarity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillSimilarity.swift; sourceTree = "<group>"; };
 		1F37839C6B57A808494AC4C7 /* SkillsetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillsetViews.swift; sourceTree = "<group>"; };
+		213EB26EEC4D026F65364804 /* ProjectInstallerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectInstallerTests.swift; sourceTree = "<group>"; };
 		2F97773769C540ED52C83AF1 /* SkillscoutTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SkillscoutTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		365039D37C939DF6EA1C6600 /* AppUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdater.swift; sourceTree = "<group>"; };
 		36B6744572DF35BB435E8324 /* CommandLineTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandLineTool.swift; sourceTree = "<group>"; };
 		414FE5AD94D9FE8882D117D9 /* Commands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Commands.swift; sourceTree = "<group>"; };
+		41BEF20D63166E49FEA138C0 /* RepositoryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryViews.swift; sourceTree = "<group>"; };
+		46933578EAC457E1CAA3DB42 /* RepositoryUpdateImpactViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryUpdateImpactViews.swift; sourceTree = "<group>"; };
 		470A830374A881BA320C6298 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		4BA2C1123EB529424750426F /* ProjectViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectViews.swift; sourceTree = "<group>"; };
+		4E0250DCC16CC1ECC1416813 /* ProjectTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectTests.swift; sourceTree = "<group>"; };
+		4ED59D8B041937C48C8DA639 /* UsageReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageReport.swift; sourceTree = "<group>"; };
 		50C6B03A08C5B5CE4FA655E2 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		53B6FF6B0D5A3694C197EBC0 /* PromptLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptLibrary.swift; sourceTree = "<group>"; };
+		54F1B5D66AEB24120C168165 /* SkillActionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillActionViews.swift; sourceTree = "<group>"; };
 		57E1EA96200BEB72A33D6E38 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		5B2204DD544E18EC3E164284 /* DiscoverViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverViews.swift; sourceTree = "<group>"; };
 		64E4526107B440152D6AB925 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		737812B0E9444153A1EA42FE /* PluginViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginViews.swift; sourceTree = "<group>"; };
+		7547C2F6AED1FDD3F3BF7C98 /* RepositoryLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryLibrary.swift; sourceTree = "<group>"; };
 		756AC6D1B9CA7B46984721E7 /* Registry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Registry.swift; sourceTree = "<group>"; };
 		76CC09375ECB6FC9E16C667E /* registry.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = registry.json; sourceTree = "<group>"; };
+		7B4267BE8981F65769894C4E /* RepositoryMerge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryMerge.swift; sourceTree = "<group>"; };
 		89D396BDA8C7A8F808C390DC /* FileWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileWatcher.swift; sourceTree = "<group>"; };
 		8BF04406D1E3714347E3BD10 /* Skillsets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Skillsets.swift; sourceTree = "<group>"; };
+		965BD38026A050B3269013EE /* RepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryTests.swift; sourceTree = "<group>"; };
+		9C60B32B056C69C5AF7421D6 /* ReportsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportsView.swift; sourceTree = "<group>"; };
 		9E76D5137A9F0049E8AC4D8E /* SimilarViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimilarViews.swift; sourceTree = "<group>"; };
 		A2CF8B954622C1B06777D365 /* Terminal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Terminal.swift; sourceTree = "<group>"; };
+		A3457A2E1C3072F0DE4E6000 /* SkillActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillActions.swift; sourceTree = "<group>"; };
 		AEA41E1474F7BE423B56D346 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		AFC7ADB0FFA1E65248C6ED42 /* AppStore+Projects.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Projects.swift"; sourceTree = "<group>"; };
+		B0D9B8060B134B596277775A /* RepositoryUpdateViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryUpdateViews.swift; sourceTree = "<group>"; };
 		B18AC56992256E677133D35C /* Analyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analyzer.swift; sourceTree = "<group>"; };
+		B200EFC0406B2B0B423C9A48 /* RepositoryUpdateImpact.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryUpdateImpact.swift; sourceTree = "<group>"; };
 		B571DCFEAA809EC5567D24DB /* Plugins.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Plugins.swift; sourceTree = "<group>"; };
+		B7A33788AAEA857D37BA6C92 /* ProjectUsageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectUsageTests.swift; sourceTree = "<group>"; };
 		C06BC03210D288EFFD8FC48F /* PromptLibrary+Tools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PromptLibrary+Tools.swift"; sourceTree = "<group>"; };
 		C0BA987BB62340C0FAE33523 /* Library.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Library.swift; sourceTree = "<group>"; };
+		C1B4928FF442B99F6F06D303 /* AppStore+Repositories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStore+Repositories.swift"; sourceTree = "<group>"; };
+		C33BBF0940FB676E3C3A60ED /* ProjectSkillInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSkillInstaller.swift; sourceTree = "<group>"; };
 		C869F111F332D93D6DC43741 /* SkillsetTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillsetTransfer.swift; sourceTree = "<group>"; };
 		CA1D7A86C6C2F6A665C94583 /* SkillInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillInstaller.swift; sourceTree = "<group>"; };
 		CB1724D39BA2DCBF623F4A14 /* PluginScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginScanner.swift; sourceTree = "<group>"; };
 		CBC9224FFE73C8083ADF7A81 /* SkillscoutApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillscoutApp.swift; sourceTree = "<group>"; };
 		CEF9DD364F39E0F1EC34650C /* AIEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIEngine.swift; sourceTree = "<group>"; };
 		D8B95A883374ADCF2BB2A9A5 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
+		DB366C49ABD26E175BF2641D /* RepositoryImpactTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryImpactTests.swift; sourceTree = "<group>"; };
 		E0E0DAF3A6CF8673C432C76C /* SkillReview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillReview.swift; sourceTree = "<group>"; };
 		E26D1D5FD710CB617FB08F62 /* SkillscoutCLI */ = {isa = PBXFileReference; includeInIndex = 0; path = SkillscoutCLI; sourceTree = BUILT_PRODUCTS_DIR; };
 		E76FCD9E9E2549A3682D8F84 /* SkillScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillScanner.swift; sourceTree = "<group>"; };
 		EAD0529B4BB35B1D34A4149E /* SkillsetInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillsetInstaller.swift; sourceTree = "<group>"; };
+		EDE39C54EC909813DE7C0315 /* RepositoryUpdate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryUpdate.swift; sourceTree = "<group>"; };
 		F6E23123CD6141D9B083D467 /* CoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreTests.swift; sourceTree = "<group>"; };
+		FC7F57460885522B914AFFC9 /* RepositoryMergeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryMergeTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -163,6 +223,8 @@
 				B18AC56992256E677133D35C /* Analyzer.swift */,
 				50C6B03A08C5B5CE4FA655E2 /* AppIcon.icon */,
 				D8B95A883374ADCF2BB2A9A5 /* AppStore.swift */,
+				AFC7ADB0FFA1E65248C6ED42 /* AppStore+Projects.swift */,
+				C1B4928FF442B99F6F06D303 /* AppStore+Repositories.swift */,
 				0377BD2BDE684AA347A662DD /* AppStore+Skillsets.swift */,
 				365039D37C939DF6EA1C6600 /* AppUpdater.swift */,
 				36B6744572DF35BB435E8324 /* CommandLineTool.swift */,
@@ -174,11 +236,24 @@
 				57E1EA96200BEB72A33D6E38 /* Models.swift */,
 				CB1724D39BA2DCBF623F4A14 /* PluginScanner.swift */,
 				737812B0E9444153A1EA42FE /* PluginViews.swift */,
+				1238A0B0EE3C4588CB97705C /* ProjectLibrary.swift */,
+				C33BBF0940FB676E3C3A60ED /* ProjectSkillInstaller.swift */,
+				4BA2C1123EB529424750426F /* ProjectViews.swift */,
 				53B6FF6B0D5A3694C197EBC0 /* PromptLibrary.swift */,
 				C06BC03210D288EFFD8FC48F /* PromptLibrary+Tools.swift */,
 				756AC6D1B9CA7B46984721E7 /* Registry.swift */,
+				9C60B32B056C69C5AF7421D6 /* ReportsView.swift */,
+				7547C2F6AED1FDD3F3BF7C98 /* RepositoryLibrary.swift */,
+				7B4267BE8981F65769894C4E /* RepositoryMerge.swift */,
+				EDE39C54EC909813DE7C0315 /* RepositoryUpdate.swift */,
+				B200EFC0406B2B0B423C9A48 /* RepositoryUpdateImpact.swift */,
+				46933578EAC457E1CAA3DB42 /* RepositoryUpdateImpactViews.swift */,
+				B0D9B8060B134B596277775A /* RepositoryUpdateViews.swift */,
+				41BEF20D63166E49FEA138C0 /* RepositoryViews.swift */,
 				13E320FCE90C51C4EA51E9B6 /* SettingsView.swift */,
 				9E76D5137A9F0049E8AC4D8E /* SimilarViews.swift */,
+				A3457A2E1C3072F0DE4E6000 /* SkillActions.swift */,
+				54F1B5D66AEB24120C168165 /* SkillActionViews.swift */,
 				CA1D7A86C6C2F6A665C94583 /* SkillInstaller.swift */,
 				E0E0DAF3A6CF8673C432C76C /* SkillReview.swift */,
 				E76FCD9E9E2549A3682D8F84 /* SkillScanner.swift */,
@@ -189,6 +264,7 @@
 				1B2F1910B2F3AC4B72EA3830 /* SkillSimilarity.swift */,
 				0FAA2265543363EFFE7362C0 /* SkillViews.swift */,
 				076A549C0CCE0367FE4D11D0 /* SuggestionViews.swift */,
+				4ED59D8B041937C48C8DA639 /* UsageReport.swift */,
 			);
 			path = Skillscout;
 			sourceTree = "<group>";
@@ -197,6 +273,12 @@
 			isa = PBXGroup;
 			children = (
 				F6E23123CD6141D9B083D467 /* CoreTests.swift */,
+				213EB26EEC4D026F65364804 /* ProjectInstallerTests.swift */,
+				4E0250DCC16CC1ECC1416813 /* ProjectTests.swift */,
+				B7A33788AAEA857D37BA6C92 /* ProjectUsageTests.swift */,
+				DB366C49ABD26E175BF2641D /* RepositoryImpactTests.swift */,
+				FC7F57460885522B914AFFC9 /* RepositoryMergeTests.swift */,
+				965BD38026A050B3269013EE /* RepositoryTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -344,9 +426,16 @@
 				8DF11C0CCCEF82D04196FBC0 /* Models.swift in Sources */,
 				CF3ADAB9F71D5CA8F6E70456 /* PluginScanner.swift in Sources */,
 				98CC14C18B56863D77169451 /* Plugins.swift in Sources */,
+				0B8DACE2F382954B162647FE /* ProjectLibrary.swift in Sources */,
+				64C8E893ED4C430F5E3E5CCA /* ProjectSkillInstaller.swift in Sources */,
 				DDE9E1A704C7AF903D6BA424 /* PromptLibrary+Tools.swift in Sources */,
 				62C88BC3E3B945945C3EA296 /* PromptLibrary.swift in Sources */,
 				9D3695DC64486D9ED2CEC606 /* Registry.swift in Sources */,
+				3CE187EADCBD17552C0B407E /* RepositoryLibrary.swift in Sources */,
+				C830A1AF67BA0B7417A843E4 /* RepositoryMerge.swift in Sources */,
+				FAB3909A8884F098A9D027EC /* RepositoryUpdate.swift in Sources */,
+				1AFDD133C21E40B3DF53C896 /* RepositoryUpdateImpact.swift in Sources */,
+				F0D2B2CDA6CBE3A7D57FD8BB /* SkillActions.swift in Sources */,
 				723294FB0DDBB211E9C5C3EE /* SkillInstaller.swift in Sources */,
 				56B2C0632C4077DB2FCB717D /* SkillReview.swift in Sources */,
 				7200E247BDF839C1210920BD /* SkillScanner.swift in Sources */,
@@ -355,6 +444,7 @@
 				D74C3DF23F315DC08035D237 /* SkillsetTransfer.swift in Sources */,
 				63D31CC01E1C27A3F28B0EE1 /* Skillsets.swift in Sources */,
 				AE698F92528A6290BFBA78D7 /* Terminal.swift in Sources */,
+				7AD0D920522E7E3AE995BCD6 /* UsageReport.swift in Sources */,
 				C3040FC3DE85AD54F35F5AB5 /* main.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -365,6 +455,8 @@
 			files = (
 				87C08B6B099E31DE98657B1B /* AIEngine.swift in Sources */,
 				681E32575030D0E0B2D761D0 /* Analyzer.swift in Sources */,
+				195FAB6381B443FDAED9ECC5 /* AppStore+Projects.swift in Sources */,
+				76EB9621FCF7E9F801CC9F80 /* AppStore+Repositories.swift in Sources */,
 				0727654346EF6DA1148B2D68 /* AppStore+Skillsets.swift in Sources */,
 				0B4298E3428DA3452C8E316E /* AppStore.swift in Sources */,
 				059A5D5E6CD42EB94D7CF8DA /* AppUpdater.swift in Sources */,
@@ -377,11 +469,24 @@
 				4A585E671547357F3699831A /* Models.swift in Sources */,
 				54A880217300E0ABBE8DE26D /* PluginScanner.swift in Sources */,
 				32B08A40CB3F27CFE29EF8CE /* PluginViews.swift in Sources */,
+				56460DB43815702262614465 /* ProjectLibrary.swift in Sources */,
+				394A7D6D150F490FDEF1F16C /* ProjectSkillInstaller.swift in Sources */,
+				B6DC1F30911DD12D6DEC93D0 /* ProjectViews.swift in Sources */,
 				A86AB87B505B940D7D4FE616 /* PromptLibrary+Tools.swift in Sources */,
 				DD6BE7DE0CE5849AC0A467D9 /* PromptLibrary.swift in Sources */,
 				B2BC44AB7EADA260F6CCEF2F /* Registry.swift in Sources */,
+				267A761ADED9C834982D61BE /* ReportsView.swift in Sources */,
+				33406FCA090C7C9118FC7A6E /* RepositoryLibrary.swift in Sources */,
+				42F9A2C02ADFC2B069C0F987 /* RepositoryMerge.swift in Sources */,
+				8E5A3B0C490F9D86245D5EE0 /* RepositoryUpdate.swift in Sources */,
+				991A239890EC79E051406D93 /* RepositoryUpdateImpact.swift in Sources */,
+				0474F287CBF4086B13CFDAC6 /* RepositoryUpdateImpactViews.swift in Sources */,
+				F5F62B5F0B377ADC85D58D83 /* RepositoryUpdateViews.swift in Sources */,
+				E4B5A111E7E3976C42A79539 /* RepositoryViews.swift in Sources */,
 				11E7DF1CFFE0D2991E331A43 /* SettingsView.swift in Sources */,
 				84E808F8E0F83C19CC874971 /* SimilarViews.swift in Sources */,
+				0CA700D9B81558C71FF5B34C /* SkillActionViews.swift in Sources */,
+				28D4EA002770F4835A6F1D55 /* SkillActions.swift in Sources */,
 				769B6AB81AA5DB52B5C8E72B /* SkillInstaller.swift in Sources */,
 				7EAA6460180F438E2323C891 /* SkillReview.swift in Sources */,
 				A8E5EF8255CE60720E91CC0F /* SkillScanner.swift in Sources */,
@@ -392,6 +497,7 @@
 				01A2AE019AB11C572862C32F /* SkillsetTransfer.swift in Sources */,
 				D8C564B443D00A0E4E8EB73C /* SkillsetViews.swift in Sources */,
 				5F85019D7561BB0D7566001B /* SuggestionViews.swift in Sources */,
+				DC091714C374DE972DB89825 /* UsageReport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -404,15 +510,29 @@
 				CB528AE33C415D88F3FCFCA7 /* CoreTests.swift in Sources */,
 				F0493751556236295D27D37F /* Models.swift in Sources */,
 				131CC0390532211BB9F54BA3 /* PluginScanner.swift in Sources */,
+				314BB3BAD0ACBECF5C5D4494 /* ProjectInstallerTests.swift in Sources */,
+				67BA6EA471ADED24C7C9FB0A /* ProjectLibrary.swift in Sources */,
+				38761BCB2565CFA33CA371FE /* ProjectSkillInstaller.swift in Sources */,
+				152157737952EB4B24434289 /* ProjectTests.swift in Sources */,
+				359295C6B7DA767E7D7D1D17 /* ProjectUsageTests.swift in Sources */,
 				65C46532FF8BCCB4B172F689 /* PromptLibrary+Tools.swift in Sources */,
 				796A56F34B6065273974C9B4 /* PromptLibrary.swift in Sources */,
 				72573D7336C236C38A5DA342 /* Registry.swift in Sources */,
+				DF9DAA0E110C7B6854660FC7 /* RepositoryImpactTests.swift in Sources */,
+				CC9EB613FF290F051DCCDC13 /* RepositoryLibrary.swift in Sources */,
+				91AA43624A15AA69FDF66C31 /* RepositoryMerge.swift in Sources */,
+				DD2D4F0F501FABC72B272782 /* RepositoryMergeTests.swift in Sources */,
+				BB7FCBB0DD42466E54CB7337 /* RepositoryTests.swift in Sources */,
+				0A39A0BACF6822BBBFF792DC /* RepositoryUpdate.swift in Sources */,
+				0CBE607F8F57B6BC021097F6 /* RepositoryUpdateImpact.swift in Sources */,
+				1D56D6FECA029ABA17B37FA1 /* SkillActions.swift in Sources */,
 				1AA8B6FE7B6BDE1160469406 /* SkillInstaller.swift in Sources */,
 				2C5FDD83D3C6E0EB313C3F95 /* SkillReview.swift in Sources */,
 				8263994162E058F7C967DBFE /* SkillScanner.swift in Sources */,
 				B238A01D1726610A229E3179 /* SkillSimilarity.swift in Sources */,
 				F203EA260EEB52DF58DADC49 /* SkillsetInstaller.swift in Sources */,
 				63CEF43C596046DD34FB36F8 /* SkillsetTransfer.swift in Sources */,
+				02E535F27BDDF5C4EB2EBC2D /* UsageReport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
