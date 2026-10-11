@@ -639,6 +639,13 @@ func enabledToolsCheck(_ condition: @autoclosure () throws -> Bool, _ message: S
         && !text.contains(".config/skillscout") && !text.contains("Open in editor") && text.contains("Open in Library"),
         "\(name) names the Library behind the agent link and offers Open in Library instead of the stored file")
     }
+    let preselected = try await show(AnyView(SkillAddFlowSheet(request: SkillAddPresentation(skillIDs: [total.id], destination: .global)).environment(store)),
+      name: "add-flow-preselected", width: 700, height: 640, output: output, host: host, window: window)
+    try enabledToolsCheck(preselected.contains("Selected skill") && preselected.contains(total.name) && preselected.contains("Change skills")
+      && !preselected.contains("Find a skill"), "Add skills opened from a selection shows that selection instead of asking again")
+    let unselected = try await show(AnyView(SkillAddFlowSheet(request: SkillAddPresentation(skillIDs: [], destination: .global)).environment(store)),
+      name: "add-flow-empty", width: 700, height: 640, output: output, host: host, window: window)
+    try enabledToolsCheck(unselected.contains("Find a skill"), "Add skills opened without a selection lists skills to choose")
     let twin = try require(store.skills.first { $0.name == "library-twin" }, "Library twin fixture scanned")
     let twinText = try await show(AnyView(SkillDetail(skill: twin, context: .global(.codex)).environment(store)),
       name: "library-twin-global", height: 1400, output: output, host: host, window: window)

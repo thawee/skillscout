@@ -361,6 +361,7 @@ struct SkillAddFlowSheet: View {
   @State private var reviewing = false
   @State private var initialized = false
   @State private var search = ""
+  @State private var pickingSkills = true
 
   private var candidates: [Skill] {
     store.skills.filter { !SkillInstaller.installableSources(for: $0).isEmpty && (search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.description.localizedCaseInsensitiveContains(search)) }
@@ -392,6 +393,13 @@ struct SkillAddFlowSheet: View {
               Text(skillset.skills.sorted().joined(separator: ", ")).font(.callout).textSelection(.enabled)
             }
             Spacer()
+          } else if !pickingSkills {
+            VStack(alignment: .leading, spacing: 6) {
+              Text(selected.count == 1 ? "Selected skill" : "\(selected.count) selected skills").font(.headline)
+              Text(selected.sorted().joined(separator: ", ")).textSelection(.enabled)
+              Button("Change skills…") { pickingSkills = true }.buttonStyle(.link)
+            }
+            Spacer()
           } else {
             TextField("Find a skill", text: $search)
             List(candidates, selection: $selected) { skill in
@@ -415,6 +423,7 @@ struct SkillAddFlowSheet: View {
       initialized = true
       destination = request.destination
       selected = Set(request.skillIDs)
+      pickingSkills = request.skillIDs.isEmpty
       skillsetID = request.skillsetID
       choosingSkillset = request.skillsetID != nil
     }
