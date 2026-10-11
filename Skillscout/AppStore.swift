@@ -40,6 +40,10 @@ final class AppStore {
   var repositoryBusy: Set<RepositoryID> = []
   var repositoryContents: [RepositoryID: [RepositorySkill]] = [:]
   var isCheckingRepositories = false
+  /// How many repositories "Check for updates" has finished, out of how many, while it runs.
+  var repositoryCheckProgress: (done: Int, total: Int)?
+  /// What the last "Check for updates" found, shown above the Discovery list.
+  var repositoryCheckSummary: String?
   var isPreparingRepositoryUpdate = false
   var isApplyingRepositoryUpdate = false
   @ObservationIgnored var repositoryLoadGeneration = 0

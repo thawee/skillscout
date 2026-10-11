@@ -102,7 +102,7 @@ Choose **Load skills** to inspect a temporary preview without adding anything to
 
 Use **Add source** to register a Git repository URL or local folder. Adding a local source to Library copies its files. **Refresh from Folder** reviews changes from the original folder before replacing that copy.
 
-**Check for updates** compares an installed Git repository with its tracked branch. **Check all repositories** checks each installed Git source without applying anything. An available update has a **Review update…** action. Failed checks remain visible and never imply that a repository is up to date.
+**Check for updates** compares an installed Git repository with its tracked branch. **Check all for updates** in the Discovery toolbar checks each installed Git source in turn without applying anything, shows its progress, then says how many have updates and switches to **Updates available** when any do. Local folders have no remote, so they aren't checked. An available update has a **Review update…** action. Failed checks remain visible and never imply that a repository is up to date.
 
 **Choose version…** lets you track a branch or pin a tag or full commit. A tag pin records its resolved commit and stays there if the remote tag moves. A pinned source changes only when you choose another version. You can pin a full commit even when the repository has no tags. Private HTTPS sources can retry checks and reviewed updates with a temporary personal access token; the version picker also accepts one. Tokens are never saved in repository metadata.
 

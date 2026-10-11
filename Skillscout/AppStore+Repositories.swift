@@ -110,14 +110,37 @@ extension AppStore {
     }
   }
 
-  func checkAllRepositories() async {
-    guard !isCheckingRepositories else { return }
+  /// Checks every Git repository in the Library, one at a time, and returns how many have an update.
+  @discardableResult
+  func checkAllRepositories() async -> Int {
+    guard !isCheckingRepositories else { return 0 }
     isCheckingRepositories = true
-    defer { isCheckingRepositories = false }
-    for entry in repositories where entry.source.isGit && entry.installedFolder != nil {
+    defer { isCheckingRepositories = false; repositoryCheckProgress = nil }
+    let library = repositories.filter { $0.installedFolder != nil }
+    let git = library.filter(\.source.isGit)
+    repositoryCheckSummary = nil
+    for (index, entry) in git.enumerated() {
       if Task.isCancelled { break }
+      repositoryCheckProgress = (index, git.count)
       await checkRepository(entry)
     }
+    let updates = git.count { repositoryChecks[$0.id]?.status == .updateAvailable }
+    let failed = git.count { repositoryErrors[$0.id] != nil }
+    let local = library.count - git.count
+    var sentences: [String] = []
+    if git.isEmpty {
+      sentences.append("No Git repositories in the Library to check.")
+    } else if updates == 0 && failed == 0 {
+      sentences.append(git.count == 1 ? "The repository is up to date." : "All \(git.count) repositories are up to date.")
+    } else {
+      if updates > 0 { sentences.append(updates == 1 ? "1 repository has an update." : "\(updates) repositories have updates.") }
+      if failed > 0 { sentences.append(failed == 1 ? "1 repository couldn't be checked." : "\(failed) repositories couldn't be checked.") }
+    }
+    if local > 0 {
+      sentences.append(local == 1 ? "1 local folder isn't checked, since it has no remote." : "\(local) local folders aren't checked, since they have no remote.")
+    }
+    repositoryCheckSummary = sentences.joined(separator: " ")
+    return updates
   }
 
   func reviewRepositoryUpdate(_ entry: RepositoryEntry, ref: RepositoryRef? = nil, token: String? = nil) async {

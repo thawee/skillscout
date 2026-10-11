@@ -689,9 +689,14 @@ enum FunctionalCheck {
     try check(selectedLink.resolvingSymlinksInPath().path == selected.copy.resolved.path,
       "adding a same-name repository skill installs the chosen path")
     _ = try await RepositoryGit.run(["-C", remote.path, "-c", "user.name=Demo", "-c", "user.email=demo@example.invalid", "commit", "--allow-empty", "-m", "Made-up version-only update"])
-    await store.checkAllRepositories()
+    let updateCount = await store.checkAllRepositories()
     try check(store.repositoryChecks[id]?.status == .updateAvailable && imported.snapshot?.commit == reviewedCommit,
       "batch checks detect commit-only updates without replacing Library files")
+    let summary = store.repositoryCheckSummary ?? ""
+    try check(updateCount >= 1 && store.repositoryCheckProgress == nil && !store.isCheckingRepositories
+      && summary.contains(updateCount == 1 ? "1 repository has an update." : "\(updateCount) repositories have updates.")
+      && summary.contains("local folder"),
+      "checking all repositories reports how many have updates and why local folders are skipped")
     await store.reviewRepositoryUpdate(imported)
     let versionUpdate = store.pendingRepoUpdate!
     try check(versionUpdate.hasChanges && versionUpdate.changed.isEmpty && versionUpdate.newCommit != reviewedCommit,

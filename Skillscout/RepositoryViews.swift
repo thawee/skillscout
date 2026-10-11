@@ -27,12 +27,22 @@ struct RepositoryList: View {
     }
   }
 
+  private var checkTitle: String {
+    guard let progress = store.repositoryCheckProgress else { return "Check all for updates" }
+    return "Checking \(progress.done + 1) of \(progress.total)…"
+  }
+
   var body: some View {
     VStack(spacing: 0) {
       ChoiceChips(title: "Show", options: RepositoryFilter.allCases.filter { !localOnly || $0 != .updates }.map {
         ChoiceOption(value: $0, title: $0.rawValue)
       }, selection: $filter)
       .padding(10)
+      if !localOnly, let summary = store.repositoryCheckSummary {
+        Text(summary).font(.caption).foregroundStyle(.secondary)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(.horizontal, 10).padding(.bottom, 6)
+      }
       List(selection: $selection) {
         ForEach(filtered) { entry in
           VStack(alignment: .leading, spacing: 5) {
@@ -75,9 +85,12 @@ struct RepositoryList: View {
     .toolbar {
       Button { showingAdd = true } label: { Label("Add source", systemImage: "plus") }
       if !localOnly {
-        Button { Task { await store.checkAllRepositories() } } label: {
-          Label(store.isCheckingRepositories ? "Checking repositories…" : "Check all repositories", systemImage: "arrow.clockwise")
+        Button {
+          Task { if await store.checkAllRepositories() > 0 { filter = .updates } }
+        } label: {
+          Label(checkTitle, systemImage: "arrow.clockwise").labelStyle(.titleAndIcon)
         }
+        .help("Check every Git repository in the Library for updates")
         .disabled(store.isCheckingRepositories)
       }
     }
