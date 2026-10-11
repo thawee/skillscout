@@ -87,7 +87,7 @@ Unassigning removes the destination assignment and preserves the collection. Oth
 
 Availability means that an agent's configured skill roots include a skill. Recorded use means that a chat parser detected the agent loading that skill within the selected history scope.
 
-Global and Skillsets have no project or period selectors, because they describe home-level installations and collections rather than a workspace's activity. Dashboard, Library, Chat activity, and Projects keep them. Their recorded-use counts and Use sorting cover all loaded history for enabled agents, independent of filters saved in other screens.
+Global and Skillsets have no project or period selectors, because they describe home-level installations and collections rather than a workspace's activity. Dashboard, Library, Chat activity, and Projects keep them, in the list header only: a skill's detail states the scope in its Usage sentence instead of repeating the controls, so a filter is never mistaken for one that applies to a single skill. A chat whose agent recorded no folder counts under **Chats without a project folder**. Their recorded-use counts and Use sorting cover all loaded history for enabled agents, independent of filters saved in other screens.
 
 The sidebar labels **Used in 2+ chats**, **Used in 1 chat**, and **No recorded use** describe chat evidence. They do not describe installation status. Missing or disabled history can produce zero recorded use for an available skill.
 
@@ -115,7 +115,7 @@ The Library folder is internal to Skillscout. Agents see Library skills only thr
 
 ## Visible choices
 
-Short choices use wrapping chips because you can compare alternatives without opening a menu. Agent, scope, sort, period, and engine choices keep their names visible. Selection uses a checkmark as well as color.
+Short choices use wrapping chips because you can compare alternatives without opening a menu. Agent, scope, and engine choices keep their names visible. Selection uses a checkmark as well as color. In skill-list headers, Sort and Period are compact menus on one row: they are secondary to the list, their current value stays visible on the button, and chips for them pushed the list halfway down a short window.
 
 Long or dynamic choices use a searchable panel. The trigger shows the current choice, and results include descriptive subtitles where available. Project paths distinguish folders with the same name. Source paths distinguish copies of the same skill.
 
@@ -127,7 +127,7 @@ Secondary actions remain in context menus or action menus. Frequently used choic
 
 ## Every applicable agent stays visible
 
-This is the single rule for agent badges in every view. Skill rows, details, and reviews show every applicable agent enabled in Settings. The badges wrap into an adaptive grid instead of replacing names with a `+N` summary, because a count cannot tell you which enabled agents can read a skill. Reviews of a shared entry also disclose readers outside the enabled selection; filtering the presentation does not alter those readers or the operation's impact.
+This is the single rule for agent badges in every view. Skill rows, details, and reviews show every applicable agent enabled in Settings. The badges flow in rows, starting a new row only when one is full, instead of replacing names with a `+N` summary, because a count cannot tell you which enabled agents can read a skill. Reviews of a shared entry also disclose readers outside the enabled selection; filtering the presentation does not alter those readers or the operation's impact.
 
 No enabled reader means **Not available to enabled tools**. It does not prove the skill is physically uninstalled. Complete reader, source and assignment records remain available to the core. Existing assignments to disabled tools are retained and can be managed after re-enabling their tool in Settings.
 
@@ -137,7 +137,7 @@ Badges describe actual availability. They do not claim that Skillscout created a
 
 The app uses native SwiftUI typography, semantic colors, SF Symbols, and system light and dark appearance. Descriptions and paths use secondary styling, while names and primary actions carry the main emphasis.
 
-Chips wrap when the pane narrows. Filter headers scroll within a bounded height so a short window retains space for the skill list. Choice layout measurements return finite sizes for minimum and unbounded proposals.
+Chips wrap when the pane narrows. Filter headers take their natural height and scroll only beyond a bounded height, so a short window retains space for the skill list. List columns keep at least 280 points, so rows and their badges stay readable. Choice layout measurements return finite sizes for minimum and unbounded proposals.
 
 The interface preserves labels and reachable choices when space is limited. Truncated paths have additional detail in help text or the corresponding detail view.
 
@@ -146,6 +146,10 @@ The interface preserves labels and reachable choices when space is limited. Trun
 Selection controls own presentation and temporary search state. They do not install skills. Existing application actions continue to prepare reviews and apply explicit changes.
 
 Global additions show the source, destination agents, affected readers, and existing-copy conflicts. Replacement requires a separate choice. Project application copies supporting files and uses ownership receipts and a recovery journal.
+
+A removal action names every agent that loses the skill, because one physical entry can serve several agents: **Remove from Codex and Cursor…**, or **Remove from Codex and 7 other agents…** with the full list in the confirmation.
+
+Move to Library moves only a real folder from an agent's skills folder, sends identical copies elsewhere to Trash, links every agent folder to the Library copy, and undoes every step if one fails. A skill that only links to a folder outside the skills folders stays where it is, because that folder belongs to you. Rename and merge follow the same rule: a failure restores the earlier state. Only Library repositories, a top-level Library folder with a repository marker, are protected from editing; a skill you moved into Library stays editable there. Repair Library moves only links to missing Library skills to Trash; other broken links may point to a drive that is away for now.
 
 Removal preserves modified or unowned project files. Replaced and removable owned files move to Trash. Shared-folder previews show enabled affected agents and disclose additional disabled readers because removing one physical entry can change availability beyond the displayed selection.
 

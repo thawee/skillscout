@@ -28,7 +28,7 @@ struct SkillsetHeader: View {
               .font(.caption).foregroundStyle(.orange)
           }
           Spacer(minLength: 0)
-          Button("Add skills…") { store.pendingSkillAdd = SkillAddPresentation(skillsetID: skillsetID) }
+          Button("Install skillset…") { store.pendingSkillAdd = SkillAddPresentation(skillsetID: skillsetID) }
             .help("Add this skillset to Global or a project for \(skillset.name)")
             .accessibilityLabel("Manage tool assignments for \(skillset.name)")
         }
@@ -100,6 +100,7 @@ struct ProjectSkillsetsView: View {
       Text("\(assigned) of \(store.skillsets.count) skillsets assigned").font(.callout).foregroundStyle(.secondary)
       Spacer(minLength: 0)
       Button("Manage…") { showingAssignments = true }
+        .fixedSize()
         .help("Manage skillsets for \(project.name)")
         .accessibilityLabel("Manage skillsets for \(project.name)")
         .accessibilityIdentifier("project-manage-skillsets")

@@ -87,11 +87,10 @@ struct ProjectSkillListView: View {
               Button { Task { await store.refreshProjectInventories() } } label: { Image(systemName: "arrow.clockwise") }.help("Refresh project skills")
             }
             Text(Paths.abbreviate(project.url)).font(.caption).foregroundStyle(.secondary).lineLimit(2).textSelection(.enabled)
-            HStack {
-              Button("Project overview") { selection = nil }.buttonStyle(.link)
-              Spacer()
+            WrapLayout(spacing: 12) {
               Button("Add skills…") { store.pendingSkillAdd = SkillAddPresentation(destination: .project(project.id), tool: filter.tool) }
                 .disabled(inventory?.status.isAvailable != true || store.projectState.pending != nil || store.isManagingProjects)
+              Button("Project overview") { selection = nil }.buttonStyle(.link)
             }
             AgentChoices(tools: store.tools, allTitle: "All enabled agents", selection: $filter.tool)
             ProjectSkillsetsView(project: project, tool: filter.tool)
@@ -99,11 +98,7 @@ struct ProjectSkillListView: View {
               ChoiceOption(value: ProjectSkillScope.availableHere, title: "Available here"),
               ChoiceOption(value: ProjectSkillScope.projectOnly, title: "Project only")
             ], selection: $filter.scope)
-            ChoiceChips(title: "Period", options: [
-              ChoiceOption(value: Int?.none, title: "Loaded \(store.loadedLookbackDays) days")
-            ] + [7, 30].filter { $0 < store.loadedLookbackDays }.map {
-              ChoiceOption(value: Int?.some($0), title: "\($0) days")
-            }, selection: Binding(get: { store.usageScope.days }, set: { store.setUsageScope(UsageScope(project: store.usageScope.project, days: $0)) }))
+            UsagePeriodPicker()
             Text(usageScopeLabel).font(.caption2).foregroundStyle(.secondary)
           }.padding(12)
         }.frame(maxHeight: min(340, geometry.size.height * 0.55))
@@ -200,7 +195,22 @@ struct ProjectDetailView: View {
           }
         }
         ForEach(store.projectIssues[project.id] ?? [], id: \.self) { Text($0).font(.callout).foregroundStyle(.orange).textSelection(.enabled) }
-        ForEach(store.projectNotes[project.id] ?? [], id: \.self) { Text($0).font(.callout).foregroundStyle(.secondary).textSelection(.enabled) }
+        if let notes = store.projectNotes[project.id], let first = notes.first {
+          VStack(alignment: .leading, spacing: 6) {
+            HStack {
+              Text(first).font(.callout)
+              Spacer()
+              Button("Dismiss") { store.projectNotes[project.id] = nil }.buttonStyle(.link)
+            }
+            if notes.count > 1 {
+              DisclosureGroup("Details (\(notes.count - 1))") {
+                ForEach(notes.dropFirst(), id: \.self) { Text($0).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
+              }.font(.caption)
+            }
+          }
+          .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+          .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 8))
+        }
         if let row = selectedSkill { skillDetail(row) }
         else { overview }
       }.padding(24).frame(maxWidth: .infinity, alignment: .leading)
@@ -349,7 +359,7 @@ struct ProjectReaderBadges: View {
   let tools: Set<Tool>
   @Environment(AppStore.self) private var store
   var body: some View {
-    LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 110), alignment: .leading)], alignment: .leading, spacing: 4) {
+    WrapLayout(spacing: 4) {
       ForEach(store.tools.filter(tools.contains)) { ToolBadge(tool: $0) }
     }
   }

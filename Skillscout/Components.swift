@@ -19,7 +19,7 @@ struct ChoiceChips<Value: Hashable>: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 5) {
       Text(title).font(.caption).foregroundStyle(.secondary)
-      ChoiceWrap(spacing: 5) {
+      WrapLayout(spacing: 5) {
         ForEach(options) { option in
           let selected = option.value == selection
           let tint = option.tint ?? .accentColor
@@ -222,7 +222,8 @@ private struct ChoiceSearchPanel<Value: Hashable>: View {
   }
 }
 
-private struct ChoiceWrap: Layout {
+/// Lays out its views in rows, left to right, starting a new row only when one is full.
+struct WrapLayout: Layout {
   var spacing: CGFloat
 
   func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {

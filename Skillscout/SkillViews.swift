@@ -259,7 +259,6 @@ struct SkillList: View {
           clearSearch: clearSearch, showAll: showAll, addSkills: addSkills)
       }
     }
-    .navigationSplitViewColumnWidth(min: 320, ideal: 400)
   }
 }
 
@@ -300,7 +299,7 @@ struct SkillRow: View {
             .font(.caption)
             .foregroundStyle(.tertiary)
         } else {
-          LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 110), spacing: 4, alignment: .leading)], alignment: .leading, spacing: 4) {
+          WrapLayout(spacing: 4) {
             ForEach(activeTools) { tool in ToolBadge(tool: tool) }
           }
         }
@@ -499,7 +498,6 @@ struct SkillDetail: View {
   @ViewBuilder
   private var usageSummary: some View {
     let scopeDescription = context.usesAllLoadedHistory ? UsageScope().description(loadedDays: store.loadedLookbackDays) : store.usageScopeDescription
-    if !context.usesAllLoadedHistory { UsageScopeControls() }
     if let usage = displayedUsage[skill.id] {
       VStack(alignment: .leading, spacing: 10) {
         Text("Used in ^[\(usage.chats) chat](inflect: true) in \(scopeDescription), most recently \(usage.lastUsed, format: .relative(presentation: .named)).")
@@ -514,7 +512,7 @@ struct SkillDetail: View {
           }
         }
         if !usage.topProjects.isEmpty {
-          Text("Mostly in \(usage.topProjects.formatted(.list(type: .and)))")
+          Text("Mostly in \(usage.topProjects.map(UsageScope.projectLabel).formatted(.list(type: .and)))")
             .font(.callout)
             .foregroundStyle(.secondary)
         }
@@ -568,16 +566,12 @@ struct SkillDetail: View {
           Button("Manage in Global…") { manageGlobal(skill.id, context.tool) }
         }
       }
-      ForEach(Array(removalToolGroups.enumerated()), id: \.offset) { _, tools in
+      if context.isGlobal { ForEach(Array(removalToolGroups.enumerated()), id: \.offset) { _, tools in
         VStack(alignment: .leading, spacing: 4) {
-          LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), alignment: .leading)], alignment: .leading, spacing: 4) {
-            ForEach(tools) { tool in ToolBadge(tool: tool) }
-          }
-          if let tool = tools.first {
-            if context.isGlobal, let removal = Removal.from(tool, skills: [skill], selectedCount: 1) {
-              Button(removal.actionLabel) { store.removal = removal }
-                .buttonStyle(.link)
-            }
+          if let tool = tools.first, let removal = Removal.from(tool, skills: [skill], selectedCount: 1) {
+            Button(removal.actionLabel) { store.removal = removal }
+              .buttonStyle(.link)
+              .multilineTextAlignment(.leading)
           }
           let protectedTools = tools.filter { tool in
             skill.copies.contains { $0.root.readBy.contains(tool) && ($0.root.kind == .plugin || $0.root.kind == .builtIn) }
@@ -586,19 +580,17 @@ struct SkillDetail: View {
             Text("Plugin and built-in skills cannot be removed individually. Manage their providers in the original tool.")
               .font(.caption)
               .foregroundStyle(.secondary)
-            if context.isGlobal {
-              ForEach(supplyingPlugins(for: tools)) { plugin in
-                HStack(spacing: 8) {
-                  Text("Provided by \(plugin.name)").font(.callout)
-                  ToolBadge(tool: plugin.tool)
-                  Button("View plugin…") { selectedPlugin = plugin }
-                    .buttonStyle(.link)
-                }
+            ForEach(supplyingPlugins(for: tools)) { plugin in
+              HStack(spacing: 8) {
+                Text("Provided by \(plugin.name)").font(.callout)
+                ToolBadge(tool: plugin.tool)
+                Button("View plugin…") { selectedPlugin = plugin }
+                  .buttonStyle(.link)
               }
             }
           }
         }
-      }
+      } }
       let created = skill.created(usage: displayedUsage[skill.id])
       if created != .distantPast {
         Text("Created \(created, format: .dateTime.day().month(.wide).year())")
@@ -709,7 +701,7 @@ struct SkillDetail: View {
             ToolBadge(tool: tool).fixedSize()
           }
         }
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 110), spacing: 4, alignment: .leading)], alignment: .leading, spacing: 4) {
+        WrapLayout(spacing: 4) {
           ForEach(readers) { tool in
             ToolBadge(tool: tool)
           }
@@ -803,9 +795,13 @@ struct Removal {
 
   var actionLabel: String {
     switch scope {
-    case .tool(let tool): isShared ? "Remove shared installation…" : "Remove from \(tool.name)…"
-    case .everywhere: "Remove everywhere…"
-    case .source: "Remove source…"
+    case .tool(let tool):
+      let others = affectedTools.filter { $0 != tool }
+      if others.isEmpty { return "Remove from \(tool.name)…" }
+      if others.count <= 2 { return "Remove from \(([tool] + others).map(\.name).formatted(.list(type: .and)))…" }
+      return "Remove from \(tool.name) and \(others.count) other agents…"
+    case .everywhere: return "Remove everywhere…"
+    case .source: return "Remove source…"
     }
   }
 
@@ -1042,8 +1038,9 @@ struct DisabledReaderNotice: View {
   @Environment(AppStore.self) private var store
 
   var body: some View {
-    if !readers.subtracting(store.tools).isEmpty {
-      Text("This shared location also affects disabled tools. Enable them in Settings to see and manage their availability.")
+    let disabled = Tool.allCases.filter { readers.contains($0) && !store.tools.contains($0) }
+    if !disabled.isEmpty {
+      Text("This shared location also affects disabled tools: \(disabled.map(\.name).formatted(.list(type: .and))). Enable them in Settings to see and manage their availability.")
         .font(.caption).foregroundStyle(.orange)
     }
   }

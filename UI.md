@@ -230,7 +230,7 @@ The destinations appear in this order.
 | Library | Reusable central, draft, and shared skill sources. |
 | Global | Home-level skill installations and agent availability. |
 | Projects | All projects, registered workspace folders with path subtitles, and Register project. |
-| Chat activity | Used in 2+ chats, Used in 1 chat, and No recorded use within the selected scope. |
+| Chat activity | Used in 2+ chats, Used in 1 chat, and No recorded use within the selected scope. A caption, **Every skill, not only Library**, names the scope. |
 | Plugins | Installed plugins for enabled tools, with read-only details. |
 | Skillsets | Named collections, New Skillset, and Import Skillset. |
 | Ideas | Suggestions and Similar skills. |
@@ -274,17 +274,17 @@ The panel content width is 360 points with 14 points of padding. Its result scro
 
 ## Library and Global
 
-Skill-list headers contain Sort choices for Newest, Name, and Use. Relevant lists also have Show choices for All skills, Your skills, and Plugin. Global adds System while **Show system skills** is enabled. Global omits project and period controls in both its list header and skill detail. Its recorded-use counts and Use sorting cover all loaded history for enabled agents, narrowed only by its Agent selection. Filters retained in other usage screens do not affect Global.
+Skill-list headers put **Sort** (Newest, Name, Use) and, where the list counts a saved scope, **Period** on one row as compact menus, with the **Project** search choice below. Only the list header has Project and Period; the skill detail states the scope in its Usage sentence and has no scope controls of its own. A chat without a recorded folder belongs to **Chats without a project folder**. Relevant lists also have Show choices for All skills, Your skills, and Plugin. Global adds System while **Show system skills** is enabled. Global omits project and period controls in both its list header and skill detail. A Library with no skills yet shows only **Build your skill library**, with **Browse Discovery** and **Add local folder**, and no sort or scope controls. Its recorded-use counts and Use sorting cover all loaded history for enabled agents, narrowed only by its Agent selection. Filters retained in other usage screens do not affect Global.
 
-Global adds an Agent chip group and **Add skills…**. Selecting an agent shows its assigned skillset count and **Manage…** when collections exist. Availability follows Settings-enabled agents. System skills are hidden by default in Global, including when an Agent filter is selected. **Show system skills** is a persisted toggle, and the System source chip is available only while it is on. A separate count shows system-only skills in the selected reader scope. Rows and details label them **System · Managed by [tool]** and explain protected management. [DESIGN.md](DESIGN.md#system-and-plugin-sources) defines the classification and which totals exclude these skills.
+Global adds an Agent chip group; **Add skills…** is in the toolbar. Selecting an agent shows its assigned skillset count and **Manage…** when collections exist. Availability follows Settings-enabled agents. System skills are hidden by default in Global, including when an Agent filter is selected. **Show system skills** is a persisted toggle, and the System source chip is available only while it is on. A separate count shows system-only skills in the selected reader scope. Rows and details label them **System · Managed by [tool]** and explain protected management. [DESIGN.md](DESIGN.md#system-and-plugin-sources) defines the classification and which totals exclude these skills.
 
-Each Global Agent chip displays its non-system skill count, including zero. **All enabled agents** displays the unique total across those readers. The header states the selected scope's globally available total and shows system-only skills separately. Counts include personal, shared, and plugin skills. Search and Show filters narrow rows without changing inventory totals. Shared skills count for each agent that can read them, but only once in the combined total. Counts update with the scanned inventory and Settings-enabled agents.
+Each Global Agent chip displays its non-system skill count, including zero. **All enabled agents** displays the unique total across those readers. One line states the selected scope's globally available total and, after a dot, the system-only count; **Show system skills** sits below it. Counts include personal, shared, and plugin skills. Search and Show filters narrow rows without changing inventory totals. Shared skills count for each agent that can read them, but only once in the combined total. Counts update with the scanned inventory and Settings-enabled agents.
 
-Skill rows show the name, description, usage information, and agent badges. The badge grid uses adaptive columns with widths from 78 to 110 points and 4-point spacing.
+Skill rows show the name, description, usage information, and agent badges. Badges flow left to right with 4-point spacing (`WrapLayout`) and start a new line only when a row is full; every badge group in the app uses the same layout.
 
-The Global and other shared skill-list headers scroll within the smaller of 360 points or 55% of the available list-pane height. The skill list occupies the remaining area.
+The skill and project list columns have a minimum width of 280 points and an ideal width of 340. A skill-list header takes its natural height, up to the smaller of 360 points or 55% of the list pane, and scrolls beyond that. The skill list occupies the remaining area.
 
-Skill details present installation availability, sources, skillset membership, recorded use, contents review where applicable, and locations. Actions follow the selected list context. In Global, plugin-supplied skills name their supplying plugin and offer **View plugin…** beside availability. The plugin sheet shows its provider, included skills, locations and read-only management guidance. Plugin and built-in skills cannot be removed individually in Skillscout; their providers are managed in the original tool. Personal copies retain their reviewed removal action even when plugin access remains.
+Skill details present installation availability, sources, skillset membership, recorded use, contents review where applicable, and locations. Actions follow the selected list context. Only Global shows removal. Each removal link names every agent that loses the skill: **Remove from Codex…**, **Remove from Codex and Cursor…** when another agent reads the same folder, or **Remove from Codex and 7 other agents…** for a widely shared folder; the confirmation lists them all. In Global, plugin-supplied skills name their supplying plugin and offer **View plugin…** beside availability. The plugin sheet shows its provider, included skills, locations and read-only management guidance. Plugin and built-in skills cannot be removed individually in Skillscout; their providers are managed in the original tool. Personal copies retain their reviewed removal action even when plugin access remains.
 
 ## Skill details by view
 
@@ -313,17 +313,17 @@ Final review shows actual added, changed, and removed files, preserved local edi
 
 The project list shows registered folders. A selected project shows its name and path, a refresh button, **Project overview**, **Add skills…**, and the same **Manage…** skillset control used by Global.
 
-Agent chips filter availability. Show chips switch between **Available here** and **Project only**. Period chips scope recorded use. The header scrolls within the smaller of 340 points or 55% of the available list-pane height.
+Agent chips filter availability. Show chips switch between **Available here** and **Project only**. The **Period** menu scopes recorded use. **Add skills…** comes first in the header, with **Project overview** beside it, and the controls wrap rather than truncate. The header scrolls within the smaller of 340 points or 55% of the available list-pane height.
 
 Rows appear once per skill and can show both **Project** and **Inherited from Global** labels. The detail pane separates local copies from inherited installations. **Manage in Global…** opens the inherited skill in Global with the relevant agent filter.
 
-The overview shows individual additions, read-only applied skillset summaries, native roots, inventory issues, and recovery state. Skillset actions live in **Manage…**, using the [shared management screen](#shared-skillset-management). Unavailable projects have an explicit unavailable state. Filtered empty lists offer Reset filters when applicable.
+The overview shows individual additions, read-only applied skillset summaries, native roots, inventory issues, and recovery state. Skillset actions live in **Manage…**, using the [shared management screen](#shared-skillset-management). Unavailable projects have an explicit unavailable state. Filtered empty lists offer Reset filters when applicable. After an apply, the overview shows one summary line with **Dismiss**, and the per-skill results sit under **Details (N)**.
 
 ## Skillset membership view
 
-Selecting a skillset shows its members, **Edit…**, assignment summary, **Add skills…**, and Sort choices. The list and member details omit **Project** and **Period** controls. Chat counts, **Use** sorting, and usage labels cover all loaded history for enabled agents. Saved project and period filters from other screens do not change this view.
+Selecting a skillset shows its members, **Edit…**, assignment summary, **Install skillset…**, and Sort choices. The list and member details omit **Project** and **Period** controls. Chat counts, **Use** sorting, and usage labels cover all loaded history for enabled agents. Saved project and period filters from other screens do not change this view.
 
-**Edit…** changes membership. Here **Add skills…** applies the skillset to a destination, Global or a registered project, rather than adding skills to the skillset. This differs from **Add skills…** in Global and Projects; the target names it **Preview application…**. Usage filters remain in Dashboard. Viewing or sorting members does not alter assignments or applied project snapshots.
+**Edit…** changes membership. **Install skillset…** applies the skillset to a destination, Global or a registered project. It isn't called **Add skills…**, because on the same screen the toolbar's **Add skills…** installs the selected skills. Usage filters remain in Dashboard. Viewing or sorting members does not alter assignments or applied project snapshots.
 
 ## Shared skillset management
 
@@ -345,9 +345,9 @@ Unassigning preserves the central skillset. Installations still needed by anothe
 
 ## Add and remove flows
 
-**Add skills…** opens a destination choice and an Individual skills or Skillset segmented choice. The current workspace supplies the default destination. **Continue** opens the corresponding review.
+**Add skills…** opens a destination choice and an Individual skills or Skillset segmented choice. The current workspace supplies the default destination. Opened from a selection, it names the selected skills with **Change skills…** instead of showing the full list again. **Continue** opens the corresponding review, where agents start unticked unless the sheet came from one Global agent or only one agent is enabled. A warning that a shared location also reaches disabled agents names them.
 
-Global review shows selected agents, affected readers, source choices, contents inspection, and per-agent results. Conflicts have Keep existing and Replace choices. Replacement has a separate confirmation that identifies the existing entry moving to Trash.
+Global review shows selected agents, affected readers, source choices, contents inspection, and per-agent results. After a run, a line such as **1 added · 1 needs your choice below.** sums it up; **Add remaining** handles the rows still open, and once none are, **Done** becomes the main button. Conflicts have Keep existing and Replace choices. Replacement has a separate confirmation that identifies the existing entry moving to Trash.
 
 Project review shows the target group and changes before Apply. Shared and Claude targets identify every agent that reads their project folders. Changed previews, conflicts, and recovery state prevent unsafe application.
 
@@ -358,12 +358,12 @@ Project review shows the target group and changes before Apply. Shared and Claud
 | Screen | Main UI |
 | --- | --- |
 | Dashboard | Agent, project, and period controls; recorded-use totals; ranked skills; library review for similar skills, differing copies, and source contents. |
-| Discovery | Git repositories and Local folders choices; source list; repository details; skill preview; import, update review, and version selection. |
+| Discovery | Git repositories and Local folders choices; source list; repository details; skill preview; import, update review, and version selection. A repository in Library leads with **Add skills to agents…**, which opens Add skills with its skills selected and their sources set to that repository. **Check all for updates** in the toolbar shows "Checking N of M…", then a summary of updates, failed checks and unchecked local folders, and switches to **Updates available** when any are found. |
 | Skillsets | Membership editor, source choices, shared Global/project assignment manager, reviewed apply and unassign actions, and import or export actions. |
 | Suggestions | Repeated-task ideas, AI draft generation, save-destination chips, and actions for the saved skill. |
 | Similar skills | Similar pairs, comparison details, and a reviewed merge flow. |
 | Plugins | Agent, marketplace, version, folder, skills, hooks, servers, monitors, and executables. No plugin installation controls. |
-| Settings | Tool toggles, AI engine chips, history choices for 30, 60, 90, or 180 days, automatic-analysis settings, and Repair Library. |
+| Settings | Tool toggles, AI engine chips, history choices for 30, 60, 90, or 180 days, automatic-analysis settings, and Repair Library, which renames older repository folders and moves only links to missing Library skills to Trash. |
 
 ## Visual styling and accessibility
 

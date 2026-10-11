@@ -85,7 +85,7 @@ struct RepositoryUpdateImpactView: View {
 
   private func agentBadges(_ tools: [Tool]) -> some View {
     VStack(alignment: .leading, spacing: 4) {
-    LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 110), alignment: .leading)], alignment: .leading, spacing: 4) {
+    WrapLayout(spacing: 4) {
       ForEach(store.tools.filter(tools.contains)) { ToolBadge(tool: $0) }
     }
     DisabledReaderNotice(readers: Set(tools))

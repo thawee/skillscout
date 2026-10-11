@@ -56,7 +56,7 @@ struct SuggestionRow: View {
           .foregroundStyle(.secondary)
         Spacer()
       }
-      LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 110), alignment: .leading)], alignment: .leading, spacing: 4) {
+      WrapLayout(spacing: 4) {
         ForEach(store.tools.filter(suggestion.tools.contains)) { ToolBadge(tool: $0) }
       }
     }
@@ -118,7 +118,7 @@ struct SuggestionDetail: View {
               .font(.callout)
               .foregroundStyle(.secondary)
           }
-          LazyVGrid(columns: [GridItem(.adaptive(minimum: 78, maximum: 110), alignment: .leading)], alignment: .leading, spacing: 4) {
+          WrapLayout(spacing: 4) {
             ForEach(store.tools.filter(suggestion.tools.contains)) { ToolBadge(tool: $0) }
           }
         }
@@ -155,7 +155,7 @@ struct SuggestionDetail: View {
           .disabled(suggestion.savedTo != nil)
 
         if let saved = suggestion.savedTo {
-          Label("Saved to \(Paths.abbreviate(URL(fileURLWithPath: saved)))", systemImage: "checkmark.circle.fill")
+          Label("Saved to \(Paths.describe(URL(fileURLWithPath: saved)))", systemImage: "checkmark.circle.fill")
             .foregroundStyle(.green)
           ForEach(store.suggestionSaveIssues[suggestion.id] ?? [], id: \.self) { issue in
             Label(issue, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)

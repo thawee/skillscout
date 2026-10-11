@@ -709,8 +709,9 @@ extension UsabilityTests {
 
   @Test func scopeLabelsKeepStoredProjectNames() {
     #expect(UsageScope(project: "demo", days: 7).description(loadedDays: 60) == "the last 7 days in demo")
-    #expect(UsageScope(project: "Unknown", days: nil).description(loadedDays: 30) == "the last 30 days in Unknown")
-    #expect(UsageScope.projectLabel("") == "Unknown project")
+    #expect(UsageScope(project: "Unknown", days: nil).description(loadedDays: 30) == "the last 30 days, in chats without a project folder")
+    #expect(UsageScope.projectLabel("") == "Chats without a project folder")
+    #expect(UsageScope.projectLabel("Unknown") == "Chats without a project folder")
   }
 
   @Test func changedReviewCannotReuseACompletedResult() {

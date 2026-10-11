@@ -140,6 +140,20 @@ struct SkillAddSheet: View {
     }
   }
 
+  /// Every reviewed row has an outcome that needs nothing more from you.
+  private var finished: Bool { !results.isEmpty && pendingRequests.isEmpty }
+
+  private var resultSummary: String {
+    let added = currentResults.count { $0.outcome.becameAvailable }
+    let kept = currentResults.count { if case .kept = $0.outcome { true } else { false } }
+    let open = pendingRequests.count
+    var parts: [String] = []
+    if added > 0 { parts.append("\(added) added") }
+    if kept > 0 { parts.append("\(kept) kept the existing copy") }
+    if open > 0 { parts.append(open == 1 ? "1 needs your choice below" : "\(open) need your choice below") }
+    return parts.isEmpty ? "Nothing changed." : parts.joined(separator: " · ") + "."
+  }
+
   private var currentResults: [SkillAddResult] {
     requests.compactMap { request in
       guard let result = results[request.id], result.matches(request) else { return nil }
@@ -182,8 +196,7 @@ struct SkillAddSheet: View {
         }.frame(maxWidth: .infinity, alignment: .leading)
       }
       if !results.isEmpty {
-        Text("\(currentResults.count { $0.outcome.becameAvailable }) available · \(currentResults.count { if case .kept = $0.outcome { true } else { false } }) skipped. Unresolved rows remain available for recovery.")
-          .font(.caption).foregroundStyle(.secondary)
+        Text(resultSummary).font(.caption).foregroundStyle(.secondary)
       }
       HStack {
         Button("Refresh review") {
@@ -191,8 +204,11 @@ struct SkillAddSheet: View {
           prepareSources()
         }.disabled(applying)
         Spacer()
+        if finished {
+          Button("Done") { dismiss() }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+        } else {
         Button(results.isEmpty ? "Cancel" : "Done") { dismiss() }.keyboardShortcut(.cancelAction)
-        Button("Add reviewed skills") {
+        Button(results.isEmpty ? "Add reviewed skills" : "Add remaining") {
           Task {
             applying = true
             let submitted = pendingRequests
@@ -203,6 +219,7 @@ struct SkillAddSheet: View {
         .buttonStyle(.borderedProminent)
         .disabled(applying || pendingRequests.isEmpty || store.isManagingSkillsets)
         .keyboardShortcut(.defaultAction)
+        }
       }
     }
     .padding(24).frame(width: 680, height: 640)
@@ -327,26 +344,34 @@ struct SkillAddSheet: View {
   }
 }
 
-struct UsageScopeControls: View {
+/// The project the usage counts come from. Shared by every skill list that counts chats in a saved scope.
+struct UsageProjectChoice: View {
   @Environment(AppStore.self) private var store
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      SearchChoice(title: "Project", options:
-        [ChoiceOption(value: String?.none, title: "All projects", symbol: "folder")]
-          + store.usageProjects.map { ChoiceOption(value: Optional($0), title: UsageScope.projectLabel($0), detail: $0, symbol: "folder") },
-        selection: Binding(
-          get: { store.usageScope.project },
-          set: { store.setUsageScope(UsageScope(project: $0, days: store.usageScope.days)) }
-        ))
-      ChoiceChips(title: "Period", options:
-        [ChoiceOption(value: 0, title: "All history", detail: "\(store.loadedLookbackDays) loaded days")]
-          + [7, 30, 60, 90].filter { $0 < store.loadedLookbackDays }.map { ChoiceOption(value: $0, title: "\($0) days") },
-        selection: Binding(
-          get: { store.usageScope.days ?? 0 },
-          set: { store.setUsageScope(UsageScope(project: store.usageScope.project, days: $0 == 0 ? nil : $0)) }
-        ))
+    SearchChoice(title: "Project", options:
+      [ChoiceOption(value: String?.none, title: "All projects", symbol: "folder")]
+        + store.usageProjects.map { ChoiceOption(value: Optional($0), title: UsageScope.projectLabel($0), detail: $0 == "Unknown" || $0.isEmpty ? nil : $0, symbol: "folder") },
+      selection: Binding(
+        get: { store.usageScope.project },
+        set: { store.setUsageScope(UsageScope(project: $0, days: store.usageScope.days)) }
+      ))
+  }
+}
+
+/// The period the usage counts cover, as a compact menu.
+struct UsagePeriodPicker: View {
+  @Environment(AppStore.self) private var store
+
+  var body: some View {
+    Picker("Period", selection: Binding(
+      get: { store.usageScope.days ?? 0 },
+      set: { store.setUsageScope(UsageScope(project: store.usageScope.project, days: $0 == 0 ? nil : $0)) }
+    )) {
+      Text("All history (\(store.loadedLookbackDays) days)").tag(0)
+      ForEach([7, 30, 60, 90].filter { $0 < store.loadedLookbackDays }, id: \.self) { Text("\($0) days").tag($0) }
     }
+    .pickerStyle(.menu).fixedSize()
   }
 }
 

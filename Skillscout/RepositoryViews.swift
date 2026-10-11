@@ -287,11 +287,16 @@ struct RepositoryDetail: View {
           Button("Cancel") { store.cancelRepositoryPreview(entry) }
         }
       } else if isImported {
+        Button("Add skills to agents…") {
+          store.pendingSkillAdd = SkillAddPresentation(skillIDs: Array(Set(contents.map(\.skill.id))).sorted(),
+            sources: Dictionary(contents.map { ($0.skill.id, $0.copy.resolved.path) }, uniquingKeysWith: { first, _ in first }))
+        }
+        .buttonStyle(.borderedProminent)
+        .disabled(contents.isEmpty || store.tools.isEmpty || store.isManagingSkillsets)
         if entry.source.isGit {
           Button("Check for updates") { Task { await store.checkRepository(entry) } }
           if store.repositoryChecks[entry.id]?.status == .updateAvailable {
             Button("Review update…") { Task { await store.reviewRepositoryUpdate(entry) } }
-              .buttonStyle(.borderedProminent)
           }
           Button("Choose version…") { showingVersion = true }
         } else {

@@ -181,6 +181,11 @@ struct ContentView: View {
     return .scope
   }
 
+  /// A first-run Library has nothing to sort or filter, so it shows only the getting-started message.
+  private var libraryHasNothingYet: Bool {
+    sidebar == .library && search.isEmpty && !store.skills.contains(where: \.isInLibrary)
+  }
+
   private func showAllSkills() { source = .all; search = ""; sidebar = .library }
 
 
@@ -529,6 +534,7 @@ struct ContentView: View {
       } else if sidebar?.isProjectBrowser == true {
         if let project = selectedProject {
           ProjectSkillListView(project: project, selection: $selectedProjectSkill, filter: projectFilter(project.id), search: search)
+            .navigationSplitViewColumnWidth(min: 280, ideal: 340)
         } else { ContentUnavailableView("Choose a project", systemImage: "folder") }
       } else if sidebar?.isRepositoryBrowser == true {
         VStack(spacing: 0) {
@@ -553,49 +559,8 @@ struct ContentView: View {
         GeometryReader { geometry in
           VStack(spacing: 0) {
             ScrollView {
-              VStack(spacing: 0) {
-                if case .skillset(let id) = sidebar {
-                  SkillsetHeader(skillsetID: id)
-                  Divider()
-                } else if sidebar == .global, let tool = globalTool, !store.skillsets.isEmpty {
-                  ToolSkillsetsView(tool: tool)
-                  Divider()
-                }
-                if sidebar == .global {
-                  HStack {
-                    Text("Global").font(.headline)
-                    Spacer()
-                    Button("Add skills…") { store.pendingSkillAdd = SkillAddPresentation(tool: globalTool) }
-                      .disabled(store.tools.isEmpty)
-                  }.padding(10)
-                  AgentChoices(tools: store.tools, allTitle: "All enabled agents", selection: $globalTool,
-                    counts: globalAgentCounts, allCount: GlobalSkillCounts(skills: store.skills, readers: Set(store.tools)).normal)
-                    .padding(.horizontal, 10).padding(.bottom, 8)
-                  VStack(alignment: .leading, spacing: 4) {
-                    Text("^[\(globalCounts.normal) skill](inflect: true) available globally")
-                      .font(.caption).accessibilityIdentifier("global-skill-count")
-                    Text("^[\(globalCounts.system) system skill](inflect: true)")
-                      .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("global-system-count")
-                    Toggle("Show system skills", isOn: $showSystemSkills)
-                      .accessibilityIdentifier("show-system-skills")
-                  }.padding(.horizontal, 10).padding(.bottom, 8)
-                }
-                if sidebar?.listsSkills ?? true {
-                  VStack(alignment: .leading, spacing: 8) {
-                    if sidebar != .library && selectedSkillsetID == nil {
-                      ChoiceChips(title: "Show", options: sourceOptions, selection: $source)
-                    }
-                    ChoiceChips(title: "Sort", options: [
-                      ChoiceOption(value: SkillSort.newest, title: "Newest"),
-                      ChoiceOption(value: SkillSort.name, title: "Name"),
-                      ChoiceOption(value: SkillSort.use, title: "Use")
-                    ], selection: $sort)
-                    if !skillListContext.usesAllLoadedHistory { UsageScopeControls() }
-                    Text("Recorded use in \(skillListContext.usesAllLoadedHistory ? UsageScope().description(loadedDays: store.loadedLookbackDays) : store.usageScopeDescription)").font(.caption2).foregroundStyle(.secondary)
-                  }.padding(.horizontal, 10).padding(.bottom, 10)
-                }
-              }
-            }.frame(maxHeight: min(360, geometry.size.height * 0.55))
+              listHeader.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeaderHeight = $0 }
+            }.frame(height: min(listHeaderHeight, 360, geometry.size.height * 0.55))
             Divider()
             SkillList(skills: listedSkills, selection: $selectedSkills, context: skillListContext, usageOverride: listUsage, manageGlobal: manageGlobal,
               emptyState: emptySkillListReason,
@@ -605,7 +570,56 @@ struct ContentView: View {
           }
         }
         .navigationTitle(sidebar == .global ? "Global" : sidebar == .library ? "Library" : "Skills")
+        .navigationSplitViewColumnWidth(min: 280, ideal: 340)
       }
+  }
+
+  /// The list header's natural height, so it takes only the room it needs above the list.
+  @State private var listHeaderHeight: CGFloat = 200
+
+  @ViewBuilder private var listHeader: some View {
+              VStack(spacing: 0) {
+                if case .skillset(let id) = sidebar {
+                  SkillsetHeader(skillsetID: id)
+                  Divider()
+                } else if sidebar == .global, let tool = globalTool, !store.skillsets.isEmpty {
+                  ToolSkillsetsView(tool: tool)
+                  Divider()
+                }
+                if sidebar == .global {
+                  AgentChoices(tools: store.tools, allTitle: "All enabled agents", selection: $globalTool,
+                    counts: globalAgentCounts, allCount: GlobalSkillCounts(skills: store.skills, readers: Set(store.tools)).normal)
+                    .padding(.horizontal, 10).padding(.vertical, 8)
+                  WrapLayout(spacing: 4) {
+                    Text("^[\(globalCounts.normal) skill](inflect: true) available globally")
+                      .accessibilityIdentifier("global-skill-count")
+                    Text("·").foregroundStyle(.secondary)
+                    Text("^[\(globalCounts.system) system skill](inflect: true)")
+                      .foregroundStyle(.secondary).accessibilityIdentifier("global-system-count")
+                  }
+                  .font(.caption).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 10)
+                  Toggle("Show system skills", isOn: $showSystemSkills)
+                    .accessibilityIdentifier("show-system-skills")
+                    .font(.caption).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 10).padding(.bottom, 8)
+                }
+                if sidebar?.listsSkills ?? true, !libraryHasNothingYet {
+                  VStack(alignment: .leading, spacing: 8) {
+                    if sidebar != .library && selectedSkillsetID == nil {
+                      ChoiceChips(title: "Show", options: sourceOptions, selection: $source)
+                    }
+                    WrapLayout(spacing: 12) {
+                      Picker("Sort", selection: $sort) {
+                        Text("Newest").tag(SkillSort.newest)
+                        Text("Name").tag(SkillSort.name)
+                        Text("Use").tag(SkillSort.use)
+                      }.pickerStyle(.menu).fixedSize()
+                      if !skillListContext.usesAllLoadedHistory { UsagePeriodPicker() }
+                    }
+                    if !skillListContext.usesAllLoadedHistory { UsageProjectChoice() }
+                    Text("Recorded use in \(skillListContext.usesAllLoadedHistory ? UsageScope().description(loadedDays: store.loadedLookbackDays) : store.usageScopeDescription)").font(.caption2).foregroundStyle(.secondary)
+                  }.padding(.horizontal, 10).padding(.vertical, 8)
+                }
+              }
   }
 
   @ViewBuilder private var detailPane: some View {
@@ -760,10 +774,12 @@ struct ContentView: View {
           .buttonStyle(.plain).foregroundStyle(.secondary).padding(.leading, 8)
       }
       Section("Chat activity", isExpanded: $activityExpanded) {
-        Text("Within selected period")
+        Text("Every skill, not only Library · \(store.usageScopeDescription)")
           .font(.caption)
+          .lineLimit(3)
+          .fixedSize(horizontal: false, vertical: true)
           .foregroundStyle(.secondary)
-          .help(store.usageScopeDescription)
+          .help("Counts every skill Skillscout finds, in Library and in each agent's folders")
         sidebarRow("Used in 2+ chats", symbol: "checkmark.circle", count: activitySkills.count(where: isUsed), item: .used)
           .help("Used in more than one chat in \(store.usageScopeDescription)")
         sidebarRow("Used in 1 chat", symbol: "1.circle", count: activitySkills.count(where: isUsedOnce), item: .usedOnce)

@@ -12,13 +12,16 @@ struct UsageScope: Equatable, Sendable {
   }
 
   static func projectLabel(_ project: String) -> String {
-    if project.isEmpty { return "Unknown project" }
+    // The chat parsers name a chat's project "Unknown" when the chat records no folder.
+    if project.isEmpty || project == "Unknown" { return "Chats without a project folder" }
     return project.hasPrefix("/") ? Paths.abbreviate(URL(fileURLWithPath: project)) : project
   }
 
   func description(loadedDays: Int) -> String {
     let period = "the last \(days ?? loadedDays) days"
-    return project.map { "\(period) in \(Self.projectLabel($0))" } ?? period
+    guard let project else { return period }
+    if project.isEmpty || project == "Unknown" { return "\(period), in chats without a project folder" }
+    return "\(period) in \(Self.projectLabel(project))"
   }
 }
 

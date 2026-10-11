@@ -192,7 +192,7 @@ func enabledToolsCheck(_ condition: @autoclosure () throws -> Bool, _ message: S
     print("PASS: rendered \(name)")
   }
 
-  @MainActor static func press(_ identifier: String, title: String, window: NSWindow) async throws {
+  @MainActor static func press(_ identifier: String, title: String, window: NSWindow, region: CGRect? = nil) async throws {
     window.makeKeyAndOrderFront(nil)
     NSApp.activate()
     try await settle()
@@ -200,7 +200,7 @@ func enabledToolsCheck(_ condition: @autoclosure () throws -> Bool, _ message: S
       try await settle()
       return
     }
-    var frame = try textFrame(title, window: window)
+    var frame = try textFrame(title, window: window, region: region)
     if frame == nil, let outer = outerScrollView(window), let document = outer.documentView {
       let maximum = max(0, document.bounds.height - outer.contentView.bounds.height)
       for offset in stride(from: CGFloat(0), through: maximum, by: CGFloat(150)) {
@@ -330,19 +330,18 @@ func enabledToolsCheck(_ condition: @autoclosure () throws -> Bool, _ message: S
       let name = tool == nil ? "global-unfiltered-history" : "global-agent-unfiltered-history"
       let text = try await show(AnyView(ContentView(sidebar: .global, skill: sharedSkill.id, globalTool: tool).environment(store)),
         name: name, width: 1450, height: 1200, output: output, host: host, window: window)
-      let header = try recognized(window, region: CGRect(x: 230 / 1450, y: 0.55, width: 400 / 1450, height: 0.4))
+      let header = try recognized(window, region: CGRect(x: 230 / 1450, y: 0.55, width: 340 / 1450, height: 0.4))
         .compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
       try enabledToolsCheck(header.range(of: #"\b(Project|Period)\b"#, options: .regularExpression) == nil
         && find("search-choice.Project") == nil && find("choice.Period.All history") == nil,
         "\(name) omits Project and Period controls from its list and detail")
       try enabledToolsCheck(text.contains("Recorded use in the last 60 days") && text.contains("Used in 3 chats in the last 60 days"),
         "\(name) shows all loaded chats and the matching loaded-history description")
-      let windowHeight = window.contentView?.superview?.bounds.height ?? 1200
-      let sortFrame = try require(try textFrame("Use", window: window,
-        region: CGRect(x: 230, y: windowHeight - 380, width: 201, height: 330)), "Global Use sort chip found")
-      try await mouse(CGPoint(x: sortFrame.midX, y: sortFrame.midY), window: window)
+      try enabledToolsCheck(text.contains("Sort"), "\(name) shows its Sort menu")
+      UserDefaults.standard.set(SkillSort.use.rawValue, forKey: "skillSort")
+      try await settle()
       try snapshot(name + "-use-sort", output: output, window: window)
-      let listRegion = CGRect(x: 230, y: 0, width: 201, height: window.contentView?.superview?.bounds.height ?? 1200)
+      let listRegion = CGRect(x: 230, y: 0, width: 340, height: window.contentView?.superview?.bounds.height ?? 1200)
       let sharedFrame = try require(try textFrame("enabled-shared", window: window, region: listRegion), "Global shared row found")
       let favoredFrame = try require(try textFrame("scope-favored", window: window, region: listRegion), "Global scope-favored row found")
       try enabledToolsCheck(sharedFrame.midY > favoredFrame.midY,
@@ -468,7 +467,7 @@ func enabledToolsCheck(_ condition: @autoclosure () throws -> Bool, _ message: S
     let union = try await show(global, name: "global-counts-union", width: 1280, height: 1000, output: output, host: host, window: window)
     try enabledToolsCheck(contains(union, "5 skills available globally") && contains(union, "1 system skill"),
       "all enabled scope counts five unique ordinary identities and one system identity while systems are hidden")
-    let headerRegion = CGRect(x: 230 / 1280.0, y: 0.6, width: 220 / 1280.0, height: 0.35)
+    let headerRegion = CGRect(x: 230 / 1280.0, y: 0.6, width: 340 / 1280.0, height: 0.35)
     let header = try recognized(window, region: headerRegion).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
     for (title, count) in [("All enabled agents", 5), ("Codex", 4), ("Gemini", 3), ("Claude", 0), ("Amp", 0)] {
       let digits = count == 0 ? "[0o]" : String(count)
@@ -484,10 +483,8 @@ func enabledToolsCheck(_ condition: @autoclosure () throws -> Bool, _ message: S
       && !codex.contains("count-mixed"), "real Codex selection classifies the mixed identity as system and hides it")
     try await press("choice.Show.Plugin", title: "Plugin", window: window)
     try await press("show-system-skills", title: "Show system skills", window: window)
-    let contentHeight = window.contentView?.superview?.bounds.height ?? 1000
-    let useFrame = try require(try textFrame("Use", window: window,
-      region: CGRect(x: 230, y: contentHeight - 420, width: 201, height: 380)), "Global Use sort control found in its header")
-    try await mouse(CGPoint(x: useFrame.midX, y: useFrame.midY), window: window)
+    UserDefaults.standard.set(SkillSort.use.rawValue, forKey: "skillSort")
+    try await settle()
     store.usageScope = UsageScope(project: "No fixture chats", days: 7)
     func searchField(in view: NSView) -> NSSearchField? {
       if let field = view as? NSSearchField { return field }
@@ -512,7 +509,8 @@ func enabledToolsCheck(_ condition: @autoclosure () throws -> Bool, _ message: S
     editor.insertText("", replacementRange: editor.selectedRange())
     try await settle()
     try await press("choice.Show.All skills", title: "All skills", window: window)
-    try await press("choice.Agent.Gemini", title: "Gemini", window: window)
+    let headerTop = window.contentView?.superview?.bounds.height ?? 1080
+    try await press("choice.Agent.Gemini", title: "Gemini", window: window, region: CGRect(x: 230, y: headerTop - 140, width: 340, height: 140))
     let gemini = try visible(window)
     try snapshot("global-counts-gemini", output: output, window: window)
     try enabledToolsCheck(contains(gemini, "3 skills available globally") && contains(gemini, "0 system skills")
@@ -585,18 +583,18 @@ func enabledToolsCheck(_ condition: @autoclosure () throws -> Bool, _ message: S
       "stored project and period reverse the all-history ranking")
     let text = try await show(AnyView(ContentView(sidebar: .skillset(skillset.id), skill: total.id, globalTool: .gemini).environment(store)),
       name: "skillset-all-loaded-history", width: 1450, height: 1200, output: output, host: host, window: window)
-    try enabledToolsCheck(text.contains("Scope fixture") && text.contains("Edit") && text.contains("Add skills"), "Skillsets retains membership and destination actions")
-    let header = try recognized(window, region: CGRect(x: 230 / 1450, y: 0.55, width: 400 / 1450, height: 0.4))
+    try enabledToolsCheck(text.contains("Scope fixture") && text.contains("Edit") && text.contains("Install skillset"), "Skillsets retains membership and destination actions")
+    let header = try recognized(window, region: CGRect(x: 230 / 1450, y: 0.55, width: 340 / 1450, height: 0.4))
       .compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
     try enabledToolsCheck(header.range(of: #"\b(Project|Period)\b"#, options: .regularExpression) == nil
       && find("search-choice.Project") == nil && find("choice.Period.All history") == nil, "Skillsets list and detail omit Project and Period controls")
     try enabledToolsCheck(text.contains("Recorded use in the last 60 days") && text.contains("Used in 3 chats in the last 60 days"),
       "Skillsets ignores saved scope and stale Global agent for counts and labels")
     let height = window.contentView?.superview?.bounds.height ?? 1200
-    let sortFrame = try require(try textFrame("Use", window: window, region: CGRect(x: 230, y: height - 380, width: 201, height: 330)), "Skillsets Use sort chip found")
-    try await mouse(CGPoint(x: sortFrame.midX, y: sortFrame.midY), window: window)
+    UserDefaults.standard.set(SkillSort.use.rawValue, forKey: "skillSort")
+    try await settle()
     try snapshot("skillset-use-sort", output: output, window: window)
-    let listRegion = CGRect(x: 230, y: 0, width: 201, height: height)
+    let listRegion = CGRect(x: 230, y: 0, width: 340, height: height)
     let totalFrame = try require(try textFrame(total.name, window: window, region: listRegion), "Skillsets total row found")
     let recentFrame = try require(try textFrame(other.name, window: window, region: listRegion), "Skillsets recent row found")
     try enabledToolsCheck(totalFrame.midY > recentFrame.midY, "real Use sort orders members by all loaded history")
@@ -643,6 +641,10 @@ func enabledToolsCheck(_ condition: @autoclosure () throws -> Bool, _ message: S
       name: "add-flow-preselected", width: 700, height: 640, output: output, host: host, window: window)
     try enabledToolsCheck(preselected.contains("Selected skill") && preselected.contains(total.name) && preselected.contains("Change skills")
       && !preselected.contains("Find a skill"), "Add skills opened from a selection shows that selection instead of asking again")
+    let fresh = try await show(AnyView(ContentView(sidebar: .library).environment(AppStore())),
+      name: "library-first-run", width: 1180, height: 800, output: output, host: host, window: window)
+    try enabledToolsCheck(fresh.contains("Build your skill library") && !fresh.contains("Sort") && !fresh.contains("Period"),
+      "a first-run Library shows only the getting-started message, without sort or scope controls")
     let unselected = try await show(AnyView(SkillAddFlowSheet(request: SkillAddPresentation(skillIDs: [], destination: .global)).environment(store)),
       name: "add-flow-empty", width: 700, height: 640, output: output, host: host, window: window)
     try enabledToolsCheck(unselected.contains("Find a skill"), "Add skills opened without a selection lists skills to choose")

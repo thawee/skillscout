@@ -126,8 +126,9 @@ enum FunctionalCheck {
     try check(!store.skillsets.first { $0.id == current.id }!.skills.contains(name)
       && fm.fileExists(atPath: folder.appending(path: "SKILL.md").path), "membership menu removal preserves installed files")
     let shared = try await menu([sharedName], .global(.codex))
-    try check(titles(shared).first == "Remove shared installation…", "shared provider menu names shared removal")
-    try invoke("Remove shared installation…", in: shared)
+    let sharedTitle = try await menu([sharedName], .global(.codex)).items.first?.title ?? ""
+    try check(sharedTitle.hasPrefix("Remove from Codex and ") && sharedTitle.hasSuffix("…"), "shared provider menu names the other agents that lose the skill")
+    try invoke(sharedTitle, in: shared)
     try check(store.removal?.isShared == true, "shared menu action retains truthful removal confirmation")
     let protected = try await menu([protectedName], .global(.codex))
     try check(titles(protected) == ["Reveal in Finder"], "built-in menu retains reveal and hides unsupported actions")
@@ -598,7 +599,7 @@ enum FunctionalCheck {
     let shared = SkillScanner.scan().first { $0.name == sharedName }!
     let sharedRemoval = Removal.from(.codex, skills: [shared], selectedCount: 1)!
     let sharedMessage = sharedRemoval.message()
-    try check(sharedRemoval.actionLabel == "Remove shared installation…" && sharedRemoval.confirmationLabel == "Remove shared installation"
+    try check(sharedRemoval.actionLabel.hasPrefix("Remove from Codex and ") && sharedRemoval.confirmationLabel == sharedRemoval.actionLabel.replacingOccurrences(of: "…", with: "")
       && sharedMessage.contains("Pi") && sharedMessage.contains("Codex can still load"),
       "shared confirmation names disabled readers and protected access that remains")
     trash += try SkillInstaller.remove(sharedRemoval.copies)

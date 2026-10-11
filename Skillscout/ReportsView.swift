@@ -187,7 +187,7 @@ struct ReportsView: View {
     }
   }
   private func usageBreakdown(_ report: UsageReport) -> some View {
-    LazyVGrid(columns: [GridItem(.adaptive(minimum: 270))], alignment: .leading, spacing: 18) {
+    LazyVGrid(columns: [GridItem(.adaptive(minimum: 270), alignment: .topLeading)], alignment: .leading, spacing: 18) {
       reportSection("By tool") {
         ForEach(store.tools.filter { report.byTool[$0] != nil }) { tool in
           HStack { Text(tool.name); Spacer(); Text(chatCount(report.byTool[tool] ?? 0)).foregroundStyle(.secondary) }
