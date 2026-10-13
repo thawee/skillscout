@@ -15,6 +15,20 @@ struct SkillsetStatus {
 }
 
 extension AppStore {
+  var skillsetState: SkillsetState {
+    get {
+      SkillsetState(skillsets: skillsets, assignments: skillsetAssignments, entries: skillsetEntries,
+        issues: skillsetIssues, preferredSources: preferredSources)
+    }
+    set {
+      skillsets = newValue.skillsets
+      skillsetAssignments = newValue.assignments
+      skillsetEntries = newValue.entries
+      skillsetIssues = newValue.issues
+      preferredSources = newValue.preferredSources
+    }
+  }
+
   func assignment(for skillsetID: UUID, to tool: Tool) -> SkillsetAssignment? {
     skillsetAssignments.first { $0.skillsetID == skillsetID && $0.tool == tool }
   }
@@ -25,7 +39,7 @@ extension AppStore {
     let available = members.filter { id in skill(id)?.availableIn.contains(tool) == true }
     let inherited = available.compactMap { id -> String? in
       guard let provider = skill(id)?.provider(for: tool), provider.root.url != tool.skillsFolder else { return nil }
-      return "\(id) is available through \(Paths.abbreviate(provider.root.url)). Unassigning may leave it available."
+      return "\(id) is available through \(Paths.describe(provider.root.url)). Unassigning may leave it available."
     }
     return SkillsetStatus(assigned: assigned != nil, pending: assigned.map { $0.members != skillset.skills } ?? false,
       available: available.count, total: members.count, missing: members.filter { skill($0) == nil }, inherited: inherited)
@@ -44,6 +58,20 @@ extension AppStore {
     let previous = skillsets[index].skills
     skillsets[index].skills = members
     if !saveState() { skillsets[index].skills = previous; return false }
+    return true
+  }
+
+  @discardableResult
+  func updateSkillset(_ id: UUID, name: String, members: Set<Skill.ID>) -> Bool {
+    guard !isManagingSkillsets, let index = skillsets.firstIndex(where: { $0.id == id }) else { return false }
+    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return false }
+    if trimmed != skillsets[index].name,
+       skillsets.contains(where: { $0.id != id && $0.name.lowercased() == trimmed.lowercased() }) { return false }
+    let previous = skillsets[index]
+    skillsets[index].name = trimmed
+    skillsets[index].skills = members
+    if !saveState() { skillsets[index] = previous; return false }
     return true
   }
 
@@ -130,11 +158,12 @@ extension AppStore {
       }
       var lines = ["\(skillset.name) has \(file.skills.count) skills. It isn't assigned to a tool yet."]
       let missing = file.missing(among: skills)
+      lines.append(contentsOf: file.versionDifferences(among: skills, preferredSources: preferredSources))
       if !missing.isEmpty {
         lines.append("Not on this Mac yet: \(missing.map(\.name).formatted(.list(type: .and))).")
         let sources = Array(Set(missing.compactMap(\.source))).sorted()
         if !sources.isEmpty {
-          lines.append("Add these sources with Add Custom Source in Discover, then Add to Library: \(sources.joined(separator: ", ")).")
+          lines.append("Add these sources with Add source in Discover, then Add to Library: \(sources.joined(separator: ", ")).")
         }
       }
       importNote = lines.joined(separator: "\n\n")

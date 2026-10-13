@@ -6,8 +6,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    MARKETING_VERSION: "1.5.1"
-    CURRENT_PROJECT_VERSION: "7"
+    MARKETING_VERSION: "1.6.0"
+    CURRENT_PROJECT_VERSION: "8"
 targets:
   Skillscout:
     type: application
@@ -43,6 +43,16 @@ targets:
       - Skillscout/PromptLibrary.swift
       - Skillscout/PromptLibrary+Tools.swift
       - Skillscout/SkillInstaller.swift
+      - Skillscout/SkillActions.swift
+      - Skillscout/UsageReport.swift
+      - Skillscout/UsageReportCache.swift
+      - Skillscout/SkillDetailInspection.swift
+      - Skillscout/RepositoryLibrary.swift
+      - Skillscout/RepositoryMerge.swift
+      - Skillscout/RepositoryUpdate.swift
+      - Skillscout/RepositoryUpdateImpact.swift
+      - Skillscout/ProjectLibrary.swift
+      - Skillscout/ProjectSkillInstaller.swift
       - Skillscout/SkillsetInstaller.swift
       - Skillscout/Analyzer.swift
       - Skillscout/AIEngine.swift
@@ -70,6 +80,16 @@ targets:
       - Skillscout/PromptLibrary.swift
       - Skillscout/PromptLibrary+Tools.swift
       - Skillscout/SkillInstaller.swift
+      - Skillscout/SkillActions.swift
+      - Skillscout/UsageReport.swift
+      - Skillscout/UsageReportCache.swift
+      - Skillscout/SkillDetailInspection.swift
+      - Skillscout/RepositoryLibrary.swift
+      - Skillscout/RepositoryMerge.swift
+      - Skillscout/RepositoryUpdate.swift
+      - Skillscout/RepositoryUpdateImpact.swift
+      - Skillscout/ProjectLibrary.swift
+      - Skillscout/ProjectSkillInstaller.swift
       - Skillscout/SkillsetInstaller.swift
       - Skillscout/Analyzer.swift
       - Skillscout/AIEngine.swift

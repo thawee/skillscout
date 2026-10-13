@@ -4,7 +4,10 @@ import SQLite3
 /// Parsers for Gemini CLI, Droid, Pi, Amp and OpenCode chats.
 extension PromptLibrary {
   func piActivity(in data: Data, file: TranscriptFile) -> ([Prompt], [SkillUse]) {
-    let project = Self.projectName(Self.json(Self.firstLine(data))?["cwd"])
+    let meta = Self.json(Self.firstLine(data)) ?? [:]
+    let cwd = meta["cwd"] ?? meta["initialcwd"]
+    let project = Self.projectName(cwd)
+    let projectPath = Self.projectPath(cwd)
     var prompts: [Prompt] = []
     var uses: [SkillUse] = []
 
@@ -19,14 +22,14 @@ extension PromptLibrary {
       case "user":
         let text = content.compactMap { $0["text"] as? String }.joined(separator: "\n")
         uses += text.matches(of: /<skill name="[^"]*" location="([^"]+)">/).map {
-          SkillUse(tool: .pi, chat: file.chat, project: project, date: date, folder: Self.folder(of: String($0.1)))
+          SkillUse(tool: .pi, chat: file.chat, project: project, date: date, folder: Self.folder(of: String($0.1)), projectPath: projectPath)
         }
         let request = text.replacing(/<skill [^>]*>[\s\S]*?<\/skill>/, with: "")
         append(&prompts, tool: .pi, project: project, date: date, text: request, key: file.chat)
       case "assistant":
         for item in content where item["type"] as? String == "toolCall" {
           uses += Self.skillReferences(tool: item["name"] as? String, input: item["arguments"]).map {
-            SkillUse(tool: .pi, chat: file.chat, project: project, date: date, folder: $0)
+            SkillUse(tool: .pi, chat: file.chat, project: project, date: date, folder: $0, projectPath: projectPath)
           }
         }
       default:
@@ -53,7 +56,7 @@ extension PromptLibrary {
       case "gemini":
         for call in message["toolCalls"] as? [[String: Any]] ?? [] {
           uses += Self.skillReferences(tool: call["name"] as? String, input: call["args"]).map {
-            SkillUse(tool: .gemini, chat: id, project: file.project, date: date, folder: $0)
+            SkillUse(tool: .gemini, chat: id, project: file.project, date: date, folder: $0, projectPath: file.projectPath)
           }
         }
       default:
@@ -68,6 +71,7 @@ extension PromptLibrary {
     let parent = meta["parent"] as? String
     let chat = parent ?? meta["id"] as? String ?? file.chat
     let project = Self.projectName(meta["cwd"])
+    let projectPath = Self.projectPath(meta["cwd"])
     var prompts: [Prompt] = []
     var uses: [SkillUse] = []
 
@@ -84,7 +88,7 @@ extension PromptLibrary {
       case "assistant":
         for item in content where item["type"] as? String == "tool_use" {
           uses += Self.skillReferences(tool: item["name"] as? String, input: item["input"]).map {
-            SkillUse(tool: .droid, chat: chat, project: project, date: date, folder: $0)
+            SkillUse(tool: .droid, chat: chat, project: project, date: date, folder: $0, projectPath: projectPath)
           }
         }
       default:
@@ -99,6 +103,7 @@ extension PromptLibrary {
     let chat = thread["id"] as? String ?? file.chat
     let trees = ((thread["env"] as? [String: Any])?["initial"] as? [String: Any])?["trees"] as? [[String: Any]]
     let project = (trees?.first?["uri"] as? String).flatMap(URL.init(string:))?.lastPathComponent ?? "Unknown"
+    let projectPath = Self.projectPath(trees?.first?["uri"])
     var date = (thread["created"] as? Double).map { Date(timeIntervalSince1970: $0 / 1000) } ?? file.modified
     var prompts: [Prompt] = []
     var uses: [SkillUse] = []
@@ -116,7 +121,7 @@ extension PromptLibrary {
       case "assistant":
         for item in content where item["type"] as? String == "tool_use" {
           uses += Self.skillReferences(tool: item["name"] as? String, input: item["input"]).map {
-            SkillUse(tool: .amp, chat: chat, project: project, date: date, folder: $0)
+            SkillUse(tool: .amp, chat: chat, project: project, date: date, folder: $0, projectPath: projectPath)
           }
         }
       default:
@@ -167,6 +172,7 @@ extension PromptLibrary {
       let parent = text(1)
       let chat = parent ?? session
       let project = Self.projectName(text(2))
+      let projectPath = Self.projectPath(text(2))
       let date = Date(timeIntervalSince1970: Double(sqlite3_column_int64(statement, 3)) / 1000)
 
       if part["type"] as? String == "text" {
@@ -175,7 +181,7 @@ extension PromptLibrary {
       } else {
         let input = (part["state"] as? [String: Any])?["input"]
         uses += Self.skillReferences(tool: part["tool"] as? String, input: input).map {
-          SkillUse(tool: .opencode, chat: chat, project: project, date: date, folder: $0)
+          SkillUse(tool: .opencode, chat: chat, project: project, date: date, folder: $0, projectPath: projectPath)
         }
       }
     }
@@ -247,13 +253,14 @@ extension PromptLibrary {
     while sqlite3_step(statement) == SQLITE_ROW {
       guard let session = text(0), let userMessage = text(3) else { continue }
       let project = Self.projectName(text(1))
+      let projectPath = Self.projectPath(text(1))
       let date = isoDate(text(2)) ?? Date()
 
       append(&prompts, tool: .copilot, project: project, date: date, text: userMessage, key: session)
 
       let paths = Self.readSkillPaths(in: userMessage) + Self.readSkillPaths(in: text(4) ?? "")
       for folder in paths.map({ Self.folder(of: $0) }) {
-        uses.append(SkillUse(tool: .copilot, chat: session, project: project, date: date, folder: folder))
+        uses.append(SkillUse(tool: .copilot, chat: session, project: project, date: date, folder: folder, projectPath: projectPath))
       }
     }
     return (prompts, uses)

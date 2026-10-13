@@ -8,7 +8,7 @@ enum SkillScanner {
 
     for root in SkillRoot.all {
       var copiesInRoot: [String: [SkillCopy]] = [:]
-      var newestInRoot: [String: (copy: SkillCopy, modified: Date)] = [:]
+      var newestInRoot: [String: (name: String, copy: SkillCopy, modified: Date)] = [:]
 
       for folder in skillFolders(in: root) {
         let file = folder.appending(path: "SKILL.md")
@@ -36,8 +36,9 @@ enum SkillScanner {
           copiesInRoot[name, default: []].append(copy)
         } else {
           let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
-          if let existing = newestInRoot[name], existing.modified >= modified { continue }
-          newestInRoot[name] = (copy, modified)
+          let identity = plugin.map { "\(name)|\($0.marketplace)|\($0.name)" } ?? name
+          if let existing = newestInRoot[identity], existing.modified >= modified { continue }
+          newestInRoot[identity] = (name, copy, modified)
         }
         if descriptions[name] == nil, let description = meta["description"], !description.isEmpty {
           descriptions[name] = description
@@ -47,8 +48,8 @@ enum SkillScanner {
       for (name, entries) in copiesInRoot {
         copiesByName[name, default: []].append(contentsOf: entries.sorted { $0.folder.path < $1.folder.path })
       }
-      for (name, entry) in newestInRoot {
-        copiesByName[name, default: []].append(entry.copy)
+      for entry in newestInRoot.values {
+        copiesByName[entry.name, default: []].append(entry.copy)
       }
     }
 

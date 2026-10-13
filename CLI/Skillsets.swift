@@ -38,7 +38,7 @@ extension Commands {
   }
 
   /// The app keeps its state in memory and saves over the file, so changes wait until it's closed.
-  private static func refuseWhileAppRuns() throws {
+  static func refuseWhileAppRuns() throws {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
     process.arguments = ["-x", "Skillscout Mod"]
@@ -183,7 +183,9 @@ extension Commands {
     state.skillsets.append(Skillset(name: name, skills: Set(file.skills.map(\.name))))
     try state.save()
     print("Imported \(name) with \(plural(file.skills.count, "skill")). It isn't assigned to a tool yet.")
-    let missing = file.missing(among: SkillScanner.scan())
+    let installed = SkillScanner.scan()
+    for difference in file.versionDifferences(among: installed, preferredSources: state.preferredSources) { print(Terminal.warn(difference)) }
+    let missing = file.missing(among: installed)
     guard !missing.isEmpty else { return }
     print()
     print(Terminal.warn("\(plural(missing.count, "skill")) \(missing.count == 1 ? "isn't" : "aren't") on this Mac yet:"))

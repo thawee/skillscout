@@ -182,6 +182,7 @@ struct SimilarDetail: View {
 }
 
 private struct SkillCard: View {
+  @Environment(\.openInLibrary) private var openInLibrary
   @Environment(AppStore.self) private var store
   @AppStorage("lookbackDays") private var lookbackDays = 60
   let skill: Skill
@@ -205,8 +206,12 @@ private struct SkillCard: View {
           Text("Not used in the last \(lookbackDays) days")
         }
         Spacer()
-        Button("Open SKILL.md") { Finder.open(skill.skillFile) }
-          .buttonStyle(.link)
+        if skill.primary.isInLibraryStorage {
+          if let openInLibrary { Button("Open in Library") { openInLibrary(skill.id) }.buttonStyle(.link) }
+        } else {
+          Button("Open SKILL.md") { Finder.open(skill.skillFile) }
+            .buttonStyle(.link)
+        }
       }
       .font(.caption)
       .foregroundStyle(.secondary)
@@ -230,7 +235,7 @@ extension SkillInstaller.MergePlan {
 
   /// Every change, with the folders, for the confirmation.
   func message(tools: [Tool]) -> String {
-    let places = folders.map(Paths.abbreviate).formatted(.list(type: .and))
+    let places = folders.map(Paths.describe).formatted(.list(type: .and))
     var sentences = ["Skillscout writes the merged SKILL.md into \(places), and moves the old \(folders.count == 1 ? "one" : "ones") to the Trash."]
     if !copiedFiles.isEmpty {
       sentences.append("It copies over \(count(copiedFiles.count, "file")) from \(merged.name).")
@@ -241,16 +246,16 @@ extension SkillInstaller.MergePlan {
       sentences.append("\(skippedFiles.count) files from \(merged.name) stay out, because \(kept.name) has its own at the same paths.")
     }
 
-    let removedFrom = merged.removableCopies.map { Paths.abbreviate($0.root.url) }.formatted(.list(type: .and))
+    let removedFrom = merged.removableCopies.map { Paths.describe($0.root.url) }.formatted(.list(type: .and))
     sentences.append("\(merged.name) goes to the Trash from \(removedFrom).")
     let targets = merged.linkTargetsKept(merged.removableCopies)
     if !targets.isEmpty {
-      sentences.append("\(targets.map(Paths.abbreviate).formatted(.list(type: .and))), where its links point, \(targets.count == 1 ? "stays where it is" : "stay where they are").")
+      sentences.append("\(targets.map(Paths.describe).formatted(.list(type: .and))), where its links point, \(targets.count == 1 ? "stays where it is" : "stay where they are").")
     }
 
     let gained = toolsGained(tools)
     if !gained.isEmpty {
-      let linked = links.map { Paths.abbreviate($0.deletingLastPathComponent()) }.formatted(.list(type: .and))
+      let linked = links.map { Paths.describe($0.deletingLastPathComponent()) }.formatted(.list(type: .and))
       sentences.append("A link in \(linked) makes \(gained.map(\.name).formatted(.list(type: .and))) load \(kept.name) instead.")
     }
     return sentences.joined(separator: " ")

@@ -6,6 +6,26 @@ final class FileWatcher: @unchecked Sendable {
   private let queue = DispatchQueue(label: "com.thawee.skillscout.watcher")
   private var stream: FSEventStreamRef?
 
+  /// Watching an existing ancestor also catches agent folders created after launch.
+  static func watchPaths(for paths: [String]) -> [String] {
+    let ancestors = paths.map { path -> String in
+      var folder = URL(fileURLWithPath: path).standardizedFileURL
+      var isDirectory: ObjCBool = false
+      while !FileManager.default.fileExists(atPath: folder.path, isDirectory: &isDirectory) || !isDirectory.boolValue {
+        let parent = folder.deletingLastPathComponent()
+        guard parent.path != folder.path else { break }
+        folder = parent
+      }
+      return folder.standardizedFileURL.path
+    }
+    let candidates = Set(ancestors).sorted { $0.count == $1.count ? $0 < $1 : $0.count < $1.count }
+    return candidates.reduce(into: []) { roots, path in
+      if !roots.contains(where: { path == $0 || path.hasPrefix($0 == "/" ? "/" : $0 + "/") }) {
+        roots.append(path)
+      }
+    }
+  }
+
   init(paths: [String], latency: TimeInterval = 2, handler: @escaping @Sendable ([String]) -> Void) {
     self.handler = handler
 

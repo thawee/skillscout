@@ -10,8 +10,7 @@ struct SkillsetReconcileResult {
 }
 
 extension SkillInstaller {
-  /// Adds and removes a tool's skillset entries to match the assignments, saving the receipts after every change
-  /// with `persist`, so a failure never leaves an entry Skillscout doesn't know it owns.
+  /// Saves receipts after each change, rolling back a newly added entry if its receipt cannot be saved.
   static func reconcileSkillsets(tool: Tool, assignments: [SkillsetAssignment], entries: inout [SkillsetEntry],
                                  skills: [Skill], preferredSources: [Skill.ID: String],
                                  persist: ([SkillsetEntry]) -> Bool) -> SkillsetReconcileResult {
@@ -19,6 +18,7 @@ extension SkillInstaller {
     var result = SkillsetReconcileResult(issues: plan.issues)
     for skill in plan.additions {
       do {
+        let previousEntries = entries
         let entry = try addForSkillset(skill, to: tool, preferredSources: preferredSources)
         // Replace an old receipt if an externally removed entry was recreated.
         entries.removeAll { $0.path == entry.path }
@@ -26,6 +26,19 @@ extension SkillInstaller {
         guard persist(entries) else {
           result.issues.append("Stopped: ownership could not be saved.")
           result.stopped = true
+          do {
+            let rollback = try removeSkillsetEntry(entry, entries: entries, skills: skills)
+            result.trashed += rollback.trashed
+            if let note = rollback.note {
+              result.issues.append("\(note) Ownership for \(entry.path) remains unsaved; retry after saving is available.")
+            } else {
+              entries = previousEntries
+              // The callback also updates the caller's in-memory receipts, even when saving fails.
+              _ = persist(entries)
+            }
+          } catch {
+            result.issues.append("Couldn't roll back \(entry.path): \(error.localizedDescription) Its ownership remains unsaved; retry after saving is available.")
+          }
           return result
         }
       } catch {
@@ -102,6 +115,15 @@ struct SkillsetFile: Codable, Equatable {
     /// The Git repository a Library skill was added from, without credentials. Nil for personal skills and
     /// local folders, whose paths mean nothing on another Mac.
     let source: String?
+    let ref: RepositoryRef?
+    let commit: String?
+
+    init(name: String, source: String?, ref: RepositoryRef? = nil, commit: String? = nil) {
+      self.name = name
+      self.source = source
+      self.ref = ref
+      self.commit = commit
+    }
   }
 
   var format = "skillscout-skillset"
@@ -117,14 +139,12 @@ struct SkillsetFile: Codable, Equatable {
   init(_ skillset: Skillset, skills: [Skill], preferredSources: [Skill.ID: String]) {
     name = skillset.name
     self.skills = skillset.skills.sorted().map { id in
-      let source = skills.first { $0.id == id }
+      let copy = skills.first { $0.id == id }
         .flatMap { SkillInstaller.skillsetSource($0, preferredSources: preferredSources) ?? $0.copies.first(where: SkillInstaller.isFromLibrary) }
-        .flatMap { copy -> String? in
-          guard SkillInstaller.isFromLibrary(copy), let repo = SkillInstaller.libraryRepo(of: copy) else { return nil }
-          guard let source = try? SkillInstaller.repoSource(name: repo), !source.hasPrefix("/") else { return nil }
-          return SkillInstaller.redactedSource(source)
-        }
-      return Member(name: id, source: source)
+      guard let copy, SkillInstaller.isFromLibrary(copy), let repo = SkillInstaller.libraryRepo(of: copy),
+            let source = try? SkillInstaller.repoSource(name: repo), !source.hasPrefix("/") else { return Member(name: id, source: nil) }
+      let snapshot = try? RepositoryLibrary.snapshot(in: SkillInstaller.managedRepoFolder(repo))
+      return Member(name: id, source: SkillInstaller.redactedSource(source), ref: snapshot?.ref, commit: snapshot?.commit)
     }
   }
 
@@ -162,6 +182,20 @@ struct SkillsetFile: Codable, Equatable {
     var number = 2
     while taken.contains("\(name) \(number)".lowercased()) { number += 1 }
     return "\(name) \(number)"
+  }
+
+  func versionDifferences(among skills: [Skill], preferredSources: [Skill.ID: String] = [:]) -> [String] {
+    self.skills.compactMap { member in
+      guard let expected = member.commit, let address = member.source,
+            let source = try? RepositorySource(address: address),
+            let skill = skills.first(where: { $0.id == member.name }) else { return nil }
+      let copy = SkillInstaller.skillsetSource(skill, preferredSources: preferredSources)
+        ?? skill.copies.first(where: SkillInstaller.isFromLibrary)
+      guard let copy, let repo = SkillInstaller.libraryRepo(of: copy),
+            let snapshot = try? RepositoryLibrary.snapshot(in: SkillInstaller.managedRepoFolder(repo)),
+            RepositoryID(source: snapshot.source) == RepositoryID(source: source), snapshot.commit != expected else { return nil }
+      return "\(member.name): this skillset requests \(expected.prefix(12)); the Library has \((snapshot.commit ?? "unknown").prefix(12)). The Library version was kept."
+    }
   }
 
   /// Members missing on this Mac, with the source to add for each one when the file has it.

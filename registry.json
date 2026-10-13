@@ -15,39 +15,11 @@
       "author": "Anthropic"
     },
     {
-      "repo": "https://github.com/vercel-labs/agent-skills",
-      "name": "vercel-agent-skills",
-      "description": "Official Vercel skills for React, Next.js, web design, and Vercel workflows.",
-      "tools": null,
-      "author": "Vercel"
-    },
-    {
       "repo": "https://github.com/mattpocock/skills",
       "name": "mattpocock-skills",
       "description": "A collection of Claude and Cursor skills by Matt Pocock.",
       "tools": ["claude", "cursor"],
       "author": "Matt Pocock"
-    },
-    {
-      "repo": "https://github.com/ComposioHQ/awesome-claude-skills",
-      "name": "awesome-claude-skills",
-      "description": "A curated list of awesome Claude skills by ComposioHQ.",
-      "tools": ["claude"],
-      "author": "ComposioHQ"
-    },
-    {
-      "repo": "https://github.com/humanlayer/skills",
-      "name": "humanlayer-skills",
-      "description": "Claude Code skills for diagrams, iterative agent workflows, and development reviews.",
-      "tools": ["claude"],
-      "author": "HumanLayer"
-    },
-    {
-      "repo": "https://github.com/cursor/plugins",
-      "name": "cursor-plugins",
-      "description": "Cursor's official plugin marketplace, including agent skills and supporting assets.",
-      "tools": ["cursor"],
-      "author": "Cursor"
     },
     {
       "repo": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
@@ -57,18 +29,46 @@
       "author": "Next Level Builder"
     },
     {
-      "repo": "https://github.com/tt-a1i/archify",
-      "name": "archify",
-      "description": "Creates verifiable architecture, workflow, and sequence diagrams as interactive HTML.",
-      "tools": ["claude", "codex", "opencode"],
-      "author": "tt-a1i"
-    },
-    {
       "repo": "https://github.com/addyosmani/agent-skills",
       "name": "addyosmani-agent-skills",
       "description": "Engineering workflow skills for planning, implementation, testing, review, and shipping.",
       "tools": null,
       "author": "Addy Osmani"
+    },
+    {
+      "repo": "https://github.com/cathrynlavery/diagram-design",
+      "name": "diagram-design",
+      "description": "Creates editorial diagrams as self-contained HTML and SVG, with support for many diagram types.",
+      "tools": null,
+      "author": "cathrynlavery"
+    },
+    {
+      "repo": "https://github.com/twostraws/SwiftUI-Agent-Skill",
+      "name": "swiftui-agent-skill",
+      "description": "SwiftUI development and code review guidance for modern APIs, maintainability, and performance.",
+      "tools": null,
+      "author": "twostraws"
+    },
+    {
+      "repo": "https://github.com/QingYunA/answer-me-with-html",
+      "name": "answer-me-with-html",
+      "description": "Explains complex questions with a readable, single-page HTML answer.",
+      "tools": null,
+      "author": "QingYunA"
+    },
+    {
+      "repo": "https://github.com/konraddzbik/architecture-diagram-skill",
+      "name": "architecture-diagram-skill",
+      "description": "Builds interactive architecture diagrams with animated data flow in a single HTML file.",
+      "tools": null,
+      "author": "konraddzbik"
+    },
+    {
+      "repo": "https://github.com/lewes2/archpresent",
+      "name": "archpresent",
+      "description": "Creates interactive architecture diagrams from projects and ideas as self-contained HTML.",
+      "tools": null,
+      "author": "lewes2"
     }
   ]
 }

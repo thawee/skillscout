@@ -18,6 +18,7 @@ actor PromptLibrary {
     let project: String
     let size: Int
     let modified: Date
+    var projectPath: String? = nil
   }
 
   struct ParsedFile: Codable {
@@ -25,6 +26,7 @@ actor PromptLibrary {
     let modified: Date
     var prompts: [Prompt] = []
     var uses: [SkillUse] = []
+    var projectPath: String? = nil
   }
 
   private struct CacheFile: Codable {
@@ -33,7 +35,7 @@ actor PromptLibrary {
   }
 
   /// Bump when a parser changes, so cached results from the old one get parsed again.
-  private static let cacheVersion = 2
+  private static let cacheVersion = 3
   private let cacheFile = Paths.appSupport.appending(path: "chats-cache.json")
   private var cache: [String: ParsedFile] = [:]
   private var cacheLoaded = false
@@ -64,7 +66,7 @@ actor PromptLibrary {
     for file in transcriptFiles(since: cutoff) {
       livePaths.insert(file.url.path)
       var parsed = cache[file.url.path]
-      if parsed?.size != file.size || parsed?.modified != file.modified {
+      if parsed?.size != file.size || parsed?.modified != file.modified || parsed?.projectPath != file.projectPath {
         parsed = parse(file)
         cache[file.url.path] = parsed
         changed = true
@@ -138,13 +140,13 @@ actor PromptLibrary {
     let keys: Set<URLResourceKey> = [.contentModificationDateKey, .fileSizeKey]
     var files: [TranscriptFile] = []
 
-    func add(_ url: URL, _ source: Source, chat: String, project: String = "", fileExtension: String = "jsonl") {
+    func add(_ url: URL, _ source: Source, chat: String, project: String = "", projectPath: String? = nil, fileExtension: String = "jsonl") {
       guard url.pathExtension == fileExtension,
             let values = try? url.resourceValues(forKeys: keys),
             let modified = values.contentModificationDate,
             modified >= cutoff
       else { return }
-      files.append(TranscriptFile(url: url, source: source, chat: chat, project: project, size: values.fileSize ?? 0, modified: modified))
+      files.append(TranscriptFile(url: url, source: source, chat: chat, project: project, size: values.fileSize ?? 0, modified: modified, projectPath: projectPath))
     }
 
     func contents(_ url: URL) -> [URL] {
@@ -153,7 +155,7 @@ actor PromptLibrary {
 
     let temporaryPrefixes = ["var-folders-", "private-var-folders-", "tmp-", "private-tmp-"]
     for project in contents(Paths.at(".cursor/projects")) where !temporaryPrefixes.contains(where: project.lastPathComponent.hasPrefix) {
-      let name = cursorProjectName(project.lastPathComponent)
+      let name = Self.cursorProjectName(project.lastPathComponent)
       for chat in contents(project.appending(path: "agent-transcripts")) {
         if chat.pathExtension == "jsonl" {
           add(chat, .cursorChat, chat: chat.deletingPathExtension().lastPathComponent, project: name)
@@ -185,11 +187,10 @@ actor PromptLibrary {
 
     let hashedGeminiProjects = geminiProjectHashes()
     for project in contents(Paths.at(".gemini/tmp")) {
-      let root = try? String(contentsOf: project.appending(path: ".project_root"), encoding: .utf8)
-      let name = root.map { Self.projectName($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
-        ?? hashedGeminiProjects[project.lastPathComponent] ?? "Unknown"
+      let root = geminiProjectRoot(in: project, hashedProjects: hashedGeminiProjects)
+      let name = root.map { Self.projectName($0) } ?? "Unknown"
       for file in contents(project.appending(path: "chats")) {
-        add(file, .gemini, chat: file.deletingPathExtension().lastPathComponent, project: name, fileExtension: "json")
+        add(file, .gemini, chat: file.deletingPathExtension().lastPathComponent, project: name, projectPath: Self.projectPath(root), fileExtension: "json")
       }
     }
 
@@ -206,15 +207,29 @@ actor PromptLibrary {
   }
 
   /// Older Gemini CLI versions name each project folder after the SHA-256 of its path.
-  private func geminiProjectHashes() -> [String: String] {
-    let known = (try? Data(contentsOf: Paths.at(".gemini/projects.json"))).flatMap { Self.json($0)?["projects"] as? [String: Any] }
-    let paths = (known.map { Array($0.keys) } ?? []) + [Paths.home.path]
+  func geminiProjectHashes(in home: URL = Paths.home) -> [String: String] {
+    let known = (try? Data(contentsOf: home.appending(path: ".gemini/projects.json"))).flatMap { Self.json($0)?["projects"] as? [String: Any] }
+    let paths = (known.map { Array($0.keys) } ?? []) + [home.path]
     return Dictionary(paths.map { path in
-      (SHA256.hash(data: Data(path.utf8)).map { String(format: "%02x", $0) }.joined(), Self.projectName(path))
+      (SHA256.hash(data: Data(path.utf8)).map { String(format: "%02x", $0) }.joined(), path)
     }, uniquingKeysWith: { first, _ in first })
   }
 
-  private func cursorProjectName(_ folder: String) -> String {
+  func geminiProjectRoot(in folder: URL, hashedProjects: [String: String]) -> String? {
+    let root = try? String(contentsOf: folder.appending(path: ".project_root"), encoding: .utf8)
+    return root?.trimmingCharacters(in: .whitespacesAndNewlines) ?? hashedProjects[folder.lastPathComponent]
+  }
+
+  /// The project names Cursor's folders get for a project at `path`. Cursor names a folder after the path,
+  /// with "-" for the slashes and, in some versions, for dots and other characters too.
+  static func cursorProjectNames(forPath path: String) -> Set<String> {
+    let parts = path.drop { $0 == "/" }
+    let keptDots = String(parts.map { $0.isLetter || $0.isNumber || $0 == "." ? $0 : "-" })
+    let dashed = String(parts.map { $0.isLetter || $0.isNumber ? $0 : "-" })
+    return Set([keptDots, dashed].map(cursorProjectName))
+  }
+
+  private static func cursorProjectName(_ folder: String) -> String {
     let prefix = "Users-\(Paths.home.lastPathComponent)-"
     if folder.hasPrefix(prefix) { return String(folder.dropFirst(prefix.count)) }
     if folder.allSatisfy(\.isNumber) || folder == "empty-window" { return "No folder" }
@@ -223,8 +238,8 @@ actor PromptLibrary {
 
   // MARK: - Parsing
 
-  private func parse(_ file: TranscriptFile) -> ParsedFile {
-    var parsed = ParsedFile(size: file.size, modified: file.modified)
+  func parse(_ file: TranscriptFile) -> ParsedFile {
+    var parsed = ParsedFile(size: file.size, modified: file.modified, projectPath: file.projectPath)
     guard let data = try? Data(contentsOf: file.url, options: .alwaysMapped) else { return parsed }
 
     switch file.source {
@@ -295,7 +310,7 @@ actor PromptLibrary {
       }
     }
     return paths.map {
-      SkillUse(tool: .cursor, chat: file.chat, project: file.project, date: file.modified, folder: Self.folder(of: $0))
+      SkillUse(tool: .cursor, chat: file.chat, project: file.project, date: file.modified, folder: Self.folder(of: $0), projectPath: file.projectPath)
     }
   }
 
@@ -307,6 +322,7 @@ actor PromptLibrary {
       return ([], [])
     }
     let project = (meta["cwd"] as? String).map { URL(fileURLWithPath: $0).lastPathComponent } ?? "Unknown"
+    let projectPath = Self.projectPath(meta["cwd"])
 
     var prompts: [Prompt] = []
     for line in Self.lines(containing: #""role":"user""#, in: data) {
@@ -349,7 +365,7 @@ actor PromptLibrary {
       }
 
       let date = (object["timestamp"] as? String).flatMap(isoFormatter.date(from:)) ?? file.modified
-      uses += paths.map { SkillUse(tool: .codex, chat: file.chat, project: project, date: date, folder: Self.folder(of: $0)) }
+      uses += paths.map { SkillUse(tool: .codex, chat: file.chat, project: project, date: date, folder: Self.folder(of: $0), projectPath: projectPath) }
     }
     return (prompts, uses)
   }
@@ -396,7 +412,8 @@ actor PromptLibrary {
         let date = (object["timestamp"] as? String).flatMap(isoFormatter.date(from:)) ?? file.modified
         let chat = object["sessionId"] as? String ?? file.chat
         let project = (object["cwd"] as? String).map { URL(fileURLWithPath: $0).lastPathComponent } ?? "Unknown"
-        uses += folders.filter { !$0.isEmpty }.map { SkillUse(tool: .claude, chat: chat, project: project, date: date, folder: $0) }
+        let projectPath = Self.projectPath(object["cwd"])
+        uses += folders.filter { !$0.isEmpty }.map { SkillUse(tool: .claude, chat: chat, project: project, date: date, folder: $0, projectPath: projectPath) }
       }
     }
     return uses
@@ -444,6 +461,20 @@ actor PromptLibrary {
 
   static func projectName(_ path: Any?) -> String {
     (path as? String).map { URL(fileURLWithPath: $0).lastPathComponent } ?? "Unknown"
+  }
+
+  static func projectPath(_ value: Any?) -> String? {
+    guard let value = value as? String, !value.contains("\0") else { return nil }
+    let path: String
+    if value.hasPrefix("/") {
+      path = value
+    } else {
+      guard let url = URL(string: value), url.isFileURL,
+            url.host == nil || url.host == "" || url.host == "localhost",
+            url.path.hasPrefix("/") else { return nil }
+      path = url.path
+    }
+    return URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath().path
   }
 
   private nonisolated(unsafe) static let commandSeparator = /&&|\|\||\\n|[;|\n]/

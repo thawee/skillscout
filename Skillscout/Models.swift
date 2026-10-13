@@ -18,6 +18,43 @@ enum Paths {
     return "~" + path.dropFirst(homePath.count)
   }
 
+  /// Skillscout's own storage. Only the Library view shows these folders, so everywhere else names them instead.
+  private static let libraryStorage: [(paths: [String], name: String)] = [
+    (".config/skillscout/skills", "Library"), (".config/skillscout/drafts", "Library drafts"),
+  ].map { relative, name in
+    let url = at(relative)
+    return ([url.path, url.resolvingSymlinksInPath().path], name)
+  }
+
+  /// "Library · repo/skill" for a path in Skillscout's storage, nil for any other path.
+  static func libraryLocation(_ url: URL) -> String? {
+    let path = url.path
+    for storage in libraryStorage {
+      for root in storage.paths {
+        if path == root { return storage.name }
+        if path.hasPrefix(root + "/") { return "\(storage.name) · \(path.dropFirst(root.count + 1))" }
+      }
+    }
+    return nil
+  }
+
+  /// Files that mark a top-level Library folder as a downloaded or added repository. A skill moved into the
+  /// Library has none of them, so it stays yours to edit.
+  static let repositoryMarkers = [".skillscout-repository.json", ".skillscout-upstream.json", ".skillscout-local-source", ".git"]
+
+  /// The Library repository a path is in, or nil for a path outside the Library or in a skill moved there.
+  static func libraryRepo(_ url: URL) -> String? {
+    let path = url.path
+    guard let root = libraryStorage[0].paths.first(where: { path.hasPrefix($0 + "/") }),
+          let name = path.dropFirst(root.count + 1).split(separator: "/").first.map(String.init) else { return nil }
+    let folder = URL(fileURLWithPath: root).appending(path: name)
+    let isRepository = repositoryMarkers.contains { (try? FileManager.default.attributesOfItem(atPath: folder.appending(path: $0).path)) != nil }
+    return isRepository ? name : nil
+  }
+
+  /// A path for people to read: the Library by name, any other folder abbreviated.
+  static func describe(_ url: URL) -> String { libraryLocation(url) ?? abbreviate(url) }
+
   static let appSupport: URL = {
     let url = at("Library/Application Support/Skillscout Mod")
     if !FileManager.default.fileExists(atPath: url.path) {
@@ -114,7 +151,7 @@ enum Tool: String, CaseIterable, Codable, Identifiable, Sendable {
 }
 
 struct SkillRoot: Sendable, Hashable {
-  enum Kind: Sendable { case shared, user, builtIn, plugin, managed }
+  enum Kind: Sendable { case shared, user, builtIn, plugin, managed, drafts }
 
   let label: String
   let url: URL
@@ -124,7 +161,8 @@ struct SkillRoot: Sendable, Hashable {
 
   static let all: [SkillRoot] = [
     SkillRoot(label: "Shared", url: Paths.at(".agents/skills"), kind: .shared, owner: nil, readBy: [.cursor, .codex, .copilot, .gemini, .antigravity, .opencode, .droid, .pi]),
-    SkillRoot(label: "Skillscout Managed", url: Paths.at(".config/skillscout/skills"), kind: .managed, owner: nil, readBy: []),
+    SkillRoot(label: "Library", url: Paths.at(".config/skillscout/skills"), kind: .managed, owner: nil, readBy: []),
+    SkillRoot(label: "Library drafts", url: Paths.at(".config/skillscout/drafts"), kind: .drafts, owner: nil, readBy: []),
     SkillRoot(label: "Cursor", url: Paths.at(".cursor/skills"), kind: .user, owner: .cursor, readBy: [.cursor]),
     SkillRoot(label: "Claude Code", url: Paths.at(".claude/skills"), kind: .user, owner: .claude, readBy: [.claude, .cursor, .opencode]),
     SkillRoot(label: "Codex", url: Paths.at(".codex/skills"), kind: .user, owner: .codex, readBy: [.codex, .cursor]),
@@ -155,18 +193,14 @@ struct SkillCopy: Identifiable, Sendable, Hashable {
 
   var id: String { folder.path }
 
+  /// The files live in Skillscout's storage, directly or through a link.
+  var isInLibraryStorage: Bool { Paths.libraryLocation(resolved) != nil }
+
+  /// Where the files live, for pickers. Nil for Library storage, which pickers name by source label alone.
+  var visiblePath: String? { isInLibraryStorage ? nil : Paths.abbreviate(resolved) }
+
   var sourceLabel: String {
-    if root.kind == .managed {
-      let managedURL = Paths.at(".config/skillscout/skills").path
-      let path = resolved.path
-      if path.hasPrefix(managedURL) {
-        let relative = String(path.dropFirst(managedURL.count))
-        let components = relative.split(separator: "/")
-        if let first = components.first, !first.isEmpty {
-          return "From \(String(first))"
-        }
-      }
-    }
+    if root.kind == .managed, let repo = Paths.libraryRepo(resolved) { return "From \(repo)" }
     guard let pluginName, let owner = root.owner else { return root.label }
     return "\(pluginName) plugin for \(owner.name)"
   }
@@ -197,21 +231,45 @@ struct Skill: Identifiable, Sendable, Hashable {
   func created(usage: SkillUsage?) -> Date { min(folderCreated, usage?.firstUsed ?? .distantFuture) }
 
   /// The copies in your own skills folders. Plugins and tools manage the others.
-  var removableCopies: [SkillCopy] { copies.filter { $0.root.kind == .user || $0.root.kind == .shared || $0.root.kind == .managed } }
+  var removableCopies: [SkillCopy] { copies.filter { $0.root.kind == .user || $0.root.kind == .shared || $0.root.kind == .managed || $0.root.kind == .drafts } }
 
   var isPersonal: Bool { !removableCopies.isEmpty }
 
   var isManaged: Bool { copies.contains { $0.root.kind == .managed } }
 
+  var isInLibrary: Bool { copies.contains { [.managed, .drafts, .shared].contains($0.root.kind) } }
+
+  var isInstalledInAnyTool: Bool { !availableIn.isEmpty }
+
+  var isLibraryOnly: Bool {
+    (isManaged || copies.contains { $0.root.kind == .drafts }) && !isInstalledInAnyTool
+  }
+
+  var isOutsideLibrary: Bool {
+    isPersonal && !copies.contains { $0.root.kind == .managed || $0.root.kind == .shared || $0.root.kind == .drafts }
+  }
+
   /// Installed library skills remain visible before they are linked to an enabled agent.
   func isVisible(in tools: Set<Tool>, includePlugins: Bool) -> Bool {
-    (includePlugins || isPersonal) && (isManaged || !availableIn.isDisjoint(with: tools))
+    (includePlugins || isPersonal) && (isManaged || copies.contains { $0.root.kind == .drafts } || !availableIn.isDisjoint(with: tools))
   }
 
   /// Removing a folder takes the links to it along, since they'd point to nothing.
   func copiesGoing(with copy: SkillCopy) -> [SkillCopy] {
     guard !copy.isSymlink else { return [copy] }
     return [copy] + removableCopies.filter { $0 != copy && $0.isSymlink && $0.resolved == copy.resolved }
+  }
+
+  func copiesRemoving(from tool: Tool) -> [SkillCopy] {
+    var seen = Set<String>()
+    return removableCopies.filter { $0.root.readBy.contains(tool) }
+      .flatMap { copiesGoing(with: $0) }
+      .filter { seen.insert($0.folder.standardizedFileURL.path).inserted }
+      .sorted {
+        let firstDepth = $0.folder.pathComponents.count
+        let secondDepth = $1.folder.pathComponents.count
+        return firstDepth == secondDepth ? $0.folder.path < $1.folder.path : firstDepth > secondDepth
+      }
   }
 
   /// The tools that stop loading the skill once `removed` are gone.
@@ -228,6 +286,18 @@ struct Skill: Identifiable, Sendable, Hashable {
 
   var isBuiltInOnly: Bool { copies.allSatisfy { $0.root.kind == .builtIn } }
 
+  func isSystemOnly(in tools: Set<Tool>) -> Bool {
+    let sources = copies.filter { !$0.root.readBy.isDisjoint(with: tools) }
+    return !sources.isEmpty && sources.allSatisfy { $0.root.kind == .builtIn }
+  }
+
+  func systemOwners(in tools: Set<Tool>) -> [Tool] {
+    let owners = Set(copies.filter {
+      $0.root.kind == .builtIn && !$0.root.readBy.isDisjoint(with: tools)
+    }.compactMap(\.root.owner))
+    return Tool.allCases.filter { owners.contains($0) }
+  }
+
   var isPluginOnly: Bool { copies.allSatisfy { $0.root.kind == .plugin } }
 
   func provider(for tool: Tool) -> SkillCopy? {
@@ -235,16 +305,7 @@ struct Skill: Identifiable, Sendable, Hashable {
   }
 
   var managedRepos: [String] {
-    // Compare the scanned folder with its root, both unresolved, so a home path behind a link still matches.
-    let repos = copies.filter { $0.root.kind == .managed }.compactMap { copy -> String? in
-      let managedURL = copy.root.url.path
-      let path = copy.folder.path
-      guard path.hasPrefix(managedURL + "/") else { return nil }
-      let relative = String(path.dropFirst(managedURL.count))
-      let components = relative.split(separator: "/")
-      guard let first = components.first, !first.isEmpty else { return nil }
-      return String(first)
-    }
+    let repos = copies.filter { $0.root.kind == .managed }.compactMap { Paths.libraryRepo($0.folder) ?? Paths.libraryRepo($0.resolved) }
     return Array(Set(repos))
   }
 }
@@ -280,23 +341,42 @@ struct SkillUse: Codable, Hashable, Sendable {
   let date: Date
   /// The skill folder path, or only the skill name when the tool logs just that.
   let folder: String
+  let projectPath: String?
+
+  init(tool: Tool, chat: String, project: String, date: Date, folder: String, projectPath: String? = nil) {
+    self.tool = tool
+    self.chat = chat
+    self.project = project
+    self.date = date
+    self.folder = folder
+    self.projectPath = projectPath
+  }
 }
 
-struct SkillUsage: Sendable {
-  var chats = 0
-  var byTool: [Tool: Int] = [:]
-  var projects: [String: Int] = [:]
-  var firstUsed = Date.distantFuture
-  var lastUsed = Date.distantPast
+struct RecordedChat: Hashable, Sendable {
+  let tool: Tool
+  let project: String
+  let chat: String
+  let projectPath: String?
 
-  var topProjects: [String] {
-    projects.sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }.prefix(3).map(\.key)
+  init(_ use: SkillUse) {
+    tool = use.tool
+    project = use.project
+    chat = use.chat
+    projectPath = use.projectPath
   }
+}
 
-  /// `aliases` maps old skill names to new ones, so a chat that used a skill before a rename or a merge still counts.
-  static func tally(_ uses: [SkillUse], skills: [Skill], aliases: [String: String] = [:]) -> [Skill.ID: SkillUsage] {
-    var byFolder: [String: Skill.ID] = [:]
-    var byName: [String: Skill.ID] = [:]
+struct RecordedSkillChat: Hashable, Sendable {
+  let skill: Skill.ID
+  let chat: RecordedChat
+}
+
+struct SkillUseResolver: Sendable {
+  private var byFolder: [String: Skill.ID] = [:]
+  private var byName: [String: Skill.ID] = [:]
+
+  init(skills: [Skill], aliases: [String: String] = [:]) {
     for skill in skills {
       for copy in skill.copies {
         byFolder[copy.folder.path] = skill.id
@@ -315,15 +395,35 @@ struct SkillUsage: Sendable {
       }
       byName[old] = byName[name]
     }
+  }
 
+  func skillID(for use: SkillUse) -> Skill.ID? {
+    byFolder[use.folder] ?? byName[(use.folder as NSString).lastPathComponent]
+  }
+}
+
+struct SkillUsage: Sendable {
+  var chats = 0
+  var byTool: [Tool: Int] = [:]
+  var projects: [String: Int] = [:]
+  var firstUsed = Date.distantFuture
+  var lastUsed = Date.distantPast
+
+  var topProjects: [String] {
+    projects.sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }.prefix(3).map(\.key)
+  }
+
+  /// `aliases` maps old skill names to new ones, so a chat that used a skill before a rename or a merge still counts.
+  static func tally(_ uses: [SkillUse], skills: [Skill], aliases: [String: String] = [:]) -> [Skill.ID: SkillUsage] {
+    let resolver = SkillUseResolver(skills: skills, aliases: aliases)
     var usage: [Skill.ID: SkillUsage] = [:]
-    var counted = Set<String>()
+    var counted = Set<RecordedSkillChat>()
     for use in uses {
-      guard let id = byFolder[use.folder] ?? byName[(use.folder as NSString).lastPathComponent] else { continue }
+      guard let id = resolver.skillID(for: use) else { continue }
       var entry = usage[id] ?? SkillUsage()
       entry.firstUsed = min(entry.firstUsed, use.date)
       entry.lastUsed = max(entry.lastUsed, use.date)
-      if counted.insert("\(id)|\(use.tool.rawValue)|\(use.chat)").inserted {
+      if counted.insert(RecordedSkillChat(skill: id, chat: RecordedChat(use))).inserted {
         entry.chats += 1
         entry.byTool[use.tool, default: 0] += 1
         entry.projects[use.project, default: 0] += 1
@@ -360,6 +460,7 @@ struct Suggestion: Codable, Identifiable, Hashable, Sendable {
   var createdAt: Date
   var draft: String?
   var savedTo: String?
+  var savedSkillID: Skill.ID?
 
   var tools: [Tool] { Tool.allCases.filter { tool in examples.contains { $0.tool == tool } } }
 

@@ -30,6 +30,7 @@ struct SuggestionList: View {
 }
 
 struct SuggestionRow: View {
+  @Environment(AppStore.self) private var store
   let suggestion: Suggestion
 
   var body: some View {
@@ -54,16 +55,41 @@ struct SuggestionRow: View {
           .font(.caption)
           .foregroundStyle(.secondary)
         Spacer()
-        ForEach(suggestion.tools) { ToolBadge(tool: $0) }
+      }
+      WrapLayout(spacing: 4) {
+        ForEach(store.tools.filter(suggestion.tools.contains)) { ToolBadge(tool: $0) }
       }
     }
     .padding(.vertical, 4)
   }
 }
 
+private enum DraftDestination: Hashable {
+  case library, all, tool(Tool)
+}
+
 struct SuggestionDetail: View {
   @Environment(AppStore.self) private var store
   let suggestion: Suggestion
+  @State private var destination = DraftDestination.library
+  @State private var isSaving = false
+
+  private var saveTarget: SaveTarget {
+    switch destination {
+    case .library: .library
+    case .all: .everywhere(store.tools)
+    case .tool(let tool): .tool(tool)
+    }
+  }
+
+  private var destinationNote: String {
+    switch destination {
+    case .library: "Saves to your library without making the skill available to tools. Add it to a tool or skillset when you are ready."
+    case .all: saveEverywhereNote
+    case .tool(let tool):
+      "Saves in \(Paths.abbreviate(tool.skillsFolder)). This folder is read by \(store.tools.filter { candidate in SkillRoot.all.contains { $0.url == tool.skillsFolder && $0.readBy.contains(candidate) } }.map(\.name).formatted())."
+    }
+  }
 
   private var isDrafting: Bool { store.busy.contains("draft:\(suggestion.id)") }
 
@@ -91,7 +117,9 @@ struct SuggestionDetail: View {
             Text("Asked \(suggestion.examples.count) times in ^[\(suggestion.projects.count) project](inflect: true)")
               .font(.callout)
               .foregroundStyle(.secondary)
-            ForEach(suggestion.tools) { ToolBadge(tool: $0) }
+          }
+          WrapLayout(spacing: 4) {
+            ForEach(store.tools.filter(suggestion.tools.contains)) { ToolBadge(tool: $0) }
           }
         }
         .textSelection(.enabled)
@@ -110,6 +138,10 @@ struct SuggestionDetail: View {
       .frame(maxWidth: 820, alignment: .leading)
       .frame(maxWidth: .infinity, alignment: .leading)
     }
+    .onChange(of: store.tools) {
+      if case .tool(let tool) = destination, !store.tools.contains(tool) { destination = .library }
+      if destination == .all, store.tools.isEmpty { destination = .library }
+    }
   }
 
   @ViewBuilder
@@ -123,29 +155,50 @@ struct SuggestionDetail: View {
           .disabled(suggestion.savedTo != nil)
 
         if let saved = suggestion.savedTo {
-          Label("Saved to \(Paths.abbreviate(URL(fileURLWithPath: saved)))", systemImage: "checkmark.circle.fill")
+          Label("Saved to \(Paths.describe(URL(fileURLWithPath: saved)))", systemImage: "checkmark.circle.fill")
             .foregroundStyle(.green)
-        } else {
-          HStack(spacing: 10) {
-            Menu("Save to all tools") {
-              ForEach(store.tools) { tool in
-                Button("Save to \(tool.name) only") {
-                  Task { await store.save(suggestion.id, to: .tool(tool)) }
-                }
-              }
-            } primaryAction: {
-              Task { await store.save(suggestion.id, to: .everywhere(store.tools)) }
-            }
-            .fixedSize()
-            Button("Redraft") { Task { await store.draft(suggestion.id) } }
-              .disabled(isDrafting)
-            if isDrafting {
-              ProgressView().controlSize(.small)
-            }
+          ForEach(store.suggestionSaveIssues[suggestion.id] ?? [], id: \.self) { issue in
+            Label(issue, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
           }
-          Text(saveEverywhereNote)
-            .font(.caption)
-            .foregroundStyle(.secondary)
+          if let skill = store.savedSkill(for: suggestion) {
+            Button("Open skill") { store.revealRequest = skill.id }
+            SkillSelectionActions(skills: [skill])
+            Text(skill.availableIn.intersection(store.tools).isEmpty ? "Not available to enabled tools."
+              : "Available to \(store.tools.filter(skill.availableIn.contains).map(\.name).formatted()).")
+              .font(.callout).foregroundStyle(.secondary)
+            if let usage = store.usage[skill.id] {
+              Text("Recorded in \(usage.chats) chats in \(store.usageScopeDescription).")
+                .font(.callout).foregroundStyle(.secondary)
+            } else {
+              Text("No recorded use in \(store.usageScopeDescription). Your retained chats may not include every use.")
+                .font(.callout).foregroundStyle(.secondary)
+            }
+          } else {
+            Text("The saved skill is no longer in the scanned library. Restore its source to open it again.")
+              .font(.callout).foregroundStyle(.secondary)
+          }
+        } else {
+          ChoiceChips(title: "Save destination", options:
+            [ChoiceOption(value: DraftDestination.library, title: "Library only", symbol: "books.vertical")] + (store.tools.isEmpty ? [] : [ChoiceOption(value: DraftDestination.all, title: "All enabled tools", symbol: "globe")])
+              + store.tools.map { ChoiceOption(value: DraftDestination.tool($0), title: $0.name, symbol: $0.symbol, tint: $0.color) },
+            selection: $destination)
+          Text(destinationNote).font(.caption).foregroundStyle(.secondary)
+          if case .tool(let tool) = destination {
+            DisabledReaderNotice(readers: Set(SkillRoot.all.filter { $0.url == tool.skillsFolder }.flatMap(\.readBy)))
+          } else if destination == .all { DisabledReaderNotice(readers: Set(SkillRoot.all[0].readBy)) }
+          HStack(spacing: 10) {
+            Button("Save skill") {
+              Task {
+                isSaving = true
+                await store.save(suggestion.id, to: saveTarget)
+                isSaving = false
+              }
+            }
+            .buttonStyle(.borderedProminent).disabled(isSaving)
+            Button("Redraft") { Task { await store.draft(suggestion.id) } }
+              .disabled(isDrafting || isSaving)
+            if isDrafting || isSaving { ProgressView().controlSize(.small) }
+          }
         }
       }
     } else if isDrafting {
@@ -164,7 +217,7 @@ struct SuggestionDetail: View {
 
   private var examples: some View {
     VStack(alignment: .leading, spacing: 12) {
-      ForEach(suggestion.examples.prefix(40)) { prompt in
+      ForEach(suggestion.examples.filter { store.tools.contains($0.tool) }.prefix(40)) { prompt in
         VStack(alignment: .leading, spacing: 4) {
           HStack(spacing: 6) {
             ToolBadge(tool: prompt.tool)
