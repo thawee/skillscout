@@ -271,7 +271,17 @@ enum RepositoryLibrary {
       switch source {
       case .git(let address):
         let transport = transportAddress(source: source, token: token)
-        _ = try await RepositoryGit.run(["clone", "--no-checkout", "--", transport, folder.path])
+        var cloneArguments = ["clone", "--no-checkout"]
+        switch ref {
+        case .defaultBranch:
+          cloneArguments += ["--depth=1"]
+        case .branch(let name):
+          try validateRef(name)
+          cloneArguments += ["--depth=1", "--branch", name]
+        case .tag, .commit:
+          break
+        }
+        _ = try await RepositoryGit.run(cloneArguments + ["--", transport, folder.path])
         _ = try await RepositoryGit.run(["-C", folder.path, "remote", "set-url", "origin", cleanAddress(address)])
         let target: String
         switch ref {

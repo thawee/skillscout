@@ -214,6 +214,32 @@ import Testing
     }
   }
 
+  @Test func branchPreviewsLoadOnlyTheSelectedSnapshot() async throws {
+    let root = try temporaryFolder(); defer { try? FileManager.default.removeItem(at: root) }
+    let origin = try await remote(in: root)
+    _ = try await commit(in: origin, message: "Earlier history", empty: true)
+    _ = try await git(["checkout", "-b", "feature"], in: origin)
+    try skill("fixture", in: origin.appending(path: "nested/fixture"), body: "Feature snapshot")
+    let featureCommit = try await commit(in: origin, message: "Feature skill")
+    _ = try await git(["checkout", "main"], in: origin)
+    try skill("fixture", in: origin.appending(path: "nested/fixture"), body: "Main snapshot")
+    let mainCommit = try await commit(in: origin, message: "Main skill")
+    let source = RepositorySource.git(origin.absoluteString)
+    for (ref, expectedRef, expectedCommit, body) in [
+      (RepositoryRef.defaultBranch, RepositoryRef.branch("main"), mainCommit, "Main snapshot"),
+      (RepositoryRef.branch("feature"), RepositoryRef.branch("feature"), featureCommit, "Feature snapshot")
+    ] {
+      let preview = try await RepositoryLibrary.preview(source: source, ref: ref)
+      defer { RepositoryLibrary.discard(preview) }
+      #expect(preview.ref == expectedRef)
+      #expect(preview.commit == expectedCommit)
+      #expect(preview.skills.map(\.relativePath) == ["nested/fixture"])
+      #expect(try String(contentsOf: preview.folder.appending(path: "nested/fixture/SKILL.md"), encoding: .utf8).contains(body))
+      #expect(try await git(["rev-list", "--count", "HEAD"], in: preview.folder).trimmingCharacters(in: .whitespacesAndNewlines) == "1")
+      #expect(try await git(["rev-parse", "--is-shallow-repository"], in: preview.folder).trimmingCharacters(in: .whitespacesAndNewlines) == "true")
+    }
+  }
+
   @Test func checkAndCommitOnlyUpdateAdvanceWithoutChangingSkillFiles() async throws {
     let root = try temporaryFolder(); defer { try? FileManager.default.removeItem(at: root) }
     let origin = try await remote(in: root), library = root.appending(path: "library")
