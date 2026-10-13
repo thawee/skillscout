@@ -16,7 +16,13 @@ struct UsageReport: Sendable {
   let days: [Day]
   let scope: UsageScope
   let loadedDays: Int
-  let window: DateInterval
+  private(set) var window: DateInterval
+
+  func withWindow(endingAt now: Date) -> UsageReport {
+    var report = self
+    report.window = DateInterval(start: now.addingTimeInterval(-Double(scope.days ?? loadedDays) * 86_400), end: now)
+    return report
+  }
 
   var usedSkills: Int { usage.count }
   var unrecordedSkills: [Skill] { skills.filter { usage[$0.id] == nil } }
@@ -28,7 +34,7 @@ struct UsageReport: Sendable {
   }
 
   init(uses: [SkillUse], skills: [Skill], enabledTools: Set<Tool>, scope: UsageScope,
-       tool: Tool? = nil, loadedDays: Int, aliases: [String: String] = [:], now: Date = Date()) {
+       tool: Tool? = nil, loadedDays: Int, aliases: [String: String] = [:], now: Date = Date(), calendar: Calendar = .current) {
     self.loadedDays = loadedDays
     var effective = scope
     if let days = effective.days, days >= loadedDays { effective.days = nil }
@@ -55,7 +61,7 @@ struct UsageReport: Sendable {
     for (chat, date) in chatDates {
       tools[chat.tool, default: 0] += 1
       projects[chat.project, default: 0] += 1
-      daily[Calendar.current.startOfDay(for: date), default: 0] += 1
+      daily[calendar.startOfDay(for: date), default: 0] += 1
     }
     byTool = tools
     byProject = projects

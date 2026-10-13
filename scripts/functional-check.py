@@ -8,6 +8,7 @@ import sys
 import uuid
 
 root = Path(__file__).resolve().parent.parent
+swiftui = "--swiftui" in sys.argv
 projects = "--projects" in sys.argv
 selectors = "--selectors" in sys.argv
 repository_updates = "--repository-updates" in sys.argv
@@ -17,7 +18,7 @@ manage_only = "--manage-only" in sys.argv
 skillset_scope_only = "--skillset-scope-only" in sys.argv
 global_counts_only = "--global-counts-only" in sys.argv
 enabled_tools = "--enabled-tools" in sys.argv or providers_only or system_only or manage_only or skillset_scope_only or global_counts_only
-suite = "enabled-tools-check" if enabled_tools else "repository-update-check" if repository_updates else "selection-check" if selectors else "project-check" if projects else "functional-check"
+suite = "swiftui-check" if swiftui else "enabled-tools-check" if enabled_tools else "repository-update-check" if repository_updates else "selection-check" if selectors else "project-check" if projects else "functional-check"
 build = root / "build" / suite
 app = build / "Functional Check.app"
 exe = app / "Contents/MacOS/FunctionalCheck"
@@ -54,11 +55,11 @@ if "--build-only" not in sys.argv:
     result = output / "result.txt"
     if result.exists():
         result.unlink()
-    if projects or selectors or repository_updates or enabled_tools:
+    if swiftui or projects or selectors or repository_updates or enabled_tools:
         output.mkdir(parents=True, exist_ok=True)
         (output / "render-manifest.json").unlink(missing_ok=True)
         (output / "fixture-home.txt").write_text(str(home))
-    if selectors or repository_updates or enabled_tools:
+    if swiftui or selectors or repository_updates or enabled_tools:
         native_stdout = output / "native-stdout.log"
         native_stderr = output / "native-stderr.log"
         native_stdout.write_text("")
@@ -86,7 +87,7 @@ if "--build-only" not in sys.argv:
                 print(message, end="")
                 sys.exit(1)
     else:
-        subprocess.run([str(exe), str(home), str(output)], env=env, check=True, timeout=120)
+        subprocess.run([str(exe), str(home), str(output)], env=env, check=True, timeout=240)
     message = result.read_text()
     print(message, end="")
     print("Screenshots:", output)

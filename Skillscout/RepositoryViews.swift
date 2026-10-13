@@ -81,7 +81,6 @@ struct RepositoryList: View {
         }
       }
     }
-    .navigationSplitViewColumnWidth(min: 260, ideal: 320)
     .toolbar {
       Button { showingAdd = true } label: { Label("Add source", systemImage: "plus") }
       if !localOnly {

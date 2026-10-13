@@ -462,17 +462,32 @@ struct SkillsetEditor: View {
   let skillset: Skillset
   @Environment(AppStore.self) private var store
   @Environment(\.dismiss) private var dismiss
+  @State private var name: String
   @State private var search = ""
   @State private var members: Set<Skill.ID>
 
   init(skillset: Skillset) {
     self.skillset = skillset
+    _name = State(initialValue: skillset.name)
     _members = State(initialValue: skillset.skills)
+  }
+
+  private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
+  private var nameIssue: String? {
+    if trimmedName.isEmpty { return "Enter a skillset name." }
+    if trimmedName != skillset.name,
+       store.skillsets.contains(where: { $0.id != skillset.id && $0.name.lowercased() == trimmedName.lowercased() }) {
+      return "Another skillset already has this name."
+    }
+    return nil
   }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text("Skills in \(skillset.name)").font(.headline)
+      Text("Edit skillset").font(.headline)
+      Text("Name").font(.caption).foregroundStyle(.secondary)
+      TextField("Skillset name", text: $name).textFieldStyle(.roundedBorder)
+      if let nameIssue { Text(nameIssue).font(.caption).foregroundStyle(.orange) }
       TextField("Search skills and sources", text: $search).textFieldStyle(.roundedBorder)
       List {
         ForEach(store.skills.filter { skill in
@@ -516,11 +531,12 @@ struct SkillsetEditor: View {
       HStack {
         Spacer()
         Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
-        Button("Save membership") {
-          if store.replaceSkillsetMembers(members, in: skillset.id) { dismiss() }
+        Button("Save changes") {
+          if store.updateSkillset(skillset.id, name: name, members: members) { dismiss() }
         }
         .buttonStyle(.borderedProminent)
         .keyboardShortcut(.defaultAction)
+        .disabled(nameIssue != nil)
       }
     }
     .padding(20)

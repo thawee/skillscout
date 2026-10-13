@@ -24,6 +24,18 @@ final class AppStore {
   var preferredSources: [Skill.ID: String] = [:]
   var isManagingSkillsets = false
   var projectState = ProjectState()
+  var orderedProjects: [RegisteredProject] {
+    projectState.projects.sorted {
+      let order = $0.name.localizedStandardCompare($1.name)
+      return order == .orderedSame ? $0.path < $1.path : order == .orderedAscending
+    }
+  }
+  var orderedSkillsets: [Skillset] {
+    skillsets.sorted {
+      let order = $0.name.localizedStandardCompare($1.name)
+      return order == .orderedSame ? $0.id.uuidString < $1.id.uuidString : order == .orderedAscending
+    }
+  }
   var projectInventories: [UUID: ProjectInventory] = [:]
   var projectIssues: [UUID: [String]] = [:]
   var projectNotes: [UUID: [String]] = [:]
@@ -79,6 +91,8 @@ final class AppStore {
   /// A skill to select once it has a new name, or once a merge made it.
   var revealRequest: Skill.ID?
 
+  @ObservationIgnored private var reportCache = UsageReportCache()
+  @ObservationIgnored private var reportAliases = SkillAliasSnapshot()
   @ObservationIgnored private let library = PromptLibrary()
   @ObservationIgnored private var allPrompts: [Prompt] = []
   @ObservationIgnored private var uses: [SkillUse] = []
@@ -233,10 +247,9 @@ final class AppStore {
 
   func usageReport(scope: UsageScope, tool: Tool? = nil, includeSystemSkills: Bool = true, now: Date = Date()) -> UsageReport {
     _ = reportUsageRevision
-    let readers = tool.map { Set([$0]) } ?? Set(tools)
-    let reportSkills = includeSystemSkills ? skills : skills.filter { $0.isInLibrary || !$0.isSystemOnly(in: readers) }
-    return UsageReport(uses: uses, skills: reportSkills, enabledTools: Set(tools), scope: scope, tool: tool,
-      loadedDays: loadedLookbackDays, aliases: SkillAliases.load(), now: now)
+    let inputs = UsageReportInputs(uses: uses, skills: skills, enabledTools: Set(tools),
+      loadedDays: loadedLookbackDays, aliases: reportAliases.load())
+    return reportCache.report(inputs: inputs, scope: scope, tool: tool, includeSystemSkills: includeSystemSkills, now: now)
   }
 
   var usageScopeDescription: String { usageScope.description(loadedDays: loadedLookbackDays) }

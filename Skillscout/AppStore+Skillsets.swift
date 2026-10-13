@@ -61,6 +61,20 @@ extension AppStore {
     return true
   }
 
+  @discardableResult
+  func updateSkillset(_ id: UUID, name: String, members: Set<Skill.ID>) -> Bool {
+    guard !isManagingSkillsets, let index = skillsets.firstIndex(where: { $0.id == id }) else { return false }
+    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return false }
+    if trimmed != skillsets[index].name,
+       skillsets.contains(where: { $0.id != id && $0.name.lowercased() == trimmed.lowercased() }) { return false }
+    let previous = skillsets[index]
+    skillsets[index].name = trimmed
+    skillsets[index].skills = members
+    if !saveState() { skillsets[index] = previous; return false }
+    return true
+  }
+
   private func proposedAssignments(_ skillset: Skillset, to tool: Tool, assigned: Bool) -> [SkillsetAssignment] {
     var proposed = skillsetAssignments.filter { !($0.skillsetID == skillset.id && $0.tool == tool) }
     if assigned { proposed.append(SkillsetAssignment(skillsetID: skillset.id, tool: tool, members: skillset.skills)) }

@@ -230,12 +230,12 @@ The destinations appear in this order.
 | Library | Reusable central, draft, and shared skill sources. |
 | Global | Home-level skill installations and agent availability. |
 | Projects | All projects, registered workspace folders with path subtitles, and Register project. |
-| Chat activity | Used in 2+ chats, Used in 1 chat, and No recorded use within the selected scope. A caption, **Every skill, not only Library**, names the scope. |
-| Plugins | Installed plugins for enabled tools, with read-only details. |
 | Skillsets | Named collections, New Skillset, and Import Skillset. |
 | Ideas | Suggestions and Similar skills. |
+| Chat activity | Used in 2+ chats, Used in 1 chat, and No recorded use within the selected scope. A caption, **Every skill, not only Library**, names the scope. |
+| Plugins | Installed plugins for enabled tools, with read-only details. |
 
-Library and Global can contain the same skill. A Chat activity count is separate from installation status. Project entries distinguish duplicate folder names with their paths.
+Registered projects and skillsets appear alphabetically by name. Project entries distinguish duplicate folder names with their paths. Library and Global can contain the same skill. A Chat activity count is separate from installation status.
 
 ## Shared selection controls
 
@@ -317,13 +317,13 @@ Agent chips filter availability. Show chips switch between **Available here** an
 
 Rows appear once per skill and can show both **Project** and **Inherited from Global** labels. The detail pane separates local copies from inherited installations. **Manage in Global…** opens the inherited skill in Global with the relevant agent filter.
 
-The overview shows individual additions, read-only applied skillset summaries, native roots, inventory issues, and recovery state. Skillset actions live in **Manage…**, using the [shared management screen](#shared-skillset-management). Unavailable projects have an explicit unavailable state. Filtered empty lists offer Reset filters when applicable. After an apply, the overview shows one summary line with **Dismiss**, and the per-skill results sit under **Details (N)**.
+The overview shows individual additions, read-only applied skillset summaries, native roots, inventory issues, and recovery state. Skillset actions live in **Manage…**, using the [shared management screen](#shared-skillset-management). Unavailable projects have an explicit unavailable state. Filtered empty lists offer Reset filters when applicable. After an apply, the overview shows one summary line with **Dismiss**, and the per-skill results sit under **Details (N)**. The apply sheet scrolls its content in a short window while keeping its action buttons visible.
 
 ## Skillset membership view
 
 Selecting a skillset shows its members, **Edit…**, assignment summary, **Install skillset…**, and Sort choices. The list and member details omit **Project** and **Period** controls. Chat counts, **Use** sorting, and usage labels cover all loaded history for enabled agents. Saved project and period filters from other screens do not change this view.
 
-**Edit…** changes membership. **Install skillset…** applies the skillset to a destination, Global or a registered project. It isn't called **Add skills…**, because on the same screen the toolbar's **Add skills…** installs the selected skills. Usage filters remain in Dashboard. Viewing or sorting members does not alter assignments or applied project snapshots.
+**Edit…** changes the name and membership together. The sidebar context menu offers **Rename…** and opens the same editor. Names are trimmed and must be nonempty and unique. Renaming keeps the collection's identity and assignments. **Install skillset…** applies the skillset to a destination, Global or a registered project. It isn't called **Add skills…**, because on the same screen the toolbar's **Add skills…** installs the selected skills. Usage filters remain in Dashboard. Viewing or sorting members does not alter assignments or applied project snapshots.
 
 ## Shared skillset management
 
@@ -369,6 +369,8 @@ Project review shows the target group and changes before Apply. Shared and Claud
 
 The app follows system light and dark appearance. It uses semantic foreground styles, system accent color, native text styles, and SF Symbols. Paths and commands use monospaced text where appropriate.
 
+Skill names can use two lines in narrow detail panes, detail actions wrap, and Discovery reserves enough list width for source names.
+
 Choice chips have 8-point horizontal padding, 5-point vertical padding, and 5-point wrapping gaps. Search triggers have an 8-point corner radius. Result rows have a 7-point corner radius and 9-point padding.
 
 Selected chips expose a selection value and combine a checkmark with color. Search triggers expose the current value. Result buttons expose Selected or Not selected. Help text provides full choice details when labels or paths are truncated.
@@ -380,14 +382,18 @@ Selected chips expose a selection value and combine a checkmark with color. Sear
 | File | Responsibility |
 | --- | --- |
 | [ContentView.swift](Skillscout/ContentView.swift) | Sidebar, routing, shared list headers, toolbar, and presentations. |
+| [GlobalSkillHeader.swift](Skillscout/GlobalSkillHeader.swift) | Global list controls and counts. |
+| [SkillListFilters.swift](Skillscout/SkillListFilters.swift) | Shared skill-list filter controls. |
 | [Components.swift](Skillscout/Components.swift) | Choice controls, wrapping layout, agent badges, detail sections, and plain-text editing. |
 | [SkillViews.swift](Skillscout/SkillViews.swift) | Skill rows, adaptive agent badges, details, editing, and rename UI. |
+| [SkillDetailInspection.swift](Skillscout/SkillDetailInspection.swift) | Background source inspection for skill details. |
 | [ProjectViews.swift](Skillscout/ProjectViews.swift) | Project inventory, detail, contents, application, and recovery UI. |
 | [SkillActionViews.swift](Skillscout/SkillActionViews.swift) | Add-skills entry, Global review, source inspection, and usage controls. |
 | [RepositoryViews.swift](Skillscout/RepositoryViews.swift) | Repository lists, details, and version choice. |
 | [RepositoryUpdateViews.swift](Skillscout/RepositoryUpdateViews.swift) | File decisions, manual merge editor, and final update review. |
 | [RepositoryUpdateImpactViews.swift](Skillscout/RepositoryUpdateImpactViews.swift) | Linked readers, independent copies, project copies, and new skill impact. |
 | [ReportsView.swift](Skillscout/ReportsView.swift) | Dashboard and report filters. |
+| [UsageReportCache.swift](Skillscout/UsageReportCache.swift) | Reusable usage-report snapshots and invalidation. |
 | [SkillsetViews.swift](Skillscout/SkillsetViews.swift) | Membership and assignment management. |
 | [SettingsView.swift](Skillscout/SettingsView.swift) | Tool, AI, analysis, and maintenance settings. |
 

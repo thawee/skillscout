@@ -348,15 +348,23 @@ enum FunctionalCheck {
     try check(Set(store.registrySkills.map(\.repo)).isSuperset(of: [
       "https://github.com/android/skills",
       "https://github.com/anthropics/skills",
+      "https://github.com/mattpocock/skills",
+      "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+      "https://github.com/addyosmani/agent-skills",
+      "https://github.com/cathrynlavery/diagram-design",
+      "https://github.com/twostraws/SwiftUI-Agent-Skill",
+      "https://github.com/QingYunA/answer-me-with-html",
+      "https://github.com/konraddzbik/architecture-diagram-skill",
+      "https://github.com/lewes2/archpresent",
+    ]), "Discover includes verified default skill sources")
+    try check(Set(store.registrySkills.map(\.repo)).isDisjoint(with: [
+      "https://github.com/Graphify-Labs/graphify",
       "https://github.com/vercel-labs/agent-skills",
+      "https://github.com/tt-a1i/archify",
       "https://github.com/humanlayer/skills",
       "https://github.com/cursor/plugins",
-      "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
-      "https://github.com/tt-a1i/archify",
-      "https://github.com/addyosmani/agent-skills",
-    ]), "Discover includes verified default skill sources")
-    try check(!store.registrySkills.contains { $0.repo == "https://github.com/Graphify-Labs/graphify" },
-      "Graphify is absent from the default registry")
+      "https://github.com/ComposioHQ/awesome-claude-skills",
+    ]), "Removed sources are absent from the default registry")
     try check(store.registrySkills.filter { $0.repo == "https://github.com/android/skills" }.count == 1
       && store.registrySkills.first { $0.repo == "https://github.com/android/skills" }?.author == "Android",
       "bundled sources take precedence over duplicate custom entries")
@@ -500,6 +508,13 @@ enum FunctionalCheck {
         guard let table = skillTables(content).max(by: {
           $0.convert($0.bounds, to: content).minX < $1.convert($1.bounds, to: content).minX
         }) else {
+          print("LAYOUT \(name): sizing=\(host.sizingOptions), window=\(window.frame), content=\(content.frame), host=\(host.view.frame)")
+          func frames(_ view: NSView, depth: Int = 0) {
+            guard depth < 6 else { return }
+            print("LAYOUT \(String(repeating: " ", count: depth))\(type(of: view)): frame=\(view.frame) hidden=\(view.isHidden)")
+            for child in view.subviews { frames(child, depth: depth + 1) }
+          }
+          frames(content)
           throw CheckFailure.failed("Native skill list is unavailable for \(name)")
         }
         print("Native list for \(name): \(type(of: table)), \(table.numberOfRows) rows")
@@ -1322,12 +1337,18 @@ enum FunctionalCheck {
     try check(!store.skillsetEntries.contains { $0.skillID == manual }, "existing personal installations are never adopted")
     trashed += await store.applySkillset(id: b.id, to: .amp)
     try check(store.skillsetEntries.filter { $0.skillID == common && $0.tool == .amp }.count == 1, "overlapping sets share one owned entry")
+    try check(store.updateSkillset(b.id, name: " Renamed Engineer ", members: b.skills), "renaming a skillset saves its new name")
+    try check(store.skillsets.first { $0.id == b.id }?.name == "Renamed Engineer", "skillset names are trimmed")
+    try check(store.assignment(for: b.id, to: .amp)?.members == b.skills, "renaming preserves the assignment")
+    try check(!store.updateSkillset(b.id, name: "demo android", members: b.skills), "renaming rejects another skillset's name")
+    try check(!store.updateSkillset(b.id, name: "  ", members: b.skills), "renaming rejects an empty name")
     trashed += await store.applySkillset(id: a.id, to: .amp, assigned: false)
     try check(fm.fileExists(atPath: Tool.amp.skillsFolder.appending(path: common).path), "unassigning keeps overlapping skills")
     try check(!fm.fileExists(atPath: Tool.amp.skillsFolder.appending(path: alpha).path), "unassigning removes only no-longer-needed owned links")
     try check(fm.fileExists(atPath: Tool.amp.skillsFolder.appending(path: manual).path), "unassigning preserves personal folders")
     let restored = AppStore()
     await restored.start()
+    try check(restored.skillsets.first { $0.id == b.id }?.name == "Renamed Engineer", "renamed skillsets survive reloading")
     try check(restored.assignment(for: b.id, to: .amp)?.members == b.skills, "assignment snapshots survive reloading")
     try check(restored.skillsetEntries == store.skillsetEntries, "ownership receipts survive reloading")
     try check(restored.assignment(for: a.id, to: .amp) == nil, "availability never recreates an unassigned state")

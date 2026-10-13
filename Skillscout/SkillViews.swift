@@ -319,10 +319,21 @@ struct SkillDetail: View {
   var usageOverride: [Skill.ID: SkillUsage]?
   var manageGlobal: (Skill.ID, Tool?) -> Void = { _, _ in }
   @Environment(\.openInLibrary) private var openInLibrary
-  @State private var content = ""
-  @State private var selectedDescription = ""
-  @State private var review: SkillReview?
-  @State private var problems: [String] = []
+  @State private var inspector = SkillDetailInspector()
+  @State private var inspection: SkillDetailInspection?
+
+  private var inspectionRequest: SkillDetailRequest {
+    SkillDetailRequest(skill: skill, installationSource: installationSource, revision: store.reportInspectionRevision)
+  }
+
+  private var currentInspection: SkillDetailInspection? {
+    inspection?.request == inspectionRequest ? inspection : nil
+  }
+
+  private var content: String { currentInspection?.content ?? "" }
+  private var selectedDescription: String { currentInspection?.description ?? "" }
+  private var review: SkillReview? { currentInspection?.review }
+  private var problems: [String] { currentInspection?.problems ?? [] }
   @State private var selectedPlugin: InstalledPlugin?
 
   private var displayedUsage: [Skill.ID: SkillUsage] {
@@ -378,6 +389,9 @@ struct SkillDetail: View {
         VStack(alignment: .leading, spacing: 6) {
           Text(skill.name)
             .font(.largeTitle.bold())
+            .lineLimit(2)
+            .truncationMode(.middle)
+            .help(skill.name)
           if !(installationSource == nil ? skill.description : selectedDescription).isEmpty {
             Text(installationSource == nil ? skill.description : selectedDescription)
               .font(.title3)
@@ -391,19 +405,27 @@ struct SkillDetail: View {
             .font(.callout).foregroundStyle(.secondary)
         }
 
+        if currentInspection == nil {
+          ProgressView("Reading skill…").controlSize(.small)
+        }
         ForEach(context.detailSections, id: \.self) { section($0) }
       }
       .padding(28)
       .frame(maxWidth: 820, alignment: .leading)
       .frame(maxWidth: .infinity, alignment: .leading)
     }
-    .task(id: installationSource ?? skill.primary) {
-      let source = installationSource ?? skill.primary
-      content = (try? String(contentsOf: source.resolved.appending(path: "SKILL.md"), encoding: .utf8)) ?? ""
-      review = source.root.kind == .managed || source.root.kind == .plugin ? SkillReview.inspect(source.resolved) : nil
-      selectedDescription = Frontmatter.parse(content)["description"] ?? ""
-      problems = installationSource == nil ? SkillLint.problems(for: skill)
-        : SkillLint.problems(content, folderName: source.folder.lastPathComponent)
+    .task(id: inspectionRequest) {
+      let request = inspectionRequest
+      do {
+        let result = try await inspector.inspect(request)
+        try Task.checkCancellation()
+        guard request == inspectionRequest else { return }
+        inspection = result
+      } catch is CancellationError {
+        return
+      } catch {
+        inspection = nil
+      }
     }
     .sheet(item: $selectedPlugin) { plugin in
       VStack(spacing: 0) {
@@ -465,11 +487,13 @@ struct SkillDetail: View {
         explanation
       }
     case .file:
-      DetailSection("SKILL.md") {
-        if context == .activity {
-          DisclosureGroup("Show SKILL.md") { file }
-        } else {
-          file
+      if currentInspection != nil {
+        DetailSection("SKILL.md") {
+          if context == .activity {
+            DisclosureGroup("Show SKILL.md") { file }
+          } else {
+            file
+          }
         }
       }
     }
@@ -558,7 +582,7 @@ struct SkillDetail: View {
           SkillSelectionActions(skills: [skill], initialSources: installationSource.map { [skill.id: $0.resolved.path] } ?? [:], initialTool: context.tool)
         }
       }
-      HStack(spacing: 14) {
+      WrapLayout(spacing: 8) {
         if !context.showsLibraryStorage, skill.isInLibrary, let openInLibrary {
           Button("Open in Library") { openInLibrary(skill.id) }
         }
@@ -566,6 +590,7 @@ struct SkillDetail: View {
           Button("Manage in Global…") { manageGlobal(skill.id, context.tool) }
         }
       }
+      .frame(maxWidth: .infinity, alignment: .leading)
       if context.isGlobal { ForEach(Array(removalToolGroups.enumerated()), id: \.offset) { _, tools in
         VStack(alignment: .leading, spacing: 4) {
           if let tool = tools.first, let removal = Removal.from(tool, skills: [skill], selectedCount: 1) {

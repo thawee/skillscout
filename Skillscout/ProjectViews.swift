@@ -27,14 +27,15 @@ struct ProjectListView: View {
       HStack {
         Text("Projects").font(.headline)
         Spacer()
-        Button(action: register) { Image(systemName: "plus") }.help("Register project folder")
+        Button("Register project folder", systemImage: "plus", action: register)
+          .labelStyle(.iconOnly).help("Register project folder")
       }.padding(12)
       Divider()
       if store.projectState.projects.isEmpty {
         ContentUnavailableView("No projects registered", systemImage: "folder", description: Text("Register a folder to inspect its project skills and apply skillsets."))
       } else {
         List(selection: $selection) {
-          ForEach(store.projectState.projects) { project in
+          ForEach(store.orderedProjects) { project in
             VStack(alignment: .leading, spacing: 5) {
               Text(project.name).font(.headline)
               Text(Paths.abbreviate(project.url)).font(.caption).foregroundStyle(.secondary).lineLimit(2)
@@ -84,7 +85,8 @@ struct ProjectSkillListView: View {
             HStack {
               Text(project.name).font(.headline)
               Spacer()
-              Button { Task { await store.refreshProjectInventories() } } label: { Image(systemName: "arrow.clockwise") }.help("Refresh project skills")
+              Button("Refresh project skills", systemImage: "arrow.clockwise") { Task { await store.refreshProjectInventories() } }
+                .labelStyle(.iconOnly).help("Refresh project skills")
             }
             Text(Paths.abbreviate(project.url)).font(.caption).foregroundStyle(.secondary).lineLimit(2).textSelection(.enabled)
             WrapLayout(spacing: 12) {
@@ -182,7 +184,9 @@ struct ProjectDetailView: View {
             Text(Paths.abbreviate(project.url)).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
           }
           Spacer()
-          Button("Show in Finder") { Finder.reveal(project.url) }.disabled(inventory?.status.isAvailable != true)
+          Button("Show in Finder") { Finder.reveal(project.url) }
+            .fixedSize(horizontal: true, vertical: false)
+            .disabled(inventory?.status.isAvailable != true)
         }
         if let inventory, !inventory.status.isAvailable { Text(inventory.status.label).foregroundStyle(.orange) }
         if store.projectState.pending?.projectID == project.id {
@@ -432,41 +436,41 @@ struct ProjectApplySheet: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
-      Text(request.removeSkillID != nil ? "Remove skill from project" : request.unassign ? "Unassign project skillset" : "Add skills to project").font(.title2.weight(.semibold))
-      Text(Paths.abbreviate(project.url)).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-      if request.unassign {
-        Text(store.skillsets.first { $0.id == skillsetID }?.name ?? "Deleted skillset").font(.headline)
-        Text(target.label).font(.caption).foregroundStyle(.secondary)
-      }
-      if !request.unassign && request.removeSkillID == nil {
-        if request.skillIDs.isEmpty {
-        SearchChoice(title: "Skillset", options: [
-          ChoiceOption(value: UUID?.none, title: "Choose a skillset")
-        ] + store.skillsets.map {
-          ChoiceOption(value: UUID?.some($0.id), title: $0.name,
-            detail: $0.skills.isEmpty ? "No skills" : $0.skills.sorted().joined(separator: ", "), symbol: "square.stack.3d.up")
-        }, selection: $skillsetID)
-        } else {
-          Text(request.skillIDs.sorted().joined(separator: ", ")).font(.headline)
-        }
-        ChoiceChips(title: "Agent group", options: enabledTargets.map {
-          ChoiceOption(value: $0, title: $0 == .shared ? "Shared agents" : "Compatible agents")
-        }, selection: $target)
-      }
-      if let id = request.removeSkillID { Text(id).font(.headline) }
-      DisclosureGroup("Destination folder") {
-        Text("\(project.path)/\(target.relativePath)").font(.system(.caption, design: .monospaced)).textSelection(.enabled)
-      }
-      Text("Affected agents").font(.caption.weight(.semibold))
-      ProjectReaderBadges(tools: target.readBy)
-      if targetEnabled { DisabledReaderNotice(readers: target.readBy) }
-      else { Text("Enable a tool in Settings for this destination before previewing changes.").font(.caption).foregroundStyle(.secondary) }
-      Text(request.removeSkillID != nil
-        ? "Removes this skill from assignments for the selected agent group. Unchanged project copies owned by Skillscout move to Trash. Global installations, Library sources, and modified files are preserved."
-        : "Skills are copied with their supporting files. Overlapping skillsets keep shared copies. Unchanged copies owned by Skillscout can move to Trash. Existing and modified files are preserved.").font(.caption).foregroundStyle(.secondary)
-      Divider()
       ScrollView {
         VStack(alignment: .leading, spacing: 14) {
+          Text(request.removeSkillID != nil ? "Remove skill from project" : request.unassign ? "Unassign project skillset" : "Add skills to project").font(.title2.weight(.semibold))
+          Text(Paths.abbreviate(project.url)).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+          if request.unassign {
+            Text(store.skillsets.first { $0.id == skillsetID }?.name ?? "Deleted skillset").font(.headline)
+            Text(target.label).font(.caption).foregroundStyle(.secondary)
+          }
+          if !request.unassign && request.removeSkillID == nil {
+            if request.skillIDs.isEmpty {
+              SearchChoice(title: "Skillset", options: [
+                ChoiceOption(value: UUID?.none, title: "Choose a skillset")
+              ] + store.skillsets.map {
+                ChoiceOption(value: UUID?.some($0.id), title: $0.name,
+                  detail: $0.skills.isEmpty ? "No skills" : $0.skills.sorted().joined(separator: ", "), symbol: "square.stack.3d.up")
+              }, selection: $skillsetID)
+            } else {
+              Text(request.skillIDs.sorted().joined(separator: ", ")).font(.headline)
+            }
+            ChoiceChips(title: "Agent group", options: enabledTargets.map {
+              ChoiceOption(value: $0, title: $0 == .shared ? "Shared agents" : "Compatible agents")
+            }, selection: $target)
+          }
+          if let id = request.removeSkillID { Text(id).font(.headline) }
+          DisclosureGroup("Destination folder") {
+            Text("\(project.path)/\(target.relativePath)").font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+          }
+          Text("Affected agents").font(.caption.weight(.semibold))
+          ProjectReaderBadges(tools: target.readBy)
+          if targetEnabled { DisabledReaderNotice(readers: target.readBy) }
+          else { Text("Enable a tool in Settings for this destination before previewing changes.").font(.caption).foregroundStyle(.secondary) }
+          Text(request.removeSkillID != nil
+            ? "Removes this skill from assignments for the selected agent group. Unchanged project copies owned by Skillscout move to Trash. Global installations, Library sources, and modified files are preserved."
+            : "Skills are copied with their supporting files. Overlapping skillsets keep shared copies. Unchanged copies owned by Skillscout can move to Trash. Existing and modified files are preserved.").font(.caption).foregroundStyle(.secondary)
+          Divider()
           if let plan {
             if plan.changes.isEmpty, plan.issues.isEmpty { Text("No project files need to change. The project assignment will be saved.").font(.caption).foregroundStyle(.secondary) }
             ForEach(plan.issues, id: \.self) { Text($0).foregroundStyle(.orange).textSelection(.enabled) }
@@ -531,7 +535,9 @@ struct ProjectApplySheet: View {
         }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
           .disabled(!targetEnabled || applying || submitted || plan?.canApply != true || store.isManagingProjects || store.isManagingSkillsets)
       }
-    }.padding(24).frame(width: 700, height: 700).disabled(applying).interactiveDismissDisabled(applying)
+    }.padding(24)
+      .frame(minWidth: 560, idealWidth: 700, maxWidth: 700, minHeight: 420, idealHeight: 700, maxHeight: 700)
+      .disabled(applying).interactiveDismissDisabled(applying)
        .onAppear {
         skillsetID = request.skillsetID ?? store.skillsets.first?.id
         target = request.target

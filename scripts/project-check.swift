@@ -87,7 +87,7 @@ enum ProjectCheck {
       window.makeKeyAndOrderFront(nil)
       NSApp.activate()
       try await Task.sleep(for: .seconds(1))
-      if name.contains("short") {
+      if name.contains("short") && name != "project-apply-short" {
         func tables(_ view: NSView) -> [NSTableView] {
           if let table = view as? NSTableView { return [table] }
           return view.subviews.flatMap(tables)
@@ -252,6 +252,7 @@ enum ProjectCheck {
       ("project-overview-narrow", AnyView(ContentView(sidebar: .project(first.id)).environment(store))),
       ("project-local-skill", AnyView(ProjectDetailView(project: first, skillID: "local-demo").environment(store))),
       ("project-apply", AnyView(ProjectApplySheet(project: second, request: ProjectApplyRequest(skillsetID: base.id)).environment(store))),
+      ("project-apply-short", AnyView(ProjectApplySheet(project: second, request: ProjectApplyRequest(skillsetID: base.id)).environment(store))),
       ("project-apply-light", AnyView(ProjectApplySheet(project: second, request: ProjectApplyRequest(skillsetID: base.id)).environment(store))),
     ]
     try await render(scenes, output: output, host: host, window: window)

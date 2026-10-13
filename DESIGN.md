@@ -14,7 +14,7 @@ The product has six perspectives. Each perspective answers a different question 
 | Discovery | What can I bring into my Library? | Repository or folder origin, version, preview contents, Library import state, and scripts or flagged commands. | Add to Library, or review an imported source's update. |
 | Storage | Where is the skill stored or made available? | Library sources, Global entries, project copies, inherited availability, paths, and ownership. | Manage the selected source or installation scope. |
 | AI tools | What can this agent read in this workspace? | The selected agent's readers, supplying folders, available skills, conflicts, and recorded use. | Add to this agent or review removal from its supplying entry. |
-| Skillsets | What belongs in this reusable collection? | Membership, preferred sources, assignments, applied snapshots, and pending changes. | Edit membership or preview application to a destination. |
+| Skillsets | What belongs in this reusable collection? | Name, membership, preferred sources, assignments, applied snapshots, and pending changes. | Rename or edit membership, or preview application to a destination. |
 | Ideas | What new skill would help with repeated work? | Supporting requests, draft contents, saved-source identity, and actual availability after saving. | Draft, edit, or save the proposed skill. |
 
 Storage contains Library, Global, and Projects. These are subviews of one perspective rather than three additional perspectives. The AI tools perspective starts with an agent and then selects Global or a registered project. Storage starts with a location and then filters by agent.
@@ -73,7 +73,7 @@ Project skillsets retain the membership snapshot that was applied. Editing a cen
 
 Global and projects use the same **Manage…** entry point and assignment screen. Reusing the screen keeps application and unassignment recognizable across destinations. The selected tool or project supplies the context, rather than creating another management workflow.
 
-Skillsets focuses on membership and destination assignments. Its recorded use follows the [period rule](#availability-and-recorded-use). Destination choice occurs when applying or managing assignments.
+Skillsets focuses on the collection name, membership, and destination assignments. Renaming changes the collection's label while retaining its identity and existing assignments; it does not apply changes to a destination. Its recorded use follows the [period rule](#availability-and-recorded-use). Destination choice occurs when applying or managing assignments.
 
 Global manages assignments for an enabled agent. Each project header shows its assigned skillset count and **Manage…**. The project screen identifies the project name, folder, and compatible agent group. It lists assigned and unassigned skillsets, including retained assignments whose collection was deleted.
 
@@ -137,7 +137,7 @@ Badges describe actual availability. They do not claim that Skillscout created a
 
 The app uses native SwiftUI typography, semantic colors, SF Symbols, and system light and dark appearance. Descriptions and paths use secondary styling, while names and primary actions carry the main emphasis.
 
-Chips wrap when the pane narrows. Filter headers take their natural height and scroll only beyond a bounded height, so a short window retains space for the skill list. List columns keep at least 280 points, so rows and their badges stay readable. Choice layout measurements return finite sizes for minimum and unbounded proposals.
+Chips and detail actions wrap when the pane narrows. Long skill names can use two lines. Filter headers take their natural height and scroll only beyond a bounded height, so a short window retains space for the skill list. Skill list columns keep at least 280 points, and Discovery gives source names at least 260 points. Project application sheets keep their actions visible while their content scrolls in a short window. Choice layout measurements return finite sizes for minimum and unbounded proposals.
 
 The interface preserves labels and reachable choices when space is limited. Truncated paths have additional detail in help text or the corresponding detail view.
 

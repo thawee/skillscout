@@ -100,7 +100,7 @@ struct ContentView: View {
   @AppStorage("skillSort") private var sort = SkillSort.newest
   @AppStorage("showSystemSkills") private var showSystemSkills = false
   @State private var showingNewSkillset = false
-  @State private var showingEmptySkillsetEditor = false
+  @State private var showingSkillsetEditor = false
   @State private var showingLocalFolder = false
   @State private var addedSource: String?
   @State private var newSkillsetName = ""
@@ -464,7 +464,7 @@ struct ContentView: View {
     .onChange(of: listedSkills.map(\.id)) {
       selectedSkills.formIntersection(Set(listedSkills.map(\.id)))
     }
-    .sheet(isPresented: $showingEmptySkillsetEditor) {
+    .sheet(isPresented: $showingSkillsetEditor) {
       if let id = selectedSkillsetID, let skillset = store.skillsets.first(where: { $0.id == id }) {
         SkillsetEditor(skillset: skillset)
       }
@@ -549,6 +549,7 @@ struct ContentView: View {
             .id(discoveryKind)
         }
         .navigationTitle("Discovery")
+        .navigationSplitViewColumnWidth(min: 260, ideal: 320)
       } else if sidebar == .suggestions {
         SuggestionList(suggestions: listedSuggestions, selection: $selectedSuggestion)
       } else if sidebar == .similar {
@@ -566,7 +567,7 @@ struct ContentView: View {
               emptyState: emptySkillListReason,
               browse: { search = ""; sidebar = .discovery }, addFolder: { showingLocalFolder = true },
               clearSearch: { search = "" }, showAll: showAllSkills,
-              addSkills: { showingEmptySkillsetEditor = true })
+              addSkills: { showingSkillsetEditor = true })
           }
         }
         .navigationTitle(sidebar == .global ? "Global" : sidebar == .library ? "Library" : "Skills")
@@ -587,37 +588,15 @@ struct ContentView: View {
                   Divider()
                 }
                 if sidebar == .global {
-                  AgentChoices(tools: store.tools, allTitle: "All enabled agents", selection: $globalTool,
-                    counts: globalAgentCounts, allCount: GlobalSkillCounts(skills: store.skills, readers: Set(store.tools)).normal)
-                    .padding(.horizontal, 10).padding(.vertical, 8)
-                  WrapLayout(spacing: 4) {
-                    Text("^[\(globalCounts.normal) skill](inflect: true) available globally")
-                      .accessibilityIdentifier("global-skill-count")
-                    Text("·").foregroundStyle(.secondary)
-                    Text("^[\(globalCounts.system) system skill](inflect: true)")
-                      .foregroundStyle(.secondary).accessibilityIdentifier("global-system-count")
-                  }
-                  .font(.caption).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 10)
-                  Toggle("Show system skills", isOn: $showSystemSkills)
-                    .accessibilityIdentifier("show-system-skills")
-                    .font(.caption).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 10).padding(.bottom, 8)
+                  GlobalSkillHeader(tools: store.tools, counts: globalAgentCounts,
+                    allCount: GlobalSkillCounts(skills: store.skills, readers: Set(store.tools)).normal,
+                    normalCount: globalCounts.normal, systemCount: globalCounts.system,
+                    selectedTool: $globalTool, showSystemSkills: $showSystemSkills)
                 }
                 if sidebar?.listsSkills ?? true, !libraryHasNothingYet {
-                  VStack(alignment: .leading, spacing: 8) {
-                    if sidebar != .library && selectedSkillsetID == nil {
-                      ChoiceChips(title: "Show", options: sourceOptions, selection: $source)
-                    }
-                    WrapLayout(spacing: 12) {
-                      Picker("Sort", selection: $sort) {
-                        Text("Newest").tag(SkillSort.newest)
-                        Text("Name").tag(SkillSort.name)
-                        Text("Use").tag(SkillSort.use)
-                      }.pickerStyle(.menu).fixedSize()
-                      if !skillListContext.usesAllLoadedHistory { UsagePeriodPicker() }
-                    }
-                    if !skillListContext.usesAllLoadedHistory { UsageProjectChoice() }
-                    Text("Recorded use in \(skillListContext.usesAllLoadedHistory ? UsageScope().description(loadedDays: store.loadedLookbackDays) : store.usageScopeDescription)").font(.caption2).foregroundStyle(.secondary)
-                  }.padding(.horizontal, 10).padding(.vertical, 8)
+                  SkillListFilters(context: skillListContext,
+                    showsSource: sidebar != .library && selectedSkillsetID == nil,
+                    sourceOptions: sourceOptions, source: $source, sort: $sort)
                 }
               }
   }
@@ -760,7 +739,7 @@ struct ContentView: View {
         .help("Skills available across projects, for enabled agents")
       Section("Projects", isExpanded: $projectsExpanded) {
         sidebarRow("All projects", symbol: "folder.badge.gearshape", count: store.projectState.projects.count, item: .projects)
-        ForEach(store.projectState.projects) { project in
+        ForEach(store.orderedProjects) { project in
           Label {
             VStack(alignment: .leading, spacing: 2) {
               Text(project.name)
@@ -773,28 +752,15 @@ struct ContentView: View {
         Button(action: registerProject) { Label("Register project…", systemImage: "plus") }
           .buttonStyle(.plain).foregroundStyle(.secondary).padding(.leading, 8)
       }
-      Section("Chat activity", isExpanded: $activityExpanded) {
-        Text("Every skill, not only Library · \(store.usageScopeDescription)")
-          .font(.caption)
-          .lineLimit(3)
-          .fixedSize(horizontal: false, vertical: true)
-          .foregroundStyle(.secondary)
-          .help("Counts every skill Skillscout finds, in Library and in each agent's folders")
-        sidebarRow("Used in 2+ chats", symbol: "checkmark.circle", count: activitySkills.count(where: isUsed), item: .used)
-          .help("Used in more than one chat in \(store.usageScopeDescription)")
-        sidebarRow("Used in 1 chat", symbol: "1.circle", count: activitySkills.count(where: isUsedOnce), item: .usedOnce)
-          .help("Used in exactly one chat in \(store.usageScopeDescription)")
-        sidebarRow("No recorded use", symbol: "moon.zzz", count: activitySkills.count(where: isUnused), item: .unused)
-          .help("No detected use in any chat in \(store.usageScopeDescription); installation is separate")
-      }
-      Section("Plugins", isExpanded: $pluginsExpanded) {
-        sidebarRow("Installed plugins", symbol: "puzzlepiece.extension", count: enabledPlugins.count, item: .plugins)
-          .help("Plugins installed in your agents, with the hooks and servers they run")
-      }
       Section("Skillsets", isExpanded: $skillsetsExpanded) {
-        ForEach(store.skillsets) { skillset in
+        ForEach(store.orderedSkillsets) { skillset in
           sidebarRow(skillset.name, symbol: "folder", count: skillset.skills.count, item: .skillset(skillset.id))
             .contextMenu {
+              Button("Rename…") {
+                sidebar = .skillset(skillset.id)
+                showingSkillsetEditor = true
+              }
+              .disabled(store.isManagingSkillsets)
               Button("Export Skillset…") { exportSkillset(skillset) }
               Button("Unassign and Delete Skillset", role: .destructive) { Task { await store.deleteSkillset(id: skillset.id) } }
                 .help("Deletes this skillset and unassigns it from all tools, including retained assignments for disabled tools.")
@@ -822,6 +788,24 @@ struct ContentView: View {
       Section("Ideas", isExpanded: $ideasExpanded) {
         sidebarRow("Suggestions", symbol: "lightbulb", count: store.suggestions.count, item: .suggestions)
         sidebarRow("Similar skills", symbol: "arrow.triangle.merge", count: listedPairs.count, item: .similar)
+      }
+      Section("Chat activity", isExpanded: $activityExpanded) {
+        Text("Every skill, not only Library · \(store.usageScopeDescription)")
+          .font(.caption)
+          .lineLimit(3)
+          .fixedSize(horizontal: false, vertical: true)
+          .foregroundStyle(.secondary)
+          .help("Counts every skill Skillscout finds, in Library and in each agent's folders")
+        sidebarRow("Used in 2+ chats", symbol: "checkmark.circle", count: activitySkills.count(where: isUsed), item: .used)
+          .help("Used in more than one chat in \(store.usageScopeDescription)")
+        sidebarRow("Used in 1 chat", symbol: "1.circle", count: activitySkills.count(where: isUsedOnce), item: .usedOnce)
+          .help("Used in exactly one chat in \(store.usageScopeDescription)")
+        sidebarRow("No recorded use", symbol: "moon.zzz", count: activitySkills.count(where: isUnused), item: .unused)
+          .help("No detected use in any chat in \(store.usageScopeDescription); installation is separate")
+      }
+      Section("Plugins", isExpanded: $pluginsExpanded) {
+        sidebarRow("Installed plugins", symbol: "puzzlepiece.extension", count: enabledPlugins.count, item: .plugins)
+          .help("Plugins installed in your agents, with the hooks and servers they run")
       }
     }
     .listStyle(.sidebar)

@@ -6,8 +6,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    MARKETING_VERSION: "1.5.1"
-    CURRENT_PROJECT_VERSION: "7"
+    MARKETING_VERSION: "1.6.0"
+    CURRENT_PROJECT_VERSION: "8"
 targets:
   Skillscout:
     type: application
@@ -45,6 +45,8 @@ targets:
       - Skillscout/SkillInstaller.swift
       - Skillscout/SkillActions.swift
       - Skillscout/UsageReport.swift
+      - Skillscout/UsageReportCache.swift
+      - Skillscout/SkillDetailInspection.swift
       - Skillscout/RepositoryLibrary.swift
       - Skillscout/RepositoryMerge.swift
       - Skillscout/RepositoryUpdate.swift
@@ -80,6 +82,8 @@ targets:
       - Skillscout/SkillInstaller.swift
       - Skillscout/SkillActions.swift
       - Skillscout/UsageReport.swift
+      - Skillscout/UsageReportCache.swift
+      - Skillscout/SkillDetailInspection.swift
       - Skillscout/RepositoryLibrary.swift
       - Skillscout/RepositoryMerge.swift
       - Skillscout/RepositoryUpdate.swift

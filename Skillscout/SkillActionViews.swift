@@ -11,7 +11,7 @@ struct SkillSelectionActions: View {
   @State private var name = ""
 
   var body: some View {
-    HStack {
+    WrapLayout(spacing: 8) {
       Button("Add skills…") {
         store.pendingSkillAdd = SkillAddPresentation(skillIDs: skills.map(\.id), destination: destination, sources: initialSources, tool: initialTool, excludedTools: excludedTools)
       }
@@ -24,6 +24,7 @@ struct SkillSelectionActions: View {
       }
       .disabled(skills.isEmpty || store.isManagingSkillsets)
     }
+    .frame(maxWidth: .infinity, alignment: .leading)
     .alert("New skillset", isPresented: $showingNewSet) {
       TextField("Name", text: $name)
       Button("Cancel", role: .cancel) { name = "" }
