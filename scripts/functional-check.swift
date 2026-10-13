@@ -343,6 +343,7 @@ enum FunctionalCheck {
     try check(Tool.amp.skillsFolder.appending(path: chosen.resolved.lastPathComponent).resolvingSymlinksInPath().path == chosen.resolved.path,
       "Add to tool uses the selected repository copy")
     try CustomRegistry.shared.add(repoURL: "https://github.com/android/skills")
+    try CustomRegistry.shared.add(repoURL: "https://github.com/tt-a1i/archify")
     await store.loadRegistry()
     try check(store.errorMessage == nil && !store.registrySkills.isEmpty, "Discover loads the bundled registry")
     try check(Set(store.registrySkills.map(\.repo)).isSuperset(of: [
@@ -355,12 +356,12 @@ enum FunctionalCheck {
       "https://github.com/twostraws/SwiftUI-Agent-Skill",
       "https://github.com/QingYunA/answer-me-with-html",
       "https://github.com/konraddzbik/architecture-diagram-skill",
+      "https://github.com/tt-a1i/archify.git",
       "https://github.com/lewes2/archpresent",
     ]), "Discover includes verified default skill sources")
     try check(Set(store.registrySkills.map(\.repo)).isDisjoint(with: [
       "https://github.com/Graphify-Labs/graphify",
       "https://github.com/vercel-labs/agent-skills",
-      "https://github.com/tt-a1i/archify",
       "https://github.com/humanlayer/skills",
       "https://github.com/cursor/plugins",
       "https://github.com/ComposioHQ/awesome-claude-skills",
@@ -368,6 +369,10 @@ enum FunctionalCheck {
     try check(store.registrySkills.filter { $0.repo == "https://github.com/android/skills" }.count == 1
       && store.registrySkills.first { $0.repo == "https://github.com/android/skills" }?.author == "Android",
       "bundled sources take precedence over duplicate custom entries")
+    let archifyID = RepositoryID(source: .git("https://github.com/tt-a1i/archify.git"))
+    try check(store.repositories.filter { $0.id == archifyID }.count == 1
+      && store.repositories.first { $0.id == archifyID }?.catalog?.repo == "https://github.com/tt-a1i/archify.git",
+      "bundled Archify source replaces an equivalent custom address")
     let localSource = home.appending(path: "fixtures/\(prefix) custom folder")
     let localSkillName = prefix + "-custom-folder-skill"
     try writeSkill(localSource.appending(path: "nested"), name: localSkillName)

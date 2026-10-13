@@ -64,6 +64,13 @@
       "author": "konraddzbik"
     },
     {
+      "repo": "https://github.com/tt-a1i/archify.git",
+      "name": "archify",
+      "description": "Creates interactive architecture, workflow, sequence, data-flow, and lifecycle diagrams as standalone HTML.",
+      "tools": null,
+      "author": "tt-a1i"
+    },
+    {
       "repo": "https://github.com/lewes2/archpresent",
       "name": "archpresent",
       "description": "Creates interactive architecture diagrams from projects and ideas as self-contained HTML.",

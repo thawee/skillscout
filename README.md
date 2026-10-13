@@ -6,7 +6,7 @@ It knows 10 agents: Cursor, Claude Code, Codex, GitHub Copilot, Gemini CLI, Anti
 
 It also reads your chats. It counts a use every time an agent loads a skill, and it looks for requests you keep typing, so you can turn them into new skills.
 
-Read [Design](DESIGN.md) for the workspace model and interaction rationale, or [UI reference](UI.md) for the current screens, shared controls, and verification commands.
+Read [Design](DESIGN.md) for the workspace model and interaction rationale, [UI reference](UI.md) for the current screens and verification commands, or the [changelog](CHANGELOG.md) for changes since the latest release.
 
 Read [Flavio's original announcement and watch his 1-minute demo](https://flaviocopes.com/skillscout/). The demo shows the original app; this fork has additional screens and workflows.
 
@@ -94,11 +94,13 @@ defaults write com.thawee.skillscout AppUpdaterAutomaticChecks -bool false
 
 ## Discovery and Library
 
-Discovery includes repositories from Android, Anthropic, Vercel, Matt Pocock, ComposioHQ, HumanLayer, Cursor, Next Level Builder, tt-a1i, and Addy Osmani by default. These are browsing suggestions; nothing is downloaded until you choose **Add to Library**.
+Discovery includes curated repositories such as Android skills, Anthropic skills, and [Archify](https://github.com/tt-a1i/archify) by default. These are browsing suggestions; nothing is downloaded until you choose **Load skills** or **Add to Library**.
 
 Open **Discovery**, the second sidebar item, and choose **Git repositories** or **Local folders** inside the screen. Browse curated, custom, and imported sources together. Select a source to see its details and searchable skill list. Imported sources stay visible even when no agent uses their skills.
 
 Choose **Load skills** to inspect a temporary preview without adding anything to Library or an agent. **Add to Library** imports that exact snapshot into `~/.config/skillscout/skills`. Open a skill and use **Add skills…**, or add it to a skillset, to make it available to agents. The skill detail stays tied to the selected repository when other repositories contain the same skill name.
+
+Archify is listed as `https://github.com/tt-a1i/archify.git`. Use a repository URL when adding a Git source; a GitHub `/tree/` link points to a folder page and cannot be cloned. Default and named branch previews clone one commit, which avoids downloading a repository's full history. Tag and commit previews still clone the full history.
 
 Use **Add source** to register a Git repository URL or local folder. Adding a local source to Library copies its files. **Refresh from Folder** reviews changes from the original folder before replacing that copy.
 
