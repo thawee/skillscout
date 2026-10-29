@@ -7,13 +7,13 @@
 import AppKit
 import SwiftUI
 
-let name = "Skillscout Mod"
+let name = "Quartermaster"
 let tagline = "Your agent skills in one place,\nchecked before your agents follow them."
-let chips = ["10 coding agents", "Skill Library", "Skillsets"]
+let chips = ["10 coding agents", "Usage from chats", "Review first"]
 let size = CGSize(width: 1280, height: 560)
 
-let backgroundTop = Color(hex: 0x2A2F66)
-let backgroundBottom = Color(hex: 0x0E1024)
+let backgroundTop = Color(hex: 0x2B3A27)
+let backgroundBottom = Color(hex: 0x121A11)
 let purple = Color(hex: 0x8C88FF)
 let teal = Color(hex: 0x34C7C0)
 let orange = Color(hex: 0xFF9A3D)

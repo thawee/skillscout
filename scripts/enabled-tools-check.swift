@@ -30,7 +30,7 @@ func enabledToolsCheck(_ condition: @autoclosure () throws -> Bool, _ message: S
     host.sizingOptions = []
     let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 820, height: 800),
       styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
-    window.title = "Skillscout enabled tool checks"
+    window.title = "Quartermaster enabled tool checks"
     window.contentViewController = host
     window.center()
     _ = NotificationCenter.default.addObserver(forName: NSApplication.didFinishLaunchingNotification,
@@ -283,7 +283,7 @@ func enabledToolsCheck(_ condition: @autoclosure () throws -> Bool, _ message: S
   @MainActor static func run(home: URL, output: URL, host: NSHostingController<AnyView>, window: NSWindow) async throws {
     let shared = Paths.at(".agents/skills/enabled-shared")
     let disabled = Tool.gemini.skillsFolder.appending(path: "disabled-only")
-    let source = Paths.at(".config/skillscout/skills/library-source/library-only")
+    let source = Paths.at(".config/quartermaster/skills/library-source/library-only")
     let scopeFavored = Tool.codex.skillsFolder.appending(path: "scope-favored")
     try writeSkill(shared, name: "enabled-shared")
     try writeSkill(disabled, name: "disabled-only")
@@ -449,8 +449,8 @@ func enabledToolsCheck(_ condition: @autoclosure () throws -> Bool, _ message: S
       (".codex/skills/.system/count-mixed", "count-mixed"),
       (".gemini/skills/count-mixed", "count-mixed"),
       (".pi/agent/skills/count-disabled", "count-disabled"),
-      (".config/skillscout/skills/fixture/count-library", "count-library"),
-      (".config/skillscout/drafts/count-draft", "count-draft")
+      (".config/quartermaster/skills/fixture/count-library", "count-library"),
+      (".config/quartermaster/drafts/count-draft", "count-draft")
     ] { try writeSkill(Paths.at(path), name: name) }
     let provider = Paths.at(".codex/plugins/cache/fixture/count-provider/1.0")
     let manifest = provider.appending(path: ".codex-plugin/plugin.json")
@@ -467,16 +467,25 @@ func enabledToolsCheck(_ condition: @autoclosure () throws -> Bool, _ message: S
     let union = try await show(global, name: "global-counts-union", width: 1280, height: 1000, output: output, host: host, window: window)
     try enabledToolsCheck(contains(union, "5 skills available globally") && contains(union, "1 system skill"),
       "all enabled scope counts five unique ordinary identities and one system identity while systems are hidden")
-    let headerRegion = CGRect(x: 230 / 1280.0, y: 0.6, width: 340 / 1280.0, height: 0.35)
-    let header = try recognized(window, region: headerRegion).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
-    for (title, count) in [("All enabled agents", 5), ("Codex", 4), ("Gemini", 3), ("Claude", 0), ("Amp", 0)] {
-      let digits = count == 0 ? "[0o]" : String(count)
-      let pattern = NSRegularExpression.escapedPattern(for: title) + #"\s+"# + digits + #"\b"#
-      try enabledToolsCheck(header.range(of: pattern, options: .regularExpression) != nil, "rendered \(title) chip shows \(count) ordinary skills")
+    let sidebarRegion = CGRect(x: 0, y: 0.25, width: 230 / 1280.0, height: 0.7)
+    let observations = try recognized(window, region: sidebarRegion)
+      .compactMap { observation in observation.topCandidates(1).first.map { ($0.string, observation.boundingBox) } }
+    let sidebarLines = observations.map(\.0)
+    // Vision reads each agent's icon into its label, such as "= Codex", so labels match by containment.
+    func row(_ title: String) -> CGRect? { observations.first { $0.0.contains(title) }?.1 }
+    for (title, count) in [("All agents", 5), ("Codex", 4), ("Gemini CLI", 3)] {
+      let badge = row(title).flatMap { label in
+        observations.first { $0.0 == String(count) && $0.1.minX > label.maxX && abs($0.1.midY - label.midY) < label.height }
+      }
+      try enabledToolsCheck(badge != nil, "Global sidebar row \(title) shows \(count) ordinary skills")
     }
+    // Vision's y grows upward, so a lower row has a smaller midY.
+    let heights = ["Shared", "Amp", "Claude Code", "Codex", "Gemini CLI"].compactMap { row($0)?.midY }
+    try enabledToolsCheck(heights.count == 5 && heights == heights.sorted(by: >),
+      "Global sidebar lists Shared first, then enabled agents by name")
     try enabledToolsCheck(!union.contains("count-disabled") && !union.contains("count-library") && !union.contains("count-draft")
-      && !header.contains("Pi"), "Global excludes disabled-only and readerless skills and disabled tool choices")
-    try await press("choice.Agent.Codex", title: "Codex", window: window)
+      && !sidebarLines.contains { $0.hasSuffix(" Pi") || $0 == "Pi" }, "Global excludes disabled-only and readerless skills and disabled agent rows")
+    _ = try await show(AnyView(ContentView(sidebar: .global, globalTool: .codex).environment(store)), name: "global-counts-codex-row", width: 1280, height: 1000, output: output, host: host, window: window)
     let codex = try visible(window)
     try snapshot("global-counts-codex", output: output, window: window)
     try enabledToolsCheck(contains(codex, "4 skills available globally") && contains(codex, "2 system skills")
@@ -509,9 +518,8 @@ func enabledToolsCheck(_ condition: @autoclosure () throws -> Bool, _ message: S
     editor.insertText("", replacementRange: editor.selectedRange())
     try await settle()
     try await press("choice.Show.All skills", title: "All skills", window: window)
-    let headerTop = window.contentView?.superview?.bounds.height ?? 1080
-    try await press("choice.Agent.Gemini", title: "Gemini", window: window, region: CGRect(x: 230, y: headerTop - 140, width: 340, height: 140))
-    let gemini = try visible(window)
+    let gemini = try await show(AnyView(ContentView(sidebar: .global, globalTool: .gemini).environment(store)), name: "global-counts-gemini-row",
+      width: 1280, height: 1000, output: output, host: host, window: window)
     try snapshot("global-counts-gemini", output: output, window: window)
     try enabledToolsCheck(contains(gemini, "3 skills available globally") && contains(gemini, "0 system skills")
       && gemini.contains("count-mixed"), "real Gemini selection counts the mixed identity as ordinary and shows zero systems")
@@ -551,13 +559,13 @@ func enabledToolsCheck(_ condition: @autoclosure () throws -> Bool, _ message: S
     let recentFolder = Tool.codex.skillsFolder.appending(path: "aa-recent")
     try writeSkill(totalFolder, name: "zz-total")
     try writeSkill(recentFolder, name: "aa-recent")
-    try writeSkill(Paths.at(".config/skillscout/skills/fixture/library-only"), name: "library-only")
-    let linkedSource = Paths.at(".config/skillscout/skills/fixture/library-linked")
+    try writeSkill(Paths.at(".config/quartermaster/skills/fixture/library-only"), name: "library-only")
+    let linkedSource = Paths.at(".config/quartermaster/skills/fixture/library-linked")
     try writeSkill(linkedSource, name: "library-linked")
     try FileManager.default.createSymbolicLink(at: Tool.codex.skillsFolder.appending(path: "library-linked"), withDestinationURL: linkedSource)
-    try writeSkill(Paths.at(".config/skillscout/skills/fixture/library-twin"), name: "library-twin")
-    try writeSkill(Paths.at(".config/skillscout/skills/repo-fixture/repo-skill"), name: "repo-skill")
-    try "{}".write(to: Paths.at(".config/skillscout/skills/repo-fixture/.skillscout-repository.json"), atomically: true, encoding: .utf8)
+    try writeSkill(Paths.at(".config/quartermaster/skills/fixture/library-twin"), name: "library-twin")
+    try writeSkill(Paths.at(".config/quartermaster/skills/repo-fixture/repo-skill"), name: "repo-skill")
+    try "{}".write(to: Paths.at(".config/quartermaster/skills/repo-fixture/.skillscout-repository.json"), atomically: true, encoding: .utf8)
     try writeSkill(Tool.codex.skillsFolder.appending(path: "library-twin"), name: "library-twin")
     let recent = Date().addingTimeInterval(-86_400)
     let older = Date().addingTimeInterval(-21 * 86_400)
@@ -617,11 +625,11 @@ func enabledToolsCheck(_ condition: @autoclosure () throws -> Bool, _ message: S
     let stored = try require(store.skills.first { $0.name == "library-only" }, "Library fixture still scanned")
     let storedOutside = try await show(AnyView(SkillDetail(skill: stored, context: .activity).environment(store)),
       name: "library-storage-outside", height: 1200, output: output, host: host, window: window)
-    try enabledToolsCheck(storedOutside.contains("Stored in Library") && !storedOutside.contains(".config/skillscout") && !storedOutside.contains("Open in editor"),
+    try enabledToolsCheck(storedOutside.contains("Stored in Library") && !storedOutside.contains(".config/quartermaster") && !storedOutside.contains("Open in editor"),
       "outside Library, Library storage is named, not shown, and its SKILL.md is read-only")
     let storedInside = try await show(AnyView(SkillDetail(skill: stored, context: .library).environment(store)),
       name: "library-storage-inside", height: 1200, output: output, host: host, window: window)
-    try enabledToolsCheck(storedInside.contains(".config/skillscout") && storedInside.contains("Open in editor"),
+    try enabledToolsCheck(storedInside.contains(".config/quartermaster") && storedInside.contains("Open in editor"),
       "Library shows its storage folder and opens SKILL.md")
     try enabledToolsCheck(storedInside.contains("Edit Open in editor"), "Library offers Edit for a skill moved into it")
     let repoSkill = try require(store.skills.first { $0.name == "repo-skill" }, "Library repository fixture scanned")
@@ -634,7 +642,7 @@ func enabledToolsCheck(_ condition: @autoclosure () throws -> Bool, _ message: S
       let text = try await show(AnyView(SkillDetail(skill: linked, context: context).environment(store).environment(\.openInLibrary, { _ in })),
         name: name, height: 1400, output: output, host: host, window: window)
       try enabledToolsCheck(text.contains("Agents load this skill from Library") && text.contains("fixture/library-linked")
-        && !text.contains(".config/skillscout") && !text.contains("Open in editor") && text.contains("Open in Library"),
+        && !text.contains(".config/quartermaster") && !text.contains("Open in editor") && text.contains("Open in Library"),
         "\(name) names the Library behind the agent link and offers Open in Library instead of the stored file")
     }
     let preselected = try await show(AnyView(SkillAddFlowSheet(request: SkillAddPresentation(skillIDs: [total.id], destination: .global)).environment(store)),
@@ -651,7 +659,7 @@ func enabledToolsCheck(_ condition: @autoclosure () throws -> Bool, _ message: S
     let twin = try require(store.skills.first { $0.name == "library-twin" }, "Library twin fixture scanned")
     let twinText = try await show(AnyView(SkillDetail(skill: twin, context: .global(.codex)).environment(store)),
       name: "library-twin-global", height: 1400, output: output, host: host, window: window)
-    try enabledToolsCheck(twinText.contains("Codex") && !twinText.contains("Agents load this skill from Library") && !twinText.contains(".config/skillscout"),
+    try enabledToolsCheck(twinText.contains("Codex") && !twinText.contains("Agents load this skill from Library") && !twinText.contains(".config/quartermaster"),
       "an agent's own copy of a Library skill is not described as loading from Library")
     let global = try await show(AnyView(ContentView(sidebar: .global, skill: total.id, globalTool: .codex).environment(store)),
       name: "skillset-global-regression", width: 1450, height: 1200, output: output, host: host, window: window)
@@ -839,7 +847,7 @@ func enabledToolsCheck(_ condition: @autoclosure () throws -> Bool, _ message: S
     try snapshot("global-provider-sheet", output: output, window: sheet)
     try enabledToolsCheck(providerText.contains(plugin.name) && providerText.contains("create-pet") && providerText.contains("pets"),
       "real View plugin button opens the correct provider with both sibling skills")
-    try enabledToolsCheck(providerText.contains("Skillscout only reads plugins") && providerText.contains("turn them off in Codex"),
+    try enabledToolsCheck(providerText.contains("Quartermaster only reads plugins") && providerText.contains("turn them off in Codex"),
       "plugin detail gives read-only management guidance in the original tool")
     try await press("provider-close-missing", title: "Close", window: sheet)
     try await waitFor("Close returns to the skill detail") { window.attachedSheet == nil }

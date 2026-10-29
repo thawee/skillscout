@@ -60,6 +60,39 @@ enum FunctionalCheck {
     app.run()
   }
 
+  /// The rename to Quartermaster: Skillscout Mod's Library, a repository in it, an agent link to it and a saved
+  /// source path move to ~/.config/quartermaster, and the repository still reads and removes as one.
+  @MainActor
+  static func checkConfigFolderMove(home: URL, modSupport: URL) throws -> [URL] {
+    let fm = FileManager.default
+    let old = home.appending(path: ".config/skillscout"), new = Paths.configFolder
+    let source = old.appending(path: "skills/moved-repository/moved-skill")
+    try writeSkill(source, name: "moved-skill")
+    try "{}".write(to: old.appending(path: "skills/moved-repository/.skillscout-repository.json"), atomically: true, encoding: .utf8)
+    let link = Tool.claude.skillsFolder.appending(path: "moved-skill")
+    try fm.createDirectory(at: Tool.claude.skillsFolder, withIntermediateDirectories: true)
+    try fm.createSymbolicLink(atPath: link.path, withDestinationPath: source.path)
+    let state = try JSONSerialization.data(withJSONObject: ["preferredSources": ["moved-skill": source.path]])
+    try state.write(to: modSupport.appending(path: "state.json"))
+
+    SkillInstaller.moveConfigFolder()
+    let moved = new.appending(path: "skills/moved-repository/moved-skill")
+    try check((try? fm.destinationOfSymbolicLink(atPath: old.path)) == new.path && fm.fileExists(atPath: moved.appending(path: "SKILL.md").path),
+      "the Library moves to ~/.config/quartermaster and the old path links to it")
+    try check((try? fm.destinationOfSymbolicLink(atPath: link.path)) == moved.path, "agent links follow the moved Library")
+    let saved = try JSONSerialization.jsonObject(with: Data(contentsOf: Paths.stateFile)) as? [String: Any]
+    try check((saved?["preferredSources"] as? [String: String])?["moved-skill"] == moved.path, "saved source paths follow the moved Library")
+    let skill = SkillScanner.scan().first { $0.name == "moved-skill" }
+    try check(skill?.copies.contains { $0.folder == link } == true && Paths.libraryRepo(link.resolvingSymlinksInPath()) == "moved-repository",
+      "a moved repository still reads as a Library repository")
+    SkillInstaller.moveConfigFolder()
+    try check((try? fm.destinationOfSymbolicLink(atPath: link.path)) == moved.path, "running the move again changes nothing")
+    let trashed = try SkillInstaller.removeRepo(name: "moved-repository")
+    try check(!fm.fileExists(atPath: moved.path) && (try? fm.attributesOfItem(atPath: link.path)) == nil,
+      "removing a moved repository also removes its relinked agent link")
+    return trashed
+  }
+
   @MainActor
   static func checkContextMenus(store: AppStore, home: URL, prefix: String) async throws {
     let fm = FileManager.default
@@ -73,8 +106,8 @@ enum FunctionalCheck {
     let pluginName = prefix + "-context-plugin"
     try writeSkill(Paths.at(".codex/plugins/cache/menu-market/menu-plugin/1.0.0/skills/" + pluginName), name: pluginName)
     let repositoryName = prefix + "-context-repository"
-    try writeSkill(Paths.at(".config/skillscout/skills/menu-repository/" + repositoryName), name: repositoryName)
-    try "{}".write(to: Paths.at(".config/skillscout/skills/menu-repository/.skillscout-repository.json"), atomically: true, encoding: .utf8)
+    try writeSkill(Paths.at(".config/quartermaster/skills/menu-repository/" + repositoryName), name: repositoryName)
+    try "{}".write(to: Paths.at(".config/quartermaster/skills/menu-repository/.skillscout-repository.json"), atomically: true, encoding: .utf8)
     await store.refreshSkills()
     let originalSets = store.skillsets
     let originalTools = store.tools
@@ -146,7 +179,7 @@ enum FunctionalCheck {
     let original = try String(contentsOf: folder.appending(path: "SKILL.md"), encoding: .utf8)
     try invoke("Move to Library", in: unmanaged)
     try await Task.sleep(for: .milliseconds(300))
-    let moved = Paths.at(".config/skillscout/skills/" + name)
+    let moved = Paths.at(".config/quartermaster/skills/" + name)
     let text = try String(contentsOf: moved.appending(path: "SKILL.md"), encoding: .utf8)
     try check(text == original && folder.resolvingSymlinksInPath().path == moved.resolvingSymlinksInPath().path,
       "Global menu move preserves content and replaces the tool folder with a Library link")
@@ -167,14 +200,17 @@ enum FunctionalCheck {
   static func run(home: URL, output: URL, host: NSHostingController<AnyView>, window: NSWindow) async throws {
     let fm = FileManager.default
     try fm.createDirectory(at: output, withIntermediateDirectories: true)
+    let modSupport = home.appending(path: "Library/Application Support/Skillscout Mod")
     let previousSupport = home.appending(path: "Library/Application Support/Skillscout Thawee")
     let originalSupport = home.appending(path: "Library/Application Support/Skillscout")
-    try fm.createDirectory(at: previousSupport, withIntermediateDirectories: true)
-    try fm.createDirectory(at: originalSupport, withIntermediateDirectories: true)
-    try "previous fork".write(to: previousSupport.appending(path: "migration-check.txt"), atomically: true, encoding: .utf8)
-    try "original".write(to: originalSupport.appending(path: "migration-check.txt"), atomically: true, encoding: .utf8)
+    for (folder, marker) in [(modSupport, "mod"), (previousSupport, "previous fork"), (originalSupport, "original")] {
+      try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+      try marker.write(to: folder.appending(path: "migration-check.txt"), atomically: true, encoding: .utf8)
+    }
+    let configMoveTrash = try checkConfigFolderMove(home: home, modSupport: modSupport)
     let migratedMarker = try String(contentsOf: Paths.appSupport.appending(path: "migration-check.txt"), encoding: .utf8)
-    try check(migratedMarker == "previous fork", "renamed app migrates existing fork data first")
+    try check(migratedMarker == "mod" && Paths.appSupport.lastPathComponent == "Quartermaster",
+      "Quartermaster copies Skillscout Mod's data before older forks'")
     for folder in Tool.allCases.flatMap(\.homeFolders) {
       try fm.createDirectory(at: home.appending(path: folder), withIntermediateDirectories: true)
     }
@@ -352,13 +388,16 @@ enum FunctionalCheck {
       "https://github.com/mattpocock/skills",
       "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
       "https://github.com/addyosmani/agent-skills",
-      "https://github.com/cathrynlavery/diagram-design",
       "https://github.com/twostraws/SwiftUI-Agent-Skill",
+      "https://github.com/tt-a1i/archify.git",
+    ]), "Discover includes verified default skill sources")
+    // Trimmed from the defaults on 2026-10-21; Archify covers their diagrams and explainers.
+    try check(Set(store.registrySkills.map(\.repo)).isDisjoint(with: [
+      "https://github.com/cathrynlavery/diagram-design",
       "https://github.com/QingYunA/answer-me-with-html",
       "https://github.com/konraddzbik/architecture-diagram-skill",
-      "https://github.com/tt-a1i/archify.git",
       "https://github.com/lewes2/archpresent",
-    ]), "Discover includes verified default skill sources")
+    ]), "Discover no longer lists the trimmed diagram sources by default")
     try check(Set(store.registrySkills.map(\.repo)).isDisjoint(with: [
       "https://github.com/Graphify-Labs/graphify",
       "https://github.com/vercel-labs/agent-skills",
@@ -453,6 +492,7 @@ enum FunctionalCheck {
     try check(demoPlugin?.runs.count == 2 && demoPlugin?.enabled == true, "Plugins lists a plugin's hooks and MCP servers")
     let usabilityScenes = try await checkUsability(store, home: home, prefix: prefix)
     let toolRemoval = try checkToolRemoval(store, prefix: prefix)
+    let skillsLockScenes = try await checkSkillsLock(store, prefix: prefix)
     try await checkDiscoveryChoices()
     let reportScenes = try await checkReports(store, prefix: prefix)
     func repositoryEntry(_ source: RegistrySkill) -> RepositoryEntry {
@@ -492,7 +532,7 @@ enum FunctionalCheck {
       ("settings", AnyView(SettingsView().environment(store))),
       ("plugins", AnyView(ContentView(sidebar: .plugins).environment(store))),
       ("plugin-detail", AnyView(PluginDetail(plugin: demoPlugin!).environment(store))),
-    ] + reviewed.scenes + repositoryScenes.scenes + usabilityScenes + toolRemoval.scenes + reportScenes
+    ] + reviewed.scenes + repositoryScenes.scenes + usabilityScenes + toolRemoval.scenes + skillsLockScenes + reportScenes
     try JSONEncoder().encode(scenes.map { $0.0 }).write(to: output.appending(path: "render-manifest.json"))
     for (name, view) in scenes {
       NSApp.appearance = NSAppearance(named: name.hasSuffix("-light") ? .aqua : .darkAqua)
@@ -524,6 +564,11 @@ enum FunctionalCheck {
         }
         print("Native list for \(name): \(type(of: table)), \(table.numberOfRows) rows")
         try check(table.numberOfRows == expected, "\(name) native list matches its installation filter and source")
+      }
+      if name == "skills-sh-results" {
+        // Return reaches `onSubmit(of: .search)` only through real key events, which this harness doesn't send.
+        let searchField = window.toolbar?.items.lazy.compactMap { ($0 as? NSSearchToolbarItem)?.searchField }.first
+        try check(searchField?.stringValue == "made up", "returning to skills.sh restores the last search text")
       }
       if name == "dashboard-library" {
         func scrollViews(_ view: NSView) -> [NSScrollView] {
@@ -564,6 +609,7 @@ enum FunctionalCheck {
     trashed += reviewed.trash
     trashed += repositoryScenes.trash
     trashed += refreshTrash
+    trashed += configMoveTrash
     try check(fm.fileExists(atPath: Tool.amp.skillsFolder.appending(path: prefix).path), "repository removal preserves independent copies")
     try check(!fm.fileExists(atPath: Tool.codex.skillsFolder.appending(path: prefix).path), "repository removal removes its agent links")
     let removable = SkillScanner.scan().first { $0.name == prefix + "-explicit" }!
@@ -591,7 +637,7 @@ enum FunctionalCheck {
   static func checkToolRemoval(_ store: AppStore, prefix: String) throws -> (trash: [URL], scenes: [(String, AnyView)]) {
     let fm = FileManager.default
     let name = prefix + "-tool-removal"
-    let library = Paths.at(".config/skillscout/skills/tool-removal/\(name)")
+    let library = Paths.at(".config/quartermaster/skills/tool-removal/\(name)")
     let ampLink = Tool.amp.skillsFolder.appending(path: name)
     let codexCopy = Tool.codex.skillsFolder.appending(path: name)
     try writeSkill(library, name: name)
@@ -911,7 +957,7 @@ enum FunctionalCheck {
     do { try SkillInstaller.rename(renameSkill, to: renameName + "-new", among: SkillScanner.scan()) } catch { renameFailed = true }
     try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: locked.path)
     try check(moveFailed && link(undoSource) == nil && fm.fileExists(atPath: undoSource.appending(path: "SKILL.md").path)
-      && !fm.fileExists(atPath: Paths.at(".config/skillscout/skills/\(undoName)").path)
+      && !fm.fileExists(atPath: Paths.at(".config/quartermaster/skills/\(undoName)").path)
       && fm.fileExists(atPath: locked.appending(path: "\(undoName)/SKILL.md").path),
       "a failed Move to Library puts the folder back and keeps every copy")
     let renamedText = try String(contentsOf: renameSource.appending(path: "SKILL.md"), encoding: .utf8)
@@ -930,7 +976,7 @@ enum FunctionalCheck {
   static func checkInstallConflicts(_ store: AppStore, prefix: String) async throws -> [URL] {
     let fm = FileManager.default
     let name = prefix + "-replace"
-    let sourceFolder = Paths.at(".config/skillscout/skills/\(name)/\(name)")
+    let sourceFolder = Paths.at(".config/quartermaster/skills/\(name)/\(name)")
     let destination = Tool.amp.skillsFolder.appending(path: name)
     try writeSkill(sourceFolder, name: name)
     try writeSkill(destination, name: name + "-old")
@@ -978,7 +1024,7 @@ enum FunctionalCheck {
     try check(fm.fileExists(atPath: rollback.appending(path: "SKILL.md").path), "failed installation restores the old folder from Trash")
 
     let linkName = prefix + "-replace-link"
-    let newFolder = Paths.at(".config/skillscout/skills/\(linkName)/\(linkName)")
+    let newFolder = Paths.at(".config/quartermaster/skills/\(linkName)/\(linkName)")
     let oldFolder = Paths.at("fixtures/old-\(linkName)")
     let link = Tool.amp.skillsFolder.appending(path: linkName)
     try writeSkill(newFolder, name: linkName)
@@ -1017,7 +1063,7 @@ enum FunctionalCheck {
     try check(fm.fileExists(atPath: pluginFolder.appending(path: "script.txt").path), "plugin replacement leaves the plugin cache untouched")
 
     let missingName = prefix + "-replace-missing"
-    let missingFolder = Paths.at(".config/skillscout/skills/\(missingName)/\(missingName)")
+    let missingFolder = Paths.at(".config/quartermaster/skills/\(missingName)/\(missingName)")
     let missingDestination = Tool.amp.skillsFolder.appending(path: missingName)
     try writeSkill(missingFolder, name: missingName)
     try writeSkill(missingDestination, name: missingName + "-old")
@@ -1190,11 +1236,11 @@ enum FunctionalCheck {
       "rename does not adopt externally edited copies as unchanged ownership")
     trashed += await store.applySkillset(id: protectedSet.id, to: .codex, assigned: false)
     try check(fm.fileExists(atPath: protectedReceipt.path)
-      && (store.skillsetNotes[Tool.codex.rawValue] ?? []).contains { $0.contains("changed outside Skillscout") },
+      && (store.skillsetNotes[Tool.codex.rawValue] ?? []).contains { $0.contains("changed outside Quartermaster") },
       "unassigning a renamed externally edited copy preserves user changes")
     trashed += await store.deleteSkillset(id: protectedSet.id)
 
-    for (suffix, sourceRoot) in [("failed-link", Paths.at(".config/skillscout/skills/\(base)-rollback")),
+    for (suffix, sourceRoot) in [("failed-link", Paths.at(".config/quartermaster/skills/\(base)-rollback")),
                                   ("failed-copy", Paths.at(".claude/plugins/cache/demo/\(base)/1/skills"))] {
       let name = base + "-" + suffix
       let next = name + "-next"
@@ -1224,7 +1270,7 @@ enum FunctionalCheck {
     }
 
     let changed = base + "-external"
-    let changedSource = Paths.at(".config/skillscout/skills/\(base)-rollback/\(changed)")
+    let changedSource = Paths.at(".config/quartermaster/skills/\(base)-rollback/\(changed)")
     try writeSkill(changedSource, name: changed)
     await store.refreshSkills()
     var changedReceipts: [SkillsetEntry] = []
@@ -1237,13 +1283,13 @@ enum FunctionalCheck {
         return false
       }
     try check(refusedRollback.stopped && refusedRollback.trashed.isEmpty && changedReceipts.count == 1
-      && refusedRollback.issues.contains { $0.contains("changed outside Skillscout") }
+      && refusedRollback.issues.contains { $0.contains("changed outside Quartermaster") }
       && fm.fileExists(atPath: changedDestination.appending(path: "SKILL.md").path),
       "failed-save rollback preserves an externally replaced installation")
 
-    let repairOld = Paths.at(".config/skillscout/skills/\(base)-foo")
-    let sibling = Paths.at(".config/skillscout/skills/\(base)-foobar")
-    let repaired = Paths.at(".config/skillscout/skills/owner-\(base)")
+    let repairOld = Paths.at(".config/quartermaster/skills/\(base)-foo")
+    let sibling = Paths.at(".config/quartermaster/skills/\(base)-foobar")
+    let repaired = Paths.at(".config/quartermaster/skills/owner-\(base)")
     let repairName = base + "-repair"
     let siblingName = base + "-sibling"
     try writeSkill(repairOld.appending(path: repairName), name: repairName)
@@ -1258,7 +1304,7 @@ enum FunctionalCheck {
     store.skillsets.append(repairSet)
     trashed += await store.applySkillset(id: repairSet.id, to: .codex)
     let broken = Tool.amp.skillsFolder.appending(path: base + "-broken")
-    try fm.createSymbolicLink(atPath: broken.path, withDestinationPath: Paths.at(".config/skillscout/skills/\(base)-gone/skill").path)
+    try fm.createSymbolicLink(atPath: broken.path, withDestinationPath: Paths.at(".config/quartermaster/skills/\(base)-gone/skill").path)
     let away = Tool.amp.skillsFolder.appending(path: base + "-away")
     try fm.createSymbolicLink(atPath: away.path, withDestinationPath: home.appending(path: "unplugged-drive/skill").path)
     let repair = await store.repairLibrary()
@@ -1280,8 +1326,8 @@ enum FunctionalCheck {
       "unassigning after repair removes the repaired owned link")
     trashed += await store.deleteSkillset(id: repairSet.id)
 
-    let failedRepo = Paths.at(".config/skillscout/skills/\(base)-failure")
-    let failedDestination = Paths.at(".config/skillscout/skills/owner-\(base)-failure")
+    let failedRepo = Paths.at(".config/quartermaster/skills/\(base)-failure")
+    let failedDestination = Paths.at(".config/quartermaster/skills/owner-\(base)-failure")
     let failedName = base + "-repair-failure"
     try writeSkill(failedRepo.appending(path: failedName), name: failedName)
     try fm.createDirectory(at: failedRepo.appending(path: ".git"), withIntermediateDirectories: true)
@@ -1326,7 +1372,7 @@ enum FunctionalCheck {
     let pending = base + "-pending"
     let manual = base + "-manual"
     let missing = base + "-missing"
-    let repo = Paths.at(".config/skillscout/skills/\(base)")
+    let repo = Paths.at(".config/quartermaster/skills/\(base)")
     for name in [common, alpha, beta, pending, manual] {
       try writeSkill(repo.appending(path: name), name: name)
     }
@@ -1616,6 +1662,131 @@ extension FunctionalCheck {
       ("usability-scoped-use", AnyView(ContentView(sidebar: .used).environment(store))),
     ]
   }
+  /// A skill the skills.sh CLI installed shows its source, and that source opens in Discovery.
+  @MainActor
+  static func checkSkillsLock(_ store: AppStore, prefix: String) async throws -> [(String, AnyView)] {
+    let name = prefix + "-from-skills-sh"
+    try writeSkill(Paths.at(".agents/skills/\(name)"), name: name)
+    let lock = SkillsLock.globalFile()
+    try FileManager.default.createDirectory(at: lock.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try #"{"version":3,"skills":{"\#(name)":{"source":"made-up-owner/made-up-skills","sourceType":"github","sourceUrl":"https://github.com/made-up-owner/made-up-skills.git","skillPath":"skills/\#(name)/SKILL.md","skillFolderHash":"","installedAt":"2026-10-19T00:00:00.000Z","updatedAt":"2026-10-19T00:00:00.000Z"}}}"#
+      .write(to: lock, atomically: true, encoding: .utf8)
+    await store.refreshSkills()
+    guard let skill = store.skill(name) else { throw CheckFailure.failed("skills.sh fixture skill is missing") }
+    let entry = SkillsLock.entry(for: skill, in: store.skillsLock)
+    try check(entry?.label == "made-up-owner/made-up-skills" && entry?.repositoryAddress == "https://github.com/made-up-owner/made-up-skills.git",
+      "a skill installed by the skills.sh CLI shows its lock source")
+
+    let shared = Removal.shared([skill], selectedCount: 1)
+    try check(shared?.copies.isEmpty == false && shared!.copies.allSatisfy { $0.root.kind == .shared }
+      && shared?.isShared == true && shared?.actionLabel == "Remove from Shared\u{2026}",
+      "Shared removal moves only the copy in ~/.agents/skills and names its readers")
+    let twin = prefix + "-shared-and-claude"
+    try writeSkill(Paths.at(".agents/skills/\(twin)"), name: twin)
+    try writeSkill(Paths.at(".claude/skills/\(twin)"), name: twin)
+    await store.refreshSkills()
+    guard let twinSkill = store.skill(twin) else { throw CheckFailure.failed("shared and Claude Code fixture is missing") }
+    let sharedOnly = SkillListContext.globalShared.removal(for: [twinSkill], selectedCount: 1)
+    try check(twinSkill.copies.count == 2 && sharedOnly?.copies.map(\.folder.standardizedFileURL.path) == [Paths.at(".agents/skills/\(twin)").standardizedFileURL.path],
+      "removing from Shared leaves a skill's own Claude Code copy in place")
+    try check(SkillListContext.global(.cursor).removal(for: [twinSkill], selectedCount: 1)?.copies.count == 2,
+      "removing from Cursor still covers every folder Cursor reads")
+    let unshared = store.skills.first { $0.isPersonal && !$0.copies.contains { $0.root.kind == .shared } }
+    try check(unshared.map { Removal.shared([$0], selectedCount: 1) == nil } ?? true, "a skill outside the shared folder has no Shared removal")
+
+    let catalogCount = CustomRegistry.shared.fetch().count
+    let listed = try await store.discoveryEntry(for: "https://github.com/mattpocock/skills", description: "unused")
+    try check(listed?.catalog?.repo == "https://github.com/mattpocock/skills" && CustomRegistry.shared.fetch().count == catalogCount,
+      "a skills.sh source Discovery already lists opens without adding a custom source")
+    let added = try await store.discoveryEntry(for: entry!.repositoryAddress!, description: "From skills.sh \u{00B7} made-up-owner/made-up-skills")
+    try check(added?.description == "From skills.sh \u{00B7} made-up-owner/made-up-skills" && added?.installedFolder == nil
+      && CustomRegistry.shared.fetch().count == catalogCount + 1,
+      "a skills.sh source Discovery doesn't list is added as a custom source")
+    let again = try await store.discoveryEntry(for: "https://github.com/made-up-owner/made-up-skills", description: "unused")
+    try check(again?.id == added?.id && CustomRegistry.shared.fetch().count == catalogCount + 1,
+      "opening the same skills.sh source again reuses its Discovery entry")
+
+    let directoryScenes = try await checkSkillsDirectorySearch(store)
+    let gitRepositories = store.repositories.filter(\.source.isGit)
+    let scenes: [(String, AnyView)] = [
+      ("skills-lock-detail", AnyView(SkillDetail(skill: skill, context: .global(.codex)).environment(\.openSourceInDiscovery) { _, _ in }.environment(store))),
+      ("skills-lock-detail-light", AnyView(SkillDetail(skill: skill, context: .global(.codex)).environment(\.openSourceInDiscovery) { _, _ in }.environment(store))),
+      ("shared-sidebar", AnyView(ContentView(sidebar: .globalShared, skill: skill.id).environment(store))),
+      ("shared-sidebar-light", AnyView(ContentView(sidebar: .globalShared, skill: skill.id).environment(store))),
+      ("shared-sidebar-narrow", AnyView(ContentView(sidebar: .globalShared).environment(store))),
+      ("agent-sidebar-codex", AnyView(ContentView(sidebar: .global, globalTool: .codex).environment(store))),
+      ("skills-sh-handoff", AnyView(NavigationStack { RepositoryList(repositories: gitRepositories, selection: .constant(nil), searchText: "skills", searchSkillsDirectory: {}) }.environment(store))),
+      ("skills-sh-handoff-empty-narrow", AnyView(NavigationStack { RepositoryList(repositories: [], selection: .constant(nil), searchText: "swiftui", searchSkillsDirectory: {}) }.environment(store))),
+    ] + directoryScenes
+    try CustomRegistry.shared.remove(id: added!.catalog!.repo)
+    await store.loadRegistry()
+    return scenes
+  }
+
+  /// A submitted skills.sh search keeps skills.sh's order, replaces a search still running, says when it fails,
+  /// and stays in the store while Discovery opens a result's repository.
+  @MainActor
+  static func checkSkillsDirectorySearch(_ store: AppStore) async throws -> [(String, AnyView)] {
+    func result(_ source: String, _ skill: String, _ installs: Int?) -> SkillsDirectory.Result {
+      try! JSONDecoder().decode(SkillsDirectory.Result.self, from: Data("""
+        {"id":"\(source)/\(skill)","source":"\(source)","skillId":"\(skill)","name":"\(skill)"\(installs.map { ",\"installs\":\($0)" } ?? "")}
+        """.utf8))
+    }
+    func settle(_ store: AppStore) async { await store.skillsDirectoryTask?.value }
+    let fixture = [
+      result("made-up-owner/made-up-skills", "made-up-review", 1_240),
+      result("mattpocock/skills", "made-up-planning", 86_300),
+      result("made-up-owner/made-up-skills", "made-up-release-notes", 312),
+      result("made-up-owner/made-up-skills", "made-up-changelog", 1),
+      result("made-up-host.example/team/skills", "made-up-unhosted", nil),
+    ]
+    store.skillsDirectorySearcher = { query in
+      if query == "slow" { try await Task.sleep(for: .seconds(2)) }
+      return fixture
+    }
+    store.searchSkillsDirectory("x")
+    try check(store.skillsDirectorySearch.query.isEmpty && store.skillsDirectoryTask == nil, "a one-letter skills.sh search sends nothing")
+    store.searchSkillsDirectory("slow")
+    try check(store.skillsDirectorySearch.searching, "a skills.sh search shows that it's running")
+    store.searchSkillsDirectory("  made up  ")
+    try await Task.sleep(for: .milliseconds(100))
+    await settle(store)
+    try check(store.skillsDirectorySearch.query == "made up" && store.skillsDirectorySearch.results?.map(\.skillId) == fixture.map(\.skillId)
+      && !store.skillsDirectorySearch.searching && store.skillsDirectorySearch.error == nil,
+      "a newer skills.sh search replaces one still running and keeps skills.sh's order")
+    try check(store.discoveryEntry(listing: fixture[1].repositoryAddress!) != nil && fixture[4].repositoryAddress == nil,
+      "skills.sh results say which repositories Discovery lists and which aren't on GitHub")
+
+    let failing = AppStore()
+    failing.skillsDirectorySearcher = { _ in throw SkillsDirectory.Failure.status(503) }
+    failing.searchSkillsDirectory("made up")
+    await settle(failing)
+    try check(failing.skillsDirectorySearch.results == nil && failing.skillsDirectorySearch.error?.contains("503") == true,
+      "a failed skills.sh search says why and shows no results")
+    let empty = AppStore()
+    empty.skillsDirectorySearcher = { _ in [] }
+    empty.searchSkillsDirectory("nothing here")
+    await settle(empty)
+    try check(empty.skillsDirectorySearch.results?.isEmpty == true, "a skills.sh search with no matches says so")
+
+    let selected = fixture[0]
+    let related = fixture.filter { $0.source == selected.source && $0.id != selected.id }
+    let notListed = fixture[2]
+    return [
+      ("skills-sh-prompt", AnyView(ContentView(sidebar: .discovery, discoveryKind: .skillsDirectory).environment(AppStore()))),
+      ("skills-sh-results", AnyView(ContentView(sidebar: .discovery, discoveryKind: .skillsDirectory).environment(store))),
+      ("skills-sh-results-light", AnyView(ContentView(sidebar: .discovery, discoveryKind: .skillsDirectory).environment(store))),
+      ("skills-sh-results-narrow", AnyView(ContentView(sidebar: .discovery, discoveryKind: .skillsDirectory).environment(store))),
+      ("skills-sh-error", AnyView(ContentView(sidebar: .discovery, discoveryKind: .skillsDirectory).environment(failing))),
+      ("skills-sh-empty", AnyView(ContentView(sidebar: .discovery, discoveryKind: .skillsDirectory).environment(empty))),
+      ("skills-sh-detail", AnyView(SkillsDirectoryResultDetail(result: selected, related: related).environment(store))),
+      ("skills-sh-detail-listed", AnyView(SkillsDirectoryResultDetail(result: fixture[1], related: []).environment(store))),
+      ("skills-sh-detail-unhosted-light", AnyView(SkillsDirectoryResultDetail(result: fixture[4], related: []).environment(store))),
+      ("skills-sh-detail-narrow", AnyView(SkillsDirectoryResultDetail(result: notListed,
+        related: fixture.filter { $0.source == notListed.source && $0.id != notListed.id }).environment(store))),
+    ]
+  }
+
   @MainActor
   static func checkDiscoveryChoices() async throws {
     var selection = DiscoveryKind.git
@@ -1624,14 +1795,19 @@ extension FunctionalCheck {
     menu.update()
     try await Task.sleep(for: .milliseconds(150))
     menu.update()
-    guard let local = menu.items.firstIndex(where: { $0.title == "Local folders" }),
-          let git = menu.items.firstIndex(where: { $0.title == "Git repositories" }) else {
+    guard let local = menu.items.firstIndex(where: { $0.title == DiscoveryKind.local.shortTitle }),
+          let git = menu.items.firstIndex(where: { $0.title == DiscoveryKind.git.shortTitle }) else {
       throw CheckFailure.failed("Native Discovery source choices are missing")
     }
     menu.performActionForItem(at: local)
     try check(selection == .local, "Native Discovery Local folders choice changes source kind")
     menu.performActionForItem(at: git)
     try check(selection == .git, "Native Discovery Git repositories choice changes source kind")
+    guard let directory = menu.items.firstIndex(where: { $0.title == DiscoveryKind.skillsDirectory.shortTitle }) else {
+      throw CheckFailure.failed("Native Discovery skills.sh choice is missing")
+    }
+    menu.performActionForItem(at: directory)
+    try check(selection == .skillsDirectory, "Native Discovery skills.sh choice changes source kind")
   }
 
   @MainActor

@@ -32,7 +32,12 @@ struct ProjectListView: View {
       }.padding(12)
       Divider()
       if store.projectState.projects.isEmpty {
-        ContentUnavailableView("No projects registered", systemImage: "folder", description: Text("Register a folder to inspect its project skills and apply skillsets."))
+        Text("No projects registered yet.")
+          .font(.callout)
+          .foregroundStyle(.secondary)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(12)
+        Spacer()
       } else {
         List(selection: $selection) {
           ForEach(store.orderedProjects) { project in
@@ -167,6 +172,7 @@ struct ProjectDetailView: View {
   @State private var forgetting = false
   @State private var stoppingRecovery = false
   @State private var inspecting: ProjectContentsRequest?
+  @State private var projectLock: [String: SkillsLockEntry] = [:]
 
   private var inventory: ProjectInventory? { store.projectInventories[project.id] }
   private var selectedSkill: ProjectSkillRow? { inventory?.skills.first { $0.id == skillID && !(filter.scope == .projectOnly ? $0.localTools : $0.availableIn).intersection(store.tools).isEmpty && filter.matches($0) } }
@@ -219,6 +225,10 @@ struct ProjectDetailView: View {
         else { overview }
       }.padding(24).frame(maxWidth: .infinity, alignment: .leading)
     }
+    .task(id: [project.url.path] + (inventory?.skills.map(\.id) ?? [])) {
+      let file = SkillsLock.projectFile(project.url)
+      projectLock = await Task.detached { SkillsLock.entries(in: file) }.value
+    }
     .sheet(item: $applying) { ProjectApplySheet(project: project, request: $0) }
     .sheet(item: $inspecting) { ProjectContentsSheet(request: $0) }
     .confirmationDialog("Stop project recovery and keep every file?", isPresented: $stoppingRecovery) {
@@ -229,7 +239,7 @@ struct ProjectDetailView: View {
     .confirmationDialog("Forget \(project.name)?", isPresented: $forgetting) {
       Button("Keep files and forget project", role: .destructive) { store.forgetProject(project.id) }
     } message: {
-      Text("Every project file will stay in place. Skillscout will stop tracking this folder and its installed copies. Unassign skillsets first if you want their unchanged copies moved to Trash.")
+      Text("Every project file will stay in place. Quartermaster will stop tracking this folder and its installed copies. Unassign skillsets first if you want their unchanged copies moved to Trash.")
     }
   }
 
@@ -301,6 +311,9 @@ struct ProjectDetailView: View {
 
   @ViewBuilder private func skillDetail(_ row: ProjectSkillRow) -> some View {
     Text(row.description).foregroundStyle(.secondary)
+    if !row.localCopies.isEmpty, let entry = SkillsLock.entry(named: row.name, folders: row.localCopies.map(\.folder), in: projectLock) {
+      SkillsLockSourceRow(entry: entry)
+    }
     VStack(alignment: .leading, spacing: 8) {
       Text("Project").font(.headline)
       let localReaders = filter.tool.map { row.localTools.intersection([$0]) } ?? row.localTools.intersection(store.tools)
@@ -468,8 +481,8 @@ struct ProjectApplySheet: View {
           if targetEnabled { DisabledReaderNotice(readers: target.readBy) }
           else { Text("Enable a tool in Settings for this destination before previewing changes.").font(.caption).foregroundStyle(.secondary) }
           Text(request.removeSkillID != nil
-            ? "Removes this skill from assignments for the selected agent group. Unchanged project copies owned by Skillscout move to Trash. Global installations, Library sources, and modified files are preserved."
-            : "Skills are copied with their supporting files. Overlapping skillsets keep shared copies. Unchanged copies owned by Skillscout can move to Trash. Existing and modified files are preserved.").font(.caption).foregroundStyle(.secondary)
+            ? "Removes this skill from assignments for the selected agent group. Unchanged project copies owned by Quartermaster move to Trash. Global installations, Library sources, and modified files are preserved."
+            : "Skills are copied with their supporting files. Overlapping skillsets keep shared copies. Unchanged copies owned by Quartermaster can move to Trash. Existing and modified files are preserved.").font(.caption).foregroundStyle(.secondary)
           Divider()
           if let plan {
             if plan.changes.isEmpty, plan.issues.isEmpty { Text("No project files need to change. The project assignment will be saved.").font(.caption).foregroundStyle(.secondary) }
@@ -481,7 +494,7 @@ struct ProjectApplySheet: View {
                     detail: source.visiblePath, symbol: "folder")
                 }) { source in
                   if store.setPreferredSource(source, for: skill) { refreshPreview() }
-                }.help("This choice becomes the skill's preferred source across Skillscout.")
+                }.help("This choice becomes the skill's preferred source across Quartermaster.")
                 if let source = chosenSource(for: skill) {
                   Text([source.sourceLabel, source.visiblePath].compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
                 } else {

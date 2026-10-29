@@ -71,6 +71,44 @@ extension AppStore {
     }
   }
 
+  /// Whether Discovery already lists a repository address, so opening it adds no custom source.
+  func listsInDiscovery(_ address: String) -> Bool { discoveryEntry(listing: address) != nil }
+
+  /// The Discovery entry for a repository address, added as a custom source when Discovery doesn't list it yet.
+  func discoveryEntry(for address: String, description: String) async throws -> RepositoryEntry? {
+    let id = RepositoryID(source: try RepositorySource(address: address))
+    if let entry = repositories.first(where: { $0.id == id }) { return entry }
+    try CustomRegistry.shared.add(repoURL: address, description: description)
+    await loadRegistry()
+    return repositories.first { $0.id == id }
+  }
+
+  /// Searches skills.sh for a query the user submitted, replacing any search still running.
+  func searchSkillsDirectory(_ text: String) {
+    let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard query.count >= 2 else { return }
+    skillsDirectoryTask?.cancel()
+    skillsDirectorySearch = SkillsDirectorySearch(query: query, results: skillsDirectorySearch.results, searching: true)
+    let searcher = skillsDirectorySearcher
+    skillsDirectoryTask = Task {
+      do {
+        let results = try await searcher(query)
+        guard !Task.isCancelled else { return }
+        skillsDirectorySearch = SkillsDirectorySearch(query: query, results: results)
+      } catch {
+        guard !Task.isCancelled, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return }
+        skillsDirectorySearch = SkillsDirectorySearch(query: query, error: error.localizedDescription)
+      }
+    }
+  }
+
+  /// The Discovery entry already listed for a skills.sh result's repository, if any.
+  func discoveryEntry(listing address: String) -> RepositoryEntry? {
+    guard let source = try? RepositorySource(address: address) else { return nil }
+    let id = RepositoryID(source: source)
+    return repositories.first { $0.id == id }
+  }
+
   func cancelRepositoryPreview(_ entry: RepositoryEntry) {
     repositoryTasks[entry.id]?.cancel()
   }
@@ -188,4 +226,12 @@ extension AppStore {
     await refreshSkills()
     return trashed
   }
+}
+
+/// A skills.sh search: the query sent, and its results or why it failed.
+struct SkillsDirectorySearch {
+  var query = ""
+  var results: [SkillsDirectory.Result]?
+  var error: String?
+  var searching = false
 }

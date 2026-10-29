@@ -1,6 +1,6 @@
-# Skillscout Mod design
+# Quartermaster design
 
-Skillscout Mod helps you find skill sources, make skills available to coding agents, and review recorded use. Its design keeps these activities distinct because storing a skill, installing it, and using it answer different questions.
+Quartermaster helps you find skill sources, make skills available to coding agents, and review recorded use. Its design keeps these activities distinct because storing a skill, installing it, and using it answer different questions.
 
 This document explains the design decisions behind the current app and the six-perspective target clarified on 2026-10-10. Sections whose headings start with **Target** describe that contract, not behavior every screen already implements. The other sections describe the current app. [UI.md](UI.md) separates the target presentation from the current interface. [README.md](README.md) covers setup and user workflows.
 
@@ -49,7 +49,7 @@ The detail pane explains the selected source and scope before an action. Inspect
 
 Reader badges must say what they describe: a selected source, physical entries in a location, or an explicitly name-wide union. Suggestion agents are evidence, and collection destinations are assignments. Neither is an applied-tool claim. Source-qualified selection is required for consequential actions because current inventories group skills by name. Existing grouped use counts cannot establish which same-name source ran.
 
-Preferred-source choice is shared across Skillscout for a skill identity. It affects future addition/application plans; it does not silently replace existing installations or applied project snapshots. Repository freshness requires a successful source check and its timestamp. Pinned references and moved tags are distinct states.
+Preferred-source choice is shared across Quartermaster for a skill identity. It affects future addition/application plans; it does not silently replace existing installations or applied project snapshots. Repository freshness requires a successful source check and its timestamp. Pinned references and moved tags are distinct states.
 
 Rows keep a stable identity frame with contextual facts rather than leading with tasks or evidence, so the same skill stays recognizable across perspectives. Attention cues and explicit check freshness come from the task-first alternative. Default removal and merge-first ordering were rejected because they put a destructive action ahead of inspection. The resulting [list and detail contract](UI.md#target-list-panel-and-skill-details) is a target specification; no navigation or runtime layout changes are claimed by this documentation step.
 
@@ -111,7 +111,7 @@ Most destinations use a sidebar, a list, and a detail pane. The list supports co
 
 Each skill view leads with the facts and actions for its purpose, and one exhaustive list per view decides which detail sections appear. Library owns editing and renaming. Global owns installation changes. Chat activity shows recorded use and links to Library or Global instead of editing in place. Discovery and plugin previews inspect contents without installation controls. Skillset membership changes through **Add to skillset** or the Skillsets view, never through an always-visible toggle. Contextual actions match the selected destination. A skillset action changes membership. A project removal concerns that project's copies. Inherited installations lead to **Manage in Global…** rather than a project-local removal.
 
-The Library folder is internal to Skillscout. Agents see Library skills only through links, so outside Library a skill's location is the agent folder that links to it, and the Library itself is named, never shown as a path. Only Library opens, reveals or edits the stored files.
+The Library folder is internal to Quartermaster. Agents see Library skills only through links, so outside Library a skill's location is the agent folder that links to it, and the Library itself is named, never shown as a path. Only Library opens, reveals or edits the stored files.
 
 ## Visible choices
 
@@ -131,7 +131,7 @@ This is the single rule for agent badges in every view. Skill rows, details, and
 
 No enabled reader means **Not available to enabled tools**. It does not prove the skill is physically uninstalled. Complete reader, source and assignment records remain available to the core. Existing assignments to disabled tools are retained and can be managed after re-enabling their tool in Settings.
 
-Badges describe actual availability. They do not claim that Skillscout created an installation or that an agent has used it.
+Badges describe actual availability. They do not claim that Quartermaster created an installation or that an agent has used it.
 
 ## Adaptation to window size
 

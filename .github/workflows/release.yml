@@ -1,4 +1,4 @@
-# Builds Skillscout Mod and publishes a GitHub release when a vX.Y.Z tag is pushed.
+# Builds Quartermaster and publishes a GitHub release when a vX.Y.Z tag is pushed.
 # The release notes come from docs/releases/<tag>.md; the update dialog shows the text above "## Install".
 # Run it by hand to publish a tag that was pushed before this workflow, or to rebuild a release.
 name: Release
@@ -73,11 +73,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          ZIP="dist/Skillscout-Mod-$VERSION.zip"
+          ZIP="dist/Quartermaster-$VERSION.zip"
           printf '\nSHA-256: `%s`\n' "$(shasum -a 256 "$ZIP" | cut -d ' ' -f 1)" >> "$NOTES"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$ZIP" --clobber
-            gh release edit "$TAG" --title "Skillscout Mod $VERSION" --notes-file "$NOTES"
+            gh release edit "$TAG" --title "Quartermaster $VERSION" --notes-file "$NOTES"
           else
-            gh release create "$TAG" "$ZIP" --verify-tag --title "Skillscout Mod $VERSION" --notes-file "$NOTES"
+            gh release create "$TAG" "$ZIP" --verify-tag --title "Quartermaster $VERSION" --notes-file "$NOTES"
           fi

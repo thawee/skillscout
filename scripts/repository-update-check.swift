@@ -23,7 +23,7 @@ func repositoryNativeCheck(_ condition: @autoclosure () throws -> Bool, _ messag
     host.sizingOptions = []
     let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 820, height: 800),
       styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
-    window.title = "Skillscout repository update checks"
+    window.title = "Quartermaster repository update checks"
     window.contentViewController = host
     window.center()
     _ = NotificationCenter.default.addObserver(forName: NSApplication.didFinishLaunchingNotification,

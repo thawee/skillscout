@@ -76,10 +76,10 @@ enum Commands {
       print()
     }
 
-    print("\(Terminal.pad("Missing somewhere", 18)) \(Terminal.padLeft("\(missing.count)", 4))  \(dim("skillscout-mod list --missing"))")
-    print("\(Terminal.pad("Unused", 18)) \(Terminal.padLeft("\(unused.count)", 4))  \(dim("skillscout-mod list --unused"))")
+    print("\(Terminal.pad("Missing somewhere", 18)) \(Terminal.padLeft("\(missing.count)", 4))  \(dim("quartermaster list --missing"))")
+    print("\(Terminal.pad("Unused", 18)) \(Terminal.padLeft("\(unused.count)", 4))  \(dim("quartermaster list --unused"))")
     print()
-    print(dim("Run skillscout-mod help to see every command."))
+    print(dim("Run quartermaster help to see every command."))
   }
 
   static func list(_ args: Arguments) async throws {
@@ -155,7 +155,7 @@ enum Commands {
       } else if skill.isBuiltInOnly {
         print("  \(dim("·")) \(label)  \(dim("built into \(skill.primary.root.owner?.name ?? "another tool")"))")
       } else {
-        print("  \(dim("·")) \(label)  \(Terminal.warn("missing"))  \(dim("skillscout-mod add \(skill.name) --to \(tool.rawValue)"))")
+        print("  \(dim("·")) \(label)  \(Terminal.warn("missing"))  \(dim("quartermaster add \(skill.name) --to \(tool.rawValue)"))")
       }
     }
     print()
@@ -268,7 +268,7 @@ enum Commands {
 
     if Terminal.isTTY {
       print()
-      print(dim("Messages cover the last \(library.days) days. Turn tools on or off in the Skillscout app's settings."))
+      print(dim("Messages cover the last \(library.days) days. Turn tools on or off in the Quartermaster app's settings."))
     }
   }
 
@@ -301,7 +301,7 @@ enum Commands {
     }
     if Terminal.isTTY {
       print()
-      print(dim("Merge two with skillscout-mod merge <skill> <other>, or in the app's Similar skills."))
+      print(dim("Merge two with quartermaster merge <skill> <other>, or in the app's Similar skills."))
     }
   }
 
@@ -457,7 +457,7 @@ enum Commands {
   /// The error for a skill that a plugin or a tool manages.
   private static func leftAlone(_ skill: Skill) -> CLIError {
     let owner = skill.isBuiltInOnly ? skill.primary.root.owner?.name ?? "its tool" : "the \(skill.primary.sourceLabel)"
-    return CLIError(message: "\(skill.name) belongs to \(owner), so Skillscout leaves it alone.")
+    return CLIError(message: "\(skill.name) belongs to \(owner), so Quartermaster leaves it alone.")
   }
 
   static func suggest(_ args: Arguments) async throws {
@@ -526,7 +526,7 @@ enum Commands {
       print()
     }
     if Terminal.isTTY {
-      print(dim("Open Skillscout to turn any of these into a SKILL.md and save it."))
+      print(dim("Open Quartermaster to turn any of these into a SKILL.md and save it."))
     }
   }
 
@@ -572,7 +572,7 @@ enum Commands {
     Terminal.clearStatus()
     print("Installed to \(Paths.describe(destination))")
     guard !args.flag("no-link") else {
-      print("Kept in the Library without links. Add its skills to tools with skillscout-mod add or a skillset.")
+      print("Kept in the Library without links. Add its skills to tools with quartermaster add or a skillset.")
       return
     }
 
@@ -584,10 +584,10 @@ enum Commands {
       do {
         approved = try confirm("Link its skills to your tools anyway?", args)
       } catch {
-        throw CLIError(message: "Kept in the Library without links, since there's no terminal to confirm on. Read it, then link a skill with skillscout-mod add <skill> --to <tool> --yes.")
+        throw CLIError(message: "Kept in the Library without links, since there's no terminal to confirm on. Read it, then link a skill with quartermaster add <skill> --to <tool> --yes.")
       }
       guard approved else {
-        print("Kept in the Library without links. Read it, then use skillscout-mod add.")
+        print("Kept in the Library without links. Read it, then use quartermaster add.")
         return
       }
     }
@@ -634,7 +634,7 @@ enum Commands {
       repo = query
     } else if let skill = library.skills.first(where: { $0.name.localizedCaseInsensitiveCompare(query) == .orderedSame }) {
       guard let name = skill.managedRepos.first else {
-        throw CLIError(message: "\(skill.name) isn't in the Library, so there's nothing to update. Add its repository with skillscout-mod install.")
+        throw CLIError(message: "\(skill.name) isn't in the Library, so there's nothing to update. Add its repository with quartermaster install.")
       }
       guard skill.managedRepos.count == 1 else {
         throw CLIError(message: "\(skill.name) has multiple repository sources. Pass a repository name: \(skill.managedRepos.joined(separator: ", ")).")

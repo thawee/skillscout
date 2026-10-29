@@ -31,8 +31,8 @@ if "--run-only" not in sys.argv:
     (resources / "registry.json").write_bytes((root / "registry.json").read_bytes())
     (app / "Contents/Info.plist").write_bytes(plistlib.dumps({
         "CFBundleExecutable": "FunctionalCheck",
-        "CFBundleIdentifier": "com.thawee.skillscout." + suite,
-        "CFBundleName": "Skillscout Functional Check",
+        "CFBundleIdentifier": "com.thawee.quartermaster." + suite,
+        "CFBundleName": "Quartermaster Functional Check",
         "CFBundlePackageType": "APPL",
         "NSHighResolutionCapable": True,
         # cacheDisplay can't draw macOS 26's Liquid Glass sidebar and toolbar, so render the earlier design.

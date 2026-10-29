@@ -1,28 +1,37 @@
 {
   "fill-specializations" : [
-    { "value" : { "linear-gradient" : ["extended-srgb:0.09804,0.10980,0.20000,1.00000", "extended-srgb:0.18824,0.20784,0.41961,1.00000"] } },
-    { "appearance" : "dark", "value" : { "linear-gradient" : ["extended-srgb:0.04314,0.04706,0.09412,1.00000", "extended-srgb:0.10980,0.12157,0.25882,1.00000"] } }
+    { "value" : { "linear-gradient" : ["extended-srgb:0.16863,0.22745,0.15294,1.00000", "extended-srgb:0.30196,0.38824,0.25098,1.00000"] } },
+    { "appearance" : "dark", "value" : { "linear-gradient" : ["extended-srgb:0.07059,0.10196,0.06667,1.00000", "extended-srgb:0.16471,0.22745,0.14118,1.00000"] } }
   ],
   "groups" : [
     {
-      "name" : "Lens",
+      "name" : "Check",
       "layers" : [
-        { "name" : "Sparkle", "image-name" : "sparkle.png", "glass" : true },
-        { "name" : "Lens", "image-name" : "lens.png", "glass" : true }
+        { "name" : "Check", "image-name" : "check.png", "glass" : true }
+      ],
+      "shadow" : { "kind" : "neutral", "opacity" : 0.6 },
+      "specular" : true,
+      "translucency" : { "enabled" : true, "value" : 0.15 }
+    },
+    {
+      "name" : "Ledger",
+      "layers" : [
+        { "name" : "Rules", "image-name" : "rules.png", "glass" : true, "opacity" : 0.7 },
+        { "name" : "Spine", "image-name" : "spine.png", "glass" : true },
+        { "name" : "Page", "image-name" : "page.png", "glass" : true }
       ],
       "shadow" : { "kind" : "neutral", "opacity" : 0.5 },
       "specular" : true,
-      "translucency" : { "enabled" : true, "value" : 0.2 }
+      "translucency" : { "enabled" : true, "value" : 0.1 }
     },
     {
-      "name" : "Cards",
+      "name" : "Tabs",
       "layers" : [
-        { "name" : "Lines", "image-name" : "lines.png", "glass" : true, "opacity" : 0.8 },
         { "name" : "Cursor", "image-name" : "cursor.png", "glass" : true },
         { "name" : "Claude", "image-name" : "claude.png", "glass" : true },
         { "name" : "Codex", "image-name" : "codex.png", "glass" : true }
       ],
-      "shadow" : { "kind" : "neutral", "opacity" : 0.5 },
+      "shadow" : { "kind" : "neutral", "opacity" : 0.4 },
       "specular" : true,
       "translucency" : { "enabled" : true, "value" : 0.3 }
     }

@@ -85,7 +85,7 @@ struct PluginDetail: View {
 
         DetailSection("What it runs") {
           if plugin.runs.isEmpty {
-            Text("Skillscout found no hooks, servers, monitors or executables.").foregroundStyle(.secondary)
+            Text("Quartermaster found no hooks, servers, monitors or executables.").foregroundStyle(.secondary)
           } else {
             VStack(alignment: .leading, spacing: 10) {
               ForEach(PluginRunItem.Kind.allCases, id: \.self) { kind in
@@ -124,7 +124,7 @@ struct PluginDetail: View {
           }
         }
 
-        Text("Skillscout only reads plugins. Install, update or turn them off in \(plugin.tool.name).")
+        Text("Quartermaster only reads plugins. Install, update or turn them off in \(plugin.tool.name).")
           .font(.callout).foregroundStyle(.secondary)
       }
       .padding(28)

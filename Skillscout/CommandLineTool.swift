@@ -1,23 +1,43 @@
 import AppKit
 
-/// Links the fork's command bundled in the app into /usr/local/bin.
+/// Links the command bundled in the app into /usr/local/bin as quartermaster and qm, and as skillscout-mod
+/// for scripts written before the rename.
 enum CommandLineTool {
-  static let link = URL(fileURLWithPath: "/usr/local/bin/skillscout-mod")
-  static let bundled = Bundle.main.bundleURL.appending(path: "Contents/Helpers/skillscout-mod")
+  static let links = ["quartermaster", "qm", "skillscout-mod"].map { URL(fileURLWithPath: "/usr/local/bin/" + $0) }
+  static let bundled = Bundle.main.bundleURL.appending(path: "Contents/Helpers/quartermaster")
+
+  /// A path the installer may write: missing, or a link to the command in a copy of this app, old or new.
+  /// Anything else, like another program's qm, stays as it is.
+  static func isOurs(_ link: URL) -> Bool {
+    let fm = FileManager.default
+    guard (try? fm.attributesOfItem(atPath: link.path)) != nil else { return true }
+    guard let target = try? fm.destinationOfSymbolicLink(atPath: link.path) else { return false }
+    return [".app/Contents/Helpers/quartermaster", ".app/Contents/Helpers/skillscout-mod"].contains { target.hasSuffix($0) }
+  }
 
   @MainActor
   static func install() {
     let fm = FileManager.default
-    if (try? fm.destinationOfSymbolicLink(atPath: link.path)) == bundled.path {
-      show("The skillscout-mod command is already installed.", detail: "Run skillscout-mod help in your terminal to see what it does.")
+    let skipped = links.filter { !isOurs($0) }
+    let pending = links.filter { isOurs($0) && (try? fm.destinationOfSymbolicLink(atPath: $0.path)) != bundled.path }
+    let note = skipped.isEmpty ? "" : " Left \(skipped.map(\.path).formatted(.list(type: .and))) alone, since another program uses that name."
+    guard !skipped.contains(links[0]) else {
+      show("Couldn't install the command.", detail: "\(links[0].path) belongs to another program.")
+      return
+    }
+    if pending.isEmpty {
+      show("The quartermaster command is already installed.", detail: "Run quartermaster help, or qm help, in your terminal to see what it does." + note)
       return
     }
 
     do {
-      try? fm.removeItem(at: link)
-      try fm.createSymbolicLink(at: link, withDestinationURL: bundled)
+      for link in pending {
+        try? fm.removeItem(at: link)
+        try fm.createSymbolicLink(at: link, withDestinationURL: bundled)
+      }
     } catch {
-      let command = "mkdir -p /usr/local/bin && ln -sf '\(bundled.path)' '\(link.path)'"
+      // One administrator prompt for every link still to make.
+      let command = (["mkdir -p /usr/local/bin"] + pending.map { "ln -sfn '\(bundled.path)' '\($0.path)'" }).joined(separator: " && ")
       var failure: NSDictionary?
       NSAppleScript(source: "do shell script \"\(command)\" with administrator privileges")?.executeAndReturnError(&failure)
       if let failure {
@@ -26,7 +46,7 @@ enum CommandLineTool {
         return
       }
     }
-    show("Installed the skillscout-mod command.", detail: "Open a new terminal window and run skillscout-mod help to get started.")
+    show("Installed the quartermaster command.", detail: "Open a new terminal window and run quartermaster help, or qm help, to get started." + note)
   }
 
   @MainActor

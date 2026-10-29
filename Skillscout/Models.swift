@@ -18,15 +18,20 @@ enum Paths {
     return "~" + path.dropFirst(homePath.count)
   }
 
-  /// Skillscout's own storage. Only the Library view shows these folders, so everywhere else names them instead.
+  /// Quartermaster's own folder. Before the rename it was ~/.config/skillscout, which
+  /// `SkillInstaller.moveConfigFolder` moves here.
+  static let configFolder = at(".config/quartermaster")
+  static let libraryFolder = configFolder.appending(path: "skills")
+  static let draftsFolder = configFolder.appending(path: "drafts")
+
+  /// Quartermaster's own storage. Only the Library view shows these folders, so everywhere else names them instead.
   private static let libraryStorage: [(paths: [String], name: String)] = [
-    (".config/skillscout/skills", "Library"), (".config/skillscout/drafts", "Library drafts"),
-  ].map { relative, name in
-    let url = at(relative)
-    return ([url.path, url.resolvingSymlinksInPath().path], name)
+    (libraryFolder, "Library"), (draftsFolder, "Library drafts"),
+  ].map { url, name in
+    ([url.path, url.resolvingSymlinksInPath().path], name)
   }
 
-  /// "Library · repo/skill" for a path in Skillscout's storage, nil for any other path.
+  /// "Library · repo/skill" for a path in Quartermaster's storage, nil for any other path.
   static func libraryLocation(_ url: URL) -> String? {
     let path = url.path
     for storage in libraryStorage {
@@ -56,9 +61,10 @@ enum Paths {
   static func describe(_ url: URL) -> String { libraryLocation(url) ?? abbreviate(url) }
 
   static let appSupport: URL = {
-    let url = at("Library/Application Support/Skillscout Mod")
+    let url = at("Library/Application Support/Quartermaster")
     if !FileManager.default.fileExists(atPath: url.path) {
-      for previous in [at("Library/Application Support/Skillscout Thawee"), at("Library/Application Support/Skillscout")] {
+      let previousNames = ["Skillscout Mod", "Skillscout Thawee", "Skillscout"]
+      for previous in previousNames.map({ at("Library/Application Support/" + $0) }) {
         guard FileManager.default.fileExists(atPath: previous.path) else { continue }
         if (try? FileManager.default.copyItem(at: previous, to: url)) != nil { break }
       }
@@ -161,8 +167,8 @@ struct SkillRoot: Sendable, Hashable {
 
   static let all: [SkillRoot] = [
     SkillRoot(label: "Shared", url: Paths.at(".agents/skills"), kind: .shared, owner: nil, readBy: [.cursor, .codex, .copilot, .gemini, .antigravity, .opencode, .droid, .pi]),
-    SkillRoot(label: "Library", url: Paths.at(".config/skillscout/skills"), kind: .managed, owner: nil, readBy: []),
-    SkillRoot(label: "Library drafts", url: Paths.at(".config/skillscout/drafts"), kind: .drafts, owner: nil, readBy: []),
+    SkillRoot(label: "Library", url: Paths.libraryFolder, kind: .managed, owner: nil, readBy: []),
+    SkillRoot(label: "Library drafts", url: Paths.draftsFolder, kind: .drafts, owner: nil, readBy: []),
     SkillRoot(label: "Cursor", url: Paths.at(".cursor/skills"), kind: .user, owner: .cursor, readBy: [.cursor]),
     SkillRoot(label: "Claude Code", url: Paths.at(".claude/skills"), kind: .user, owner: .claude, readBy: [.claude, .cursor, .opencode]),
     SkillRoot(label: "Codex", url: Paths.at(".codex/skills"), kind: .user, owner: .codex, readBy: [.codex, .cursor]),

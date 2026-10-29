@@ -1,6 +1,6 @@
-# Skillscout
+# Quartermaster
 
-A SwiftUI macOS app, plus a `skillscout-mod` command-line tool, that lists the skills of 10 coding agents, counts their use from local chats, and asks AI for new skill ideas. This fork also manages a central skill library and skillsets. No dependencies. Unit tests in `Tests/` cover the core files, and `scripts/functional-check.py` runs the app views and workflows against a made-up home.
+Quartermaster, formerly Skillscout Mod: a SwiftUI macOS app, plus a `quartermaster` command-line tool (`qm` for short), that lists the skills of 10 coding agents, counts their use from local chats, and asks AI for new skill ideas. This fork also manages a central skill library and skillsets. The source tree, Xcode targets and type names keep the Skillscout name; only what users see says Quartermaster. No dependencies. Unit tests in `Tests/` cover the core files, and `scripts/functional-check.py` runs the app views and workflows against a made-up home.
 
 The app and the command share these core files, which only import Foundation, CryptoKit and SQLite3:
 
@@ -13,6 +13,7 @@ The app and the command share these core files, which only import Foundation, Cr
 - `Skillscout/SkillInstaller.swift`: adds a skill to another agent with a symlink (or a copy for plugin skills), saves drafted skills, edits, renames and merges skills, and moves skills to the Trash.
 - `Skillscout/Analyzer.swift`: the prompts for skill ideas, drafts, explanations and merges, and the parsing of the replies.
 - `Skillscout/AIEngine.swift`: runs the Codex or Claude Code CLI with the user's login shell `PATH`.
+- `Skillscout/SkillsDirectory.swift`: searches skills.sh when the user asks, and reads the `skills` CLI's lock files for where a skill came from.
 
 App only:
 
@@ -32,9 +33,9 @@ Command only: `CLI/main.swift` (arguments and help), `CLI/Commands.swift`, `CLI/
 Requirements: macOS 15 or later, Xcode 26 (the `.icon` needs it), and XcodeGen after editing `project.yml`.
 
 ```bash
-scripts/build-release.sh           # universal Release build, dist/Skillscout-Mod-<version>.zip
-open 'build/release/Release/Skillscout Mod.app'
-'build/release/Release/Skillscout Mod.app/Contents/Helpers/skillscout-mod' list
+scripts/build-release.sh           # universal Release build, dist/Quartermaster-<version>.zip
+open 'build/release/Release/Quartermaster.app'
+'build/release/Release/Quartermaster.app/Contents/Helpers/quartermaster' list
 xcodegen generate                  # after editing project.yml
 xcodebuild test -scheme SkillscoutTests   # unit tests for the core files (Swift Testing)
 python3 scripts/functional-check.py       # app workflows and view renders under a made-up home
@@ -47,15 +48,16 @@ swift scripts/render-banner.swift  # docs/banner.png, from the icon and the dark
 
 ## Rules
 
-- Skillscout only reads chats. It writes to the agents' folders in `SkillInstaller` alone, when the user adds, saves, edits, renames, merges or uninstalls a skill. Uninstalling and merging move folders, links and replaced `SKILL.md` files to the Trash, never delete them, and leave plugin and built-in skills alone. Renaming deletes a link only to create it again under the new name. Editing writes over a `SKILL.md` only while it still has the text the editor opened with, unless the user picks Save anyway.
+- Quartermaster only reads chats. It writes to the agents' folders in `SkillInstaller` alone, when the user adds, saves, edits, renames, merges or uninstalls a skill. Uninstalling and merging move folders, links and replaced `SKILL.md` files to the Trash, never delete them, and leave plugin and built-in skills alone. Renaming deletes a link only to create it again under the new name. Editing writes over a `SKILL.md` only while it still has the text the editor opened with, unless the user picks Save anyway.
 - Edit `SKILL.md` text with `PlainTextEditor`, never SwiftUI's `TextEditor`, which follows the system's smart quotes and dashes and breaks the commands in a skill.
 - Renames and merges record the old name in `aliases.json`, so `SkillUsage.tally` keeps counting the chats that used it.
-- Apart from the daily update check on GitHub, the app makes no network requests of its own. The AI features run the user's Codex CLI (`--ephemeral`, read-only sandbox) or Claude Code CLI (`--no-session-persistence`, no tools). The README's Privacy section describes this, so keep it accurate if it changes.
+- Apart from the daily update check on GitHub and the skills.sh search the user starts in Discovery, the app makes no network requests of its own. The AI features run the user's Codex CLI (`--ephemeral`, read-only sandbox) or Claude Code CLI (`--no-session-persistence`, no tools). The README's Privacy section describes this, so keep it accurate if it changes.
 - When a chat parser changes, bump `cacheVersion` in `PromptLibrary.swift`, so cached results get parsed again.
 - When an agent's folders or read rules change in `Tool`, update the agents table in the README.
 - Never use real skills or chats in screenshots, the banner or demos. `scripts/screenshot.sh` builds made-up ones in `build/demo-home`, under its own bundle ID. Test adding, uninstalling, renaming and merging against a made-up home too, since `Paths.home` follows `$HOME`. The Codex and Claude Code CLIs can't log in under a made-up home, so a merge test drafts with the real `HOME` and applies under the made-up one. Test copies still go to the real Trash, so clean them up. The shell can't list `~/.Trash`, but Finder can: `osascript -e 'tell application "Finder" to get name of every item of trash'`.
-- `scripts/screenshot.sh` draws the sidebar dimmed when its app loses focus to Cursor partway through, so look at every image. If one is dimmed, run it again while activating the app in a loop: `osascript -e 'tell application id "com.thawee.skillscout.screenshot" to activate'`.
-- Verify UI changes by building and opening the newly built app. For release verification, rebuild with `scripts/build-release.sh`, then quit and reopen `build/release/Release/Skillscout Mod.app`; a Debug build alone leaves an older release app on screen.
+- `scripts/screenshot.sh` draws the sidebar dimmed when its app loses focus to Cursor partway through, so look at every image. If one is dimmed, run it again while activating the app in a loop: `osascript -e 'tell application id "com.thawee.quartermaster.screenshot" to activate'`.
+- Verify UI changes by building and opening the newly built app. For release verification, rebuild with `scripts/build-release.sh`, then quit and reopen `build/release/Release/Quartermaster.app`; a Debug build alone leaves an older release app on screen.
 - The app isn't sandboxed, because it reads folders across the home folder, and has no Developer ID. Releases are ad-hoc signed and not notarized.
 - The updater trusts the GitHub release. Every release needs its `vX.Y.Z` tag, the zip from `scripts/build-release.sh` attached, and a `MARKETING_VERSION` that matches the tag, or the app refuses the update. The update dialog shows the release notes above `## Install`, so the new features go first. To release, bump the versions in `project.yml`, add the notes in `docs/releases/vX.Y.Z.md`, commit, and push the `vX.Y.Z` tag: `.github/workflows/release.yml` checks the version and notes, runs the unit tests, builds the zip on a `macos-26` runner, and publishes the release with the zip and its SHA-256. Run the workflow by hand with a tag to publish one pushed earlier or rebuild a release.
+- The rename from Skillscout Mod moved the Library from `~/.config/skillscout` to `~/.config/quartermaster` (`SkillInstaller.moveConfigFolder`, run at app and CLI start, never lazily, since unit tests use the real home), the bundle ID from `com.thawee.skillscout` to `com.thawee.quartermaster`, and Application Support to `Quartermaster`. Keep the persistent names that predate it: the `.skillscout-*` repository markers and stage folders, and the `skillscout-skillset` export format.
 - This is an independent fork. Preserve upstream's MIT attribution, keep the app and CLI identities separate from the original, and publish fork releases under `thawee/skillscout`.

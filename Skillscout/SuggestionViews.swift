@@ -16,7 +16,7 @@ struct SuggestionList: View {
         } description: {
           Text(store.isAnalyzing
             ? "Reading your \(min(store.prompts.count, Analyzer.maxMessages)) most recent messages. This takes a minute or two."
-            : "Skillscout reads your recent messages and finds tasks you ask for again and again.")
+            : "Quartermaster reads your recent messages and finds tasks you ask for again and again.")
         } actions: {
           if !store.isAnalyzing {
             Button("Analyze now") { Task { await store.analyze() } }

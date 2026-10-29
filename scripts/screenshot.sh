@@ -5,7 +5,7 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
-APP="$ROOT/build/screenshot/Skillscout Screenshot.app"
+APP="$ROOT/build/screenshot/Quartermaster Screenshot.app"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$ROOT/docs"
@@ -22,9 +22,9 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>CFBundleExecutable</key>
   <string>Screenshot</string>
   <key>CFBundleIdentifier</key>
-  <string>com.thawee.skillscout.screenshot</string>
+  <string>com.thawee.quartermaster.screenshot</string>
   <key>CFBundleName</key>
-  <string>Skillscout Mod Screenshot</string>
+  <string>Quartermaster Screenshot</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>NSHighResolutionCapable</key>
@@ -39,5 +39,5 @@ PLIST
 codesign --force --sign - "$APP"
 open -n "$APP" --args "$ROOT/docs" "$ROOT/build/demo-home" -AppleLocale en_US -AppleLanguages '(en)'
 sleep 1
-while pgrep -f "Skillscout Screenshot.app/Contents/MacOS" >/dev/null; do sleep 1; done
+while pgrep -f "Quartermaster Screenshot.app/Contents/MacOS" >/dev/null; do sleep 1; done
 ls -la "$ROOT"/docs/screenshot*.png

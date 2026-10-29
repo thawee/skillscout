@@ -6,8 +6,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    MARKETING_VERSION: "1.6.0"
-    CURRENT_PROJECT_VERSION: "8"
+    MARKETING_VERSION: "2.0.0"
+    CURRENT_PROJECT_VERSION: "9"
 targets:
   Skillscout:
     type: application
@@ -24,11 +24,11 @@ targets:
           subpath: Contents/Helpers
     settings:
       base:
-        PRODUCT_NAME: "Skillscout Mod"
-        PRODUCT_BUNDLE_IDENTIFIER: com.thawee.skillscout
+        PRODUCT_NAME: "Quartermaster"
+        PRODUCT_BUNDLE_IDENTIFIER: com.thawee.quartermaster
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: "Skillscout Mod"
+        INFOPLIST_KEY_CFBundleDisplayName: "Quartermaster"
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual
@@ -57,13 +57,14 @@ targets:
       - Skillscout/Analyzer.swift
       - Skillscout/AIEngine.swift
       - Skillscout/Registry.swift
+      - Skillscout/SkillsDirectory.swift
       - Skillscout/SkillReview.swift
       - Skillscout/SkillsetTransfer.swift
       - Skillscout/PluginScanner.swift
     settings:
       base:
-        PRODUCT_NAME: skillscout-mod
-        PRODUCT_BUNDLE_IDENTIFIER: com.thawee.skillscout.cli
+        PRODUCT_NAME: quartermaster
+        PRODUCT_BUNDLE_IDENTIFIER: com.thawee.quartermaster.cli
         GENERATE_INFOPLIST_FILE: YES
         CREATE_INFOPLIST_SECTION_IN_BINARY: YES
         SKIP_INSTALL: YES
@@ -94,12 +95,13 @@ targets:
       - Skillscout/Analyzer.swift
       - Skillscout/AIEngine.swift
       - Skillscout/Registry.swift
+      - Skillscout/SkillsDirectory.swift
       - Skillscout/SkillReview.swift
       - Skillscout/SkillsetTransfer.swift
       - Skillscout/PluginScanner.swift
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.thawee.skillscout.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.thawee.quartermaster.tests
         GENERATE_INFOPLIST_FILE: YES
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual

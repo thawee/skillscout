@@ -2,7 +2,7 @@ import Foundation
 
 extension AppStore {
   private struct ProjectSaveFailure: LocalizedError {
-    var errorDescription: String? { "Project changes stopped because Skillscout could not save its state. Retry recovery after fixing the save error." }
+    var errorDescription: String? { "Project changes stopped because Quartermaster could not save its state. Retry recovery after fixing the save error." }
   }
 
   func project(_ id: UUID) -> RegisteredProject? { projectState.projects.first { $0.id == id } }

@@ -1,7 +1,11 @@
 import Foundation
 
-// Read the app's settings: enabled tools, lookback window and AI engine.
-UserDefaults.standard.addSuite(named: "com.thawee.skillscout")
+// Read the app's settings: enabled tools, lookback window and AI engine. Until the app runs once after the
+// rename to Quartermaster, they're still under Skillscout Mod's ID.
+let settingsDomain = UserDefaults.standard.persistentDomain(forName: "com.thawee.quartermaster") == nil
+  ? "com.thawee.skillscout" : "com.thawee.quartermaster"
+UserDefaults.standard.addSuite(named: settingsDomain)
+SkillInstaller.moveConfigFolder()
 
 struct Arguments {
   var command: String?
@@ -59,14 +63,14 @@ struct Arguments {
   }
 
   func single(_ what: String) throws -> String {
-    guard let value = positional.first else { throw CLIError(message: "Tell me which \(what), like: skillscout-mod \(command ?? "") release-notes", usage: true) }
+    guard let value = positional.first else { throw CLIError(message: "Tell me which \(what), like: quartermaster \(command ?? "") release-notes", usage: true) }
     guard positional.count == 1 else { throw CLIError(message: "Pass one \(what) at a time.", usage: true) }
     return value
   }
 
   func two(_ first: String, _ second: String, example: String) throws -> (String, String) {
     guard positional.count == 2 else {
-      throw CLIError(message: "Pass the \(first) and the \(second), like: skillscout-mod \(command ?? "") \(example)", usage: true)
+      throw CLIError(message: "Pass the \(first) and the \(second), like: quartermaster \(command ?? "") \(example)", usage: true)
     }
     return (positional[0], positional[1])
   }
@@ -131,7 +135,7 @@ enum Command: String, CaseIterable {
     case .list: "List your skills and the tools that load them"
     case .show: "Where a skill lives, which tools see it, and its usage"
     case .usage: "Rank skills by how many chats used them"
-    case .tools: "The agent tools Skillscout knows about"
+    case .tools: "The agent tools Quartermaster knows about"
     case .similar: "Pairs of skills that read alike"
     case .add: "Add a skill to another tool"
     case .rename: "Give a skill a new name"
@@ -155,7 +159,7 @@ enum Command: String, CaseIterable {
     case .usage:
       "Ranks skills by the number of chats that used them. A use is a chat where the agent read the skill's SKILL.md, or where you attached or invoked the skill yourself."
     case .tools:
-      "Lists the agent tools Skillscout knows, whether they're on, and where each one keeps its skills. Turn tools on or off in the app's settings."
+      "Lists the agent tools Quartermaster knows, whether they're on, and where each one keeps its skills. Turn tools on or off in the app's settings."
     case .similar:
       "Compares the words your skills use, on your Mac and without AI, and lists the pairs that read alike, so you can merge them. Pairs you dismissed in the app stay hidden."
     case .rename:
@@ -163,7 +167,7 @@ enum Command: String, CaseIterable {
     case .merge:
       "Asks AI to write one SKILL.md from two skills, and makes it the SKILL.md of the first one. The old SKILL.md and the other skill go to the Trash, and the first skill gets linked wherever the other one was, so no tool loses it. The other skill's files come along, unless the first one has a file at the same path."
     case .add:
-      "Makes a skill available in another tool. Skillscout links the skill folder into that tool's skills folder, so an edit shows up everywhere. Plugin skills get copied instead, since plugin updates replace their folders. A skill from a downloaded repository with scripts or high-risk commands is listed first and needs a yes, or --yes without a terminal."
+      "Makes a skill available in another tool. Quartermaster links the skill folder into that tool's skills folder, so an edit shows up everywhere. Plugin skills get copied instead, since plugin updates replace their folders. A skill from a downloaded repository with scripts or high-risk commands is listed first and needs a yes, or --yes without a terminal."
     case .uninstall:
       "Moves every copy of a skill in your skills folders to the Trash, so you can put it back from there. A link goes on its own, and the folder it points to stays. Plugin and built-in copies stay too, since their tools manage them."
     case .suggest:
@@ -175,9 +179,9 @@ enum Command: String, CaseIterable {
     case .update:
       "Downloads a Library repository again, or copies its local folder again, and lists the added, changed and removed files, with the scripts and high-risk commands in them. The Library copy is replaced only after a yes, or --yes without a terminal, and the old copy goes to the Trash. Pass a skill from the repository or the repository's name."
     case .plugins:
-      "Lists the plugins installed in Claude Code, Codex and Cursor, with their skills and what they run on your Mac: hooks, MCP and language servers, monitors and executables. Environment values are never shown. Skillscout only reads plugins; install, update or turn them off in the agent."
+      "Lists the plugins installed in Claude Code, Codex and Cursor, with their skills and what they run on your Mac: hooks, MCP and language servers, monitors and executables. Environment values are never shown. Quartermaster only reads plugins; install, update or turn them off in the agent."
     case .skillset:
-      "Works with the skillsets you make in the app. The actions are list, show <set>, apply <set> --to <tool>, unassign <set> --from <tool>, export <set> and import <file>. apply links a skillset's skills into a tool, and unassign removes the links and copies Skillscout made for it that no other assigned skillset needs; both show the changes first and need a yes, or --yes without a terminal. export saves a skillset as JSON, with the Git repository each Library skill came from, and import adds one, listing the skills this Mac doesn't have yet. apply, unassign and import change the app's saved state, so they stop while Skillscout Mod is open."
+      "Works with the skillsets you make in the app. The actions are list, show <set>, apply <set> --to <tool>, unassign <set> --from <tool>, export <set> and import <file>. apply links a skillset's skills into a tool, and unassign removes the links and copies Quartermaster made for it that no other assigned skillset needs; both show the changes first and need a yes, or --yes without a terminal. export saves a skillset as JSON, with the Git repository each Library skill came from, and import adds one, listing the skills this Mac doesn't have yet. apply, unassign and import change the app's saved state, so they stop while Quartermaster is open."
     }
   }
 
@@ -279,9 +283,9 @@ enum Command: String, CaseIterable {
 func printHelp(_ command: Command?) {
   let bold = Terminal.bold
   guard let command else {
-    print(Terminal.wrap("Skillscout finds the skills your coding agents load, shows which tools can use each one, and counts how often you use them."))
+    print(Terminal.wrap("Quartermaster finds the skills your coding agents load, shows which tools can use each one, and counts how often you use them."))
     print()
-    print("\(bold("Usage:")) skillscout-mod [command] [options]")
+    print("\(bold("Usage:")) quartermaster [command] [options]")
     print()
     print(bold("Commands:"))
     for command in Command.allCases {
@@ -289,14 +293,15 @@ func printHelp(_ command: Command?) {
       print("  \(Terminal.pad(name, 17)) \(command.summary)")
     }
     print()
-    print("Run skillscout-mod with no command for a summary.")
-    print("Run skillscout-mod help <command> to see its options.")
+    print("Run quartermaster with no command for a summary.")
+    print("Run quartermaster help <command> to see its options.")
+    print("qm is the short name the app's Install Command Line Tool also adds.")
     print()
     print("\(bold("Tools:")) \(Tool.allCases.map(\.rawValue).joined(separator: ", "))")
     return
   }
 
-  print("\(bold("Usage:")) skillscout-mod \(command.synopsis)")
+  print("\(bold("Usage:")) quartermaster \(command.synopsis)")
   print()
   print(Terminal.wrap(command.details))
   print()
@@ -315,7 +320,7 @@ do {
   if args.flag("no-color") { Terminal.colors = false }
 
   if args.flag("version") {
-    print("skillscout-mod \(version)")
+    print("quartermaster \(version)")
   } else if args.command == "help" {
     let name = args.positional.first
     guard let command = name.map(Command.init(rawValue:)) ?? .some(nil) else {
@@ -339,7 +344,7 @@ do {
 } catch {
   Terminal.clearStatus()
   let usage = (error as? CLIError)?.usage == true
-  Terminal.note("skillscout-mod: \(error.localizedDescription)")
-  if usage { Terminal.note("Run skillscout-mod help for usage.") }
+  Terminal.note("quartermaster: \(error.localizedDescription)")
+  if usage { Terminal.note("Run quartermaster help for usage.") }
   exit(usage ? 2 : 1)
 }

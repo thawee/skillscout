@@ -22,7 +22,7 @@ enum SkillInstaller {
       case .builtIn(let name): "\(name) is built into its tool and can't be moved."
       case .managed(let url): Paths.libraryRepo(url.resolvingSymlinksInPath()) != nil
         ? "\(Paths.describe(url)) comes from a Library repository and stays as downloaded. Update or remove the repository instead."
-        : "\(Paths.describe(url)) belongs to a plugin or to its tool, so Skillscout leaves it alone."
+        : "\(Paths.describe(url)) belongs to a plugin or to its tool, so Quartermaster leaves it alone."
       case .conflictingCopies(let name): "\(name) has copies with different content. Keep the copy you want before moving it to the library."
       case .changedOnDisk(let url): "\(Paths.describe(url)) changed since you started editing it."
       case .problem(let problem): problem
@@ -53,7 +53,7 @@ enum SkillInstaller {
     guard centralSource(skill) != nil, !skill.copiesDiffer,
           !skill.copies.contains(where: { $0.root.kind == .managed || $0.root.kind == .shared || $0.root.kind == .drafts }),
           !skill.copies.contains(where: { isManaged($0.resolved) }) else { return false }
-    return !exists(Paths.at(".config/skillscout/skills").appending(path: slug(skill.name)))
+    return !exists(Paths.libraryFolder.appending(path: slug(skill.name)))
   }
 
   /// The folder that moves into the Library: a real folder in an agent's skills folder. A skill that only
@@ -391,7 +391,7 @@ enum SkillInstaller {
   @discardableResult
   static func removeRepo(name: String) throws -> [URL] {
     guard !name.isEmpty, name == slug(name) else { throw InstallFailure.notFound }
-    let root = Paths.at(".config/skillscout/skills").resolvingSymlinksInPath()
+    let root = Paths.libraryFolder.resolvingSymlinksInPath()
     let folder = root.appending(path: name)
     let fm = FileManager.default
     guard exists(folder) else { throw InstallFailure.notFound }
@@ -1018,5 +1018,78 @@ extension SkillInstaller {
       }
     }
     return DraftSaveResult(folder: folder, skillID: identity, issues: issues)
+  }
+}
+
+// MARK: - Rename to Quartermaster
+
+extension SkillInstaller {
+  /// Moves the folder Skillscout kept the Library in, ~/.config/skillscout, to Quartermaster's. The old path
+  /// stays as a link to the new folder, so links and scripts that name it keep working, while the links in the
+  /// agents' folders and the paths in the state file follow the move. If the folder can't move, the new path
+  /// links to the old one instead. Runs again safely: once the old path is a link, it only relinks.
+  static func moveConfigFolder(
+    home: URL = Paths.home, stateFile: URL = Paths.stateFile,
+    roots: [URL] = SkillRoot.all.filter { $0.kind == .user || $0.kind == .shared }.map(\.url)
+  ) {
+    let fm = FileManager.default
+    let old = home.appending(path: ".config/skillscout"), new = home.appending(path: ".config/quartermaster")
+    // Absolute targets as written: standardizedFileURL would drop the /private of an existing /private/tmp path.
+    func linkTarget(_ url: URL) -> String? {
+      (try? fm.destinationOfSymbolicLink(atPath: url.path)).map {
+        $0.hasPrefix("/") ? $0 : URL(fileURLWithPath: $0, relativeTo: url.deletingLastPathComponent()).absoluteURL.standardized.path
+      }
+    }
+    if let target = linkTarget(old) {
+      // The user's own link, to a dotfiles folder say: the new path points to the same place.
+      if target != new.path, !exists(new) { try? fm.createSymbolicLink(atPath: new.path, withDestinationPath: target) }
+      guard target == new.path else { return }
+    } else {
+      var isDirectory: ObjCBool = false
+      guard fm.fileExists(atPath: old.path, isDirectory: &isDirectory), isDirectory.boolValue else { return }
+      // An empty folder at the new path, left by an earlier run say, gives way. Anything in it is kept.
+      if exists(new), linkTarget(new) == nil { rmdir(new.path) }
+      guard !exists(new) else { return }
+      do {
+        try fm.moveItem(at: old, to: new)
+      } catch {
+        try? fm.createSymbolicLink(atPath: new.path, withDestinationPath: old.path)
+        return
+      }
+      try? fm.createSymbolicLink(atPath: old.path, withDestinationPath: new.path)
+    }
+    let folders = [old.path: new.path]
+    for root in roots {
+      for link in (try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? [] {
+        guard let target = linkTarget(link) else { continue }
+        let moved = relocatedPath(target, folders: folders)
+        guard moved != target else { continue }
+        // A new link under a temporary name replaces the old one in a single rename.
+        let temporary = root.appending(path: ".quartermaster-relink-\(UUID().uuidString)")
+        guard (try? fm.createSymbolicLink(atPath: temporary.path, withDestinationPath: moved)) != nil else { continue }
+        if Darwin.rename(temporary.path, link.path) != 0 { try? fm.removeItem(at: temporary) }
+      }
+    }
+    relocatePaths(in: stateFile, folders: folders)
+  }
+
+  /// Rewrites every path in a JSON file that's in one of `folders`, and saves the file only if one changed.
+  static func relocatePaths(in file: URL, folders: [String: String]) {
+    guard let data = try? Data(contentsOf: file), let object = try? JSONSerialization.jsonObject(with: data) else { return }
+    var changed = false
+    func relocate(_ value: Any) -> Any {
+      switch value {
+      case let string as String:
+        let moved = relocatedPath(string, folders: folders)
+        if moved != string { changed = true }
+        return moved
+      case let array as [Any]: return array.map(relocate)
+      case let dictionary as [String: Any]: return dictionary.mapValues(relocate)
+      default: return value
+      }
+    }
+    let relocated = relocate(object)
+    guard changed, let output = try? JSONSerialization.data(withJSONObject: relocated) else { return }
+    try? output.write(to: file, options: .atomic)
   }
 }

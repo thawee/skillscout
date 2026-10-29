@@ -36,13 +36,6 @@
       "author": "Addy Osmani"
     },
     {
-      "repo": "https://github.com/cathrynlavery/diagram-design",
-      "name": "diagram-design",
-      "description": "Creates editorial diagrams as self-contained HTML and SVG, with support for many diagram types.",
-      "tools": null,
-      "author": "cathrynlavery"
-    },
-    {
       "repo": "https://github.com/twostraws/SwiftUI-Agent-Skill",
       "name": "swiftui-agent-skill",
       "description": "SwiftUI development and code review guidance for modern APIs, maintainability, and performance.",
@@ -50,32 +43,11 @@
       "author": "twostraws"
     },
     {
-      "repo": "https://github.com/QingYunA/answer-me-with-html",
-      "name": "answer-me-with-html",
-      "description": "Explains complex questions with a readable, single-page HTML answer.",
-      "tools": null,
-      "author": "QingYunA"
-    },
-    {
-      "repo": "https://github.com/konraddzbik/architecture-diagram-skill",
-      "name": "architecture-diagram-skill",
-      "description": "Builds interactive architecture diagrams with animated data flow in a single HTML file.",
-      "tools": null,
-      "author": "konraddzbik"
-    },
-    {
       "repo": "https://github.com/tt-a1i/archify.git",
       "name": "archify",
       "description": "Creates interactive architecture, workflow, sequence, data-flow, and lifecycle diagrams as standalone HTML.",
       "tools": null,
       "author": "tt-a1i"
-    },
-    {
-      "repo": "https://github.com/lewes2/archpresent",
-      "name": "archpresent",
-      "description": "Creates interactive architecture diagrams from projects and ideas as self-contained HTML.",
-      "tools": null,
-      "author": "lewes2"
     }
   ]
 }

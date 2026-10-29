@@ -13,7 +13,7 @@ struct SimilarList: View {
         ContentUnavailableView(
           "No similar skills",
           systemImage: "arrow.triangle.merge",
-          description: Text("Skillscout compares the words your skills use. When two of them cover the same ground, they show up here, so you can merge them.")
+          description: Text("Quartermaster compares the words your skills use. When two of them cover the same ground, they show up here, so you can merge them.")
         )
       }
     }
@@ -92,7 +92,7 @@ struct SimilarDetail: View {
 
         VStack(alignment: .leading, spacing: 4) {
           Button("They're different skills") { store.dismissPair(pair) }
-          Text("Skillscout won't pair them again.")
+          Text("Quartermaster won't pair them again.")
             .font(.caption)
             .foregroundStyle(.tertiary)
         }
@@ -236,7 +236,7 @@ extension SkillInstaller.MergePlan {
   /// Every change, with the folders, for the confirmation.
   func message(tools: [Tool]) -> String {
     let places = folders.map(Paths.describe).formatted(.list(type: .and))
-    var sentences = ["Skillscout writes the merged SKILL.md into \(places), and moves the old \(folders.count == 1 ? "one" : "ones") to the Trash."]
+    var sentences = ["Quartermaster writes the merged SKILL.md into \(places), and moves the old \(folders.count == 1 ? "one" : "ones") to the Trash."]
     if !copiedFiles.isEmpty {
       sentences.append("It copies over \(count(copiedFiles.count, "file")) from \(merged.name).")
     }

@@ -35,7 +35,7 @@ private func skill(_ name: String, folder: URL, kind: SkillRoot.Kind = .user, de
   }
 
   @Test func skillMovedIntoLibraryStaysEditable() {
-    let moved = linkedSkill("eligibility-demo", to: Paths.at(".config/skillscout/skills/moved-\(UUID().uuidString.lowercased())"))
+    let moved = linkedSkill("eligibility-demo", to: Paths.at(".config/quartermaster/skills/moved-\(UUID().uuidString.lowercased())"))
     #expect(SkillInstaller.canEdit(moved))
     #expect(SkillInstaller.canRename(moved))
     #expect(moved.managedRepos.isEmpty)
@@ -68,7 +68,7 @@ private func skill(_ name: String, folder: URL, kind: SkillRoot.Kind = .user, de
 
   @Test func savedSourceThatNoLongerExistsFallsBackToTheDefault() {
     let library = SkillRoot.all.first { $0.kind == .managed }!
-    let folder = Paths.at(".config/skillscout/skills/acme/review")
+    let folder = Paths.at(".config/quartermaster/skills/acme/review")
     let copy = SkillCopy(folder: folder, resolved: folder, root: library, pluginName: nil, isSymlink: false, contentHash: "a", created: .distantPast)
     let skill = Skill(name: "review", description: "", copies: [copy])
     #expect(SkillInstaller.skillsetSource(skill, preferredSources: ["review": "/gone/review"]) == copy)
@@ -87,13 +87,13 @@ private func skill(_ name: String, folder: URL, kind: SkillRoot.Kind = .user, de
   }
 
   @Test func libraryStorageIsNamedInsteadOfShown() {
-    #expect(Paths.describe(Paths.at(".config/skillscout/skills/acme/review")) == "Library · acme/review")
-    #expect(Paths.describe(Paths.at(".config/skillscout/drafts/idea")) == "Library drafts · idea")
-    #expect(Paths.describe(Paths.at(".config/skillscout/skills")) == "Library")
-    #expect(Paths.describe(Paths.at(".config/skillscout/skills-old/x")) == "~/.config/skillscout/skills-old/x")
+    #expect(Paths.describe(Paths.at(".config/quartermaster/skills/acme/review")) == "Library · acme/review")
+    #expect(Paths.describe(Paths.at(".config/quartermaster/drafts/idea")) == "Library drafts · idea")
+    #expect(Paths.describe(Paths.at(".config/quartermaster/skills")) == "Library")
+    #expect(Paths.describe(Paths.at(".config/quartermaster/skills-old/x")) == "~/.config/quartermaster/skills-old/x")
     #expect(Paths.describe(Paths.at(".claude/skills/review")) == "~/.claude/skills/review")
     let root = SkillRoot.all.first { $0.kind == .user && $0.owner == .claude }!
-    let link = SkillCopy(folder: Paths.at(".claude/skills/review"), resolved: Paths.at(".config/skillscout/skills/acme/review"),
+    let link = SkillCopy(folder: Paths.at(".claude/skills/review"), resolved: Paths.at(".config/quartermaster/skills/acme/review"),
       root: root, pluginName: nil, isSymlink: true, contentHash: "", created: .distantPast)
     #expect(link.isInLibraryStorage)
   }

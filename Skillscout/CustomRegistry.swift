@@ -2,7 +2,7 @@ import Foundation
 
 struct CustomRegistry {
     static let shared = CustomRegistry()
-    private let url = Paths.home.appending(path: ".config/skillscout/custom-registry.json")
+    private let url = Paths.configFolder.appending(path: "custom-registry.json")
 
     enum SourceError: LocalizedError {
         case invalidFolder
@@ -21,7 +21,7 @@ struct CustomRegistry {
     }
 
     @discardableResult
-    func add(repoURL: String) throws -> String {
+    func add(repoURL: String, description: String? = nil) throws -> String {
         let source = try normalizedSource(repoURL)
         var skills = fetch()
         // Avoid duplicates
@@ -29,7 +29,7 @@ struct CustomRegistry {
             let isLocal = source.hasPrefix("/")
             let name = isLocal ? URL(fileURLWithPath: source).lastPathComponent
                 : (URL(string: source)?.lastPathComponent.replacingOccurrences(of: ".git", with: "") ?? source)
-            let newSkill = RegistrySkill(name: name, description: isLocal ? "Local skills folder" : "Custom skill repository", repo: source, tools: nil, author: "Custom")
+            let newSkill = RegistrySkill(name: name, description: description ?? (isLocal ? "Local skills folder" : "Custom skill repository"), repo: source, tools: nil, author: "Custom")
             skills.append(newSkill)
 
             let data = try JSONEncoder().encode(skills)

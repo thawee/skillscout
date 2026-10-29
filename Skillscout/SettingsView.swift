@@ -28,7 +28,7 @@ struct SettingsView: View {
       } header: {
         Text("Tools")
       } footer: {
-        Text("Skillscout shows the skills these tools load, and reads their chats for usage and repeated tasks.")
+        Text("Quartermaster shows the skills these tools load, and reads their chats for usage and repeated tasks.")
       }
 
       Section {
@@ -43,7 +43,7 @@ struct SettingsView: View {
       } header: {
         Text("AI")
       } footer: {
-        Text("Skillscout runs the CLI you're already logged in to. These runs aren't saved to your chat history.")
+        Text("Quartermaster runs the CLI you're already logged in to. These runs aren't saved to your chat history.")
       }
 
       Section {

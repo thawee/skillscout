@@ -1,4 +1,4 @@
-// Captures the real Skillscout window for the README and the banner, in light and dark.
+// Captures the real Quartermaster window for the README and the banner, in light and dark.
 // It builds a demo home folder with made-up skills first, so no real chats end up in a screenshot.
 // scripts/screenshot.sh compiles it with the app's sources, in place of SkillscoutApp.swift.
 
@@ -213,7 +213,7 @@ func buildDemoHome() throws {
 
   // A made-up Library repository, so the sidebar shows a Source.
   for (name, description) in librarySkills {
-    let folder = demoHome.appending(path: ".config/skillscout/skills/team-skills/\(name)")
+    let folder = demoHome.appending(path: ".config/quartermaster/skills/team-skills/\(name)")
     try fm.createDirectory(at: folder, withIntermediateDirectories: true)
     try "---\nname: \(name)\ndescription: \(description)\n---\n\n\(description)\n"
       .write(to: folder.appending(path: "SKILL.md"), atomically: true, encoding: .utf8)

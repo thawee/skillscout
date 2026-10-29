@@ -9,13 +9,17 @@ struct RepositoryList: View {
   let repositories: [RepositoryEntry]
   @Binding var selection: RepositoryID?
   var localOnly = false
-  var hasSearch = false
+  var searchText = ""
   var clearSearch: () -> Void = {}
+  /// Searches skills.sh for the search text and switches Discovery to its results.
+  var searchSkillsDirectory: (() -> Void)?
   var onAdded: (RepositoryEntry) -> Void = { _ in }
   @Environment(AppStore.self) private var store
   @State private var filter = RepositoryFilter.all
   @State private var showingAdd = false
   @State private var addedSource: String?
+
+  private var hasSearch: Bool { !searchText.isEmpty }
 
   private var filtered: [RepositoryEntry] {
     repositories.filter { entry in
@@ -72,13 +76,26 @@ struct RepositoryList: View {
           ContentUnavailableView {
             Label(hasSearch ? "No matching sources" : "No sources here", systemImage: "shippingbox")
           } description: {
-            Text(hasSearch ? "Try another name or address." : "Add a repository URL or a local skills folder.")
+            Text(hasSearch ? (searchSkillsDirectory == nil ? "Try another name or address." : "Try another name or address, or search the skills.sh directory.")
+              : "Add a repository URL or a local skills folder.")
           } actions: {
+            if hasSearch, let searchSkillsDirectory { Button("Search skills.sh", action: searchSkillsDirectory) }
             if hasSearch { Button("Clear search", action: clearSearch) }
             if filter != .all { Button("Show all sources") { filter = .all } }
             Button("Add source") { showingAdd = true }
           }
         }
+      }
+      if hasSearch, !filtered.isEmpty, let searchSkillsDirectory {
+        Divider()
+        Button(action: searchSkillsDirectory) {
+          Label("Search skills.sh for \u{201C}\(searchText)\u{201D}", systemImage: "globe")
+            .lineLimit(1).truncationMode(.middle)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .buttonStyle(.link)
+        .help("Sends your search text to skills.sh")
+        .padding(10)
       }
     }
     .toolbar {
@@ -112,7 +129,7 @@ struct RepositoryList: View {
 struct RepositoryDetail: View {
   let repository: RepositoryEntry
   @Environment(AppStore.self) private var store
-  @State private var search = ""
+  @State private var search: String
   @State private var selectedSkill: RepositorySkill?
   @State private var showingRemove = false
   @State private var showingVersion = false
@@ -120,6 +137,12 @@ struct RepositoryDetail: View {
   @State private var versionToken: String?
   @State private var showingAuthentication = false
   @State private var token = ""
+
+  /// `focus` starts the skill search with a skill's name, such as the skills.sh result that opened the repository.
+  init(repository: RepositoryEntry, focus: String? = nil) {
+    self.repository = repository
+    _search = State(initialValue: focus ?? "")
+  }
 
   private var entry: RepositoryEntry { store.repositories.first { $0.id == repository.id } ?? repository }
   private var busy: Bool { store.repositoryBusy.contains(entry.id) }
@@ -362,7 +385,8 @@ struct RepositoryDetail: View {
           }
         }
       } else {
-        Text("Load skills to inspect this source before adding it to Library. Previewing creates no agent links.")
+        Text(search.isEmpty ? "Load skills to inspect this source before adding it to Library. Previewing creates no agent links."
+          : "Load skills to find \u{201C}\(search)\u{201D} and inspect this source before adding it to Library. Previewing creates no agent links.")
           .foregroundStyle(.secondary)
       }
     }

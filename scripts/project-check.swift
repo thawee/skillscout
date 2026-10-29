@@ -121,6 +121,8 @@ enum ProjectCheck {
     }
     let local = firstFolder.appending(path: ".agents/skills/local-demo")
     try projectFixtureSkill(local, name: "local-demo")
+    try #"{"version":1,"skills":{"local-demo":{"source":"made-up-owner/made-up-skills","sourceType":"github","computedHash":"abc"}}}"#
+      .write(to: SkillsLock.projectFile(firstFolder), atomically: true, encoding: .utf8)
     try projectFixtureSkill(firstFolder.appending(path: ".claude/skills/claude-demo"), name: "claude-demo")
     let mixedLocal = firstFolder.appending(path: ".claude/skills/mixed-demo")
     try projectFixtureSkill(mixedLocal, name: "mixed-demo")
@@ -131,14 +133,14 @@ enum ProjectCheck {
     try projectFixtureSkill(global, name: "global-demo")
     let globalBytes = try Data(contentsOf: global.appending(path: "SKILL.md"))
     for name in ["portable-demo", "overlap-demo", "editable-demo", "existing-demo", "direct-demo"] {
-      try projectFixtureSkill(Paths.at(".config/skillscout/drafts/" + name), name: name)
+      try projectFixtureSkill(Paths.at(".config/quartermaster/drafts/" + name), name: name)
     }
-    let support = Paths.at(".config/skillscout/drafts/portable-demo/tools/verify.sh")
+    let support = Paths.at(".config/quartermaster/drafts/portable-demo/tools/verify.sh")
     try fm.createDirectory(at: support.deletingLastPathComponent(), withIntermediateDirectories: true)
     try "#!/bin/sh\nprintf 'fixture\\n'\n".write(to: support, atomically: true, encoding: .utf8)
     try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: support.path)
     let existing = firstFolder.appending(path: ".agents/skills/existing-demo")
-    try fm.copyItem(at: Paths.at(".config/skillscout/drafts/existing-demo"), to: existing)
+    try fm.copyItem(at: Paths.at(".config/quartermaster/drafts/existing-demo"), to: existing)
 
     func chat(_ id: String, cwd: String?, skill: URL, daysAgo: Int = 0) throws {
       let formatter = ISO8601DateFormatter()
@@ -184,6 +186,13 @@ enum ProjectCheck {
     try projectCheck(store.projectInventories[first.id]?.skills.contains { $0.name == "local-demo" && !$0.localCopies.isEmpty } == true, "local skills appear in project inventory")
     try projectCheck(store.projectInventories[first.id]?.skills.contains { $0.name == "global-demo" && $0.localCopies.isEmpty && !$0.globalTools.isEmpty } == true, "global availability is shown separately")
     try projectCheck(!store.skills.contains { $0.name == "local-demo" }, "project-local skills stay outside global inventory")
+    let projectLock = SkillsLock.entries(in: SkillsLock.projectFile(first.url))
+    func lockEntry(_ name: String) -> SkillsLockEntry? {
+      guard let row = store.projectInventories[first.id]?.skills.first(where: { $0.name == name }) else { return nil }
+      return SkillsLock.entry(named: row.name, folders: row.localCopies.map(\.folder), in: projectLock)
+    }
+    try projectCheck(lockEntry("local-demo")?.repositoryAddress == "https://github.com/made-up-owner/made-up-skills"
+      && lockEntry("claude-demo") == nil, "project skills.sh lock names only the skill it installed")
     try projectCheck(store.projectUsage(first)["local-demo"]?.chats == 1, "recorded project usage resolves local skill paths")
     try projectCheck(store.projectUsage(first)["global-demo"]?.chats == 1, "parent excludes nested and unknown project histories")
     try projectCheck(store.projectUsage(second)["global-demo"]?.chats == 1, "same-name project chat stays separate")
@@ -250,7 +259,8 @@ enum ProjectCheck {
       ("project-overview", AnyView(ContentView(sidebar: .project(first.id)).environment(store))),
       ("project-overview-light", AnyView(ContentView(sidebar: .project(first.id)).environment(store))),
       ("project-overview-narrow", AnyView(ContentView(sidebar: .project(first.id)).environment(store))),
-      ("project-local-skill", AnyView(ProjectDetailView(project: first, skillID: "local-demo").environment(store))),
+      ("project-local-skill", AnyView(ProjectDetailView(project: first, skillID: "local-demo").environment(\.openSourceInDiscovery) { _, _ in }.environment(store))),
+      ("project-unlocked-skill", AnyView(ProjectDetailView(project: first, skillID: "claude-demo").environment(\.openSourceInDiscovery) { _, _ in }.environment(store))),
       ("project-apply", AnyView(ProjectApplySheet(project: second, request: ProjectApplyRequest(skillsetID: base.id)).environment(store))),
       ("project-apply-short", AnyView(ProjectApplySheet(project: second, request: ProjectApplyRequest(skillsetID: base.id)).environment(store))),
       ("project-apply-light", AnyView(ProjectApplySheet(project: second, request: ProjectApplyRequest(skillsetID: base.id)).environment(store))),
@@ -290,7 +300,7 @@ enum ProjectCheck {
       "individual removal preview targets only the project copy")
     trashed += await store.applyProjectPlan(directRemoval)
     try projectCheck(!fm.fileExists(atPath: directCopy.path), "individual removal trashes its unchanged owned project copy")
-    try projectCheck(fm.fileExists(atPath: Paths.at(".config/skillscout/drafts/direct-demo/SKILL.md").path),
+    try projectCheck(fm.fileExists(atPath: Paths.at(".config/quartermaster/drafts/direct-demo/SKILL.md").path),
       "individual project removal preserves its reusable Library source")
     try projectCheck(store.skillsets == templatesBeforeDirectAdd, "individual project removal preserves central skillset membership")
     let fixture = ProjectFilterFixture()
@@ -365,9 +375,9 @@ enum ProjectCheck {
     try fm.createDirectory(at: partialStage, withIntermediateDirectories: true)
     try "Interrupted copy data\n".write(to: partialStage.appending(path: "partial.txt"), atomically: true, encoding: .utf8)
     let partial = ProjectPendingStep(skillID: "portable-demo", operation: .install, phase: .prepared,
-      destinationPath: installed.path, sourcePath: Paths.at(".config/skillscout/drafts/portable-demo").path,
+      destinationPath: installed.path, sourcePath: Paths.at(".config/quartermaster/drafts/portable-demo").path,
       stagePath: partialStage.path, stageIdentity: try ProjectDirectoryIdentity.read(at: partialStage),
-      expectedFingerprint: try SkillInstaller.projectFingerprint(Paths.at(".config/skillscout/drafts/portable-demo")),
+      expectedFingerprint: try SkillInstaller.projectFingerprint(Paths.at(".config/quartermaster/drafts/portable-demo")),
       previousReceipt: nil)
     restored.projectState.pending = ProjectPendingJournal(projectID: first.id, target: .shared,
       previousAssignments: restored.projectState.assignments.filter { $0.projectID == first.id && $0.target == .shared },

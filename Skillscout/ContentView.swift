@@ -6,6 +6,9 @@ enum SidebarItem: Hashable {
   case discovery
   case library
   case global
+  /// Skills in the shared `~/.agents/skills` folder that several agents read.
+  case globalShared
+  case globalAgent(Tool)
   case used
   case usedOnce
   case unused
@@ -25,6 +28,14 @@ enum SidebarItem: Hashable {
     }
   }
 
+  /// All agents, Shared, or one agent under Global.
+  var isGlobal: Bool {
+    switch self {
+    case .global, .globalShared, .globalAgent: true
+    default: false
+    }
+  }
+
   var isProjectBrowser: Bool {
     switch self {
     case .projects, .project: true
@@ -39,6 +50,16 @@ enum SidebarItem: Hashable {
 enum DiscoveryKind: String, CaseIterable {
   case git = "Git repositories"
   case local = "Local folders"
+  case skillsDirectory = "skills.sh"
+
+  /// The shorter label for Discovery's choice buttons, which share a narrow column.
+  var shortTitle: String {
+    switch self {
+    case .git: "Git"
+    case .local: "Folders"
+    case .skillsDirectory: "skills.sh"
+    }
+  }
 }
 
 struct DiscoveryKindChoices: View {
@@ -48,17 +69,18 @@ struct DiscoveryKindChoices: View {
     Group {
       ForEach(DiscoveryKind.allCases, id: \.self) { kind in
         Button { selection = kind } label: {
-          Text(kind.rawValue)
-            .lineLimit(2)
-            .fixedSize(horizontal: false, vertical: true)
+          Text(kind.shortTitle)
+            .lineLimit(1)
             .fontWeight(selection == kind ? .semibold : .regular)
             .foregroundStyle(selection == kind ? Color.accentColor : Color.secondary)
             .frame(maxWidth: .infinity)
         }
         .tint(selection == kind ? .accentColor : .secondary)
+        .help(kind.rawValue)
+        .accessibilityLabel(kind.rawValue)
       }
     }
-    .help("Choose Git repositories or local folders")
+    .help("Choose Git repositories, local folders or the skills.sh directory")
   }
 }
 
@@ -89,10 +111,12 @@ struct ContentView: View {
   @State private var selectedSkills: Set<Skill.ID> = []
   @State private var selectedSuggestion: Suggestion.ID?
   @State private var selectedRepository: RepositoryID?
+  @State private var selectedDirectoryResult: SkillsDirectory.Result.ID?
+  /// The skill to search for in a repository opened from a skills.sh result.
+  @State private var repositoryFocus: (id: RepositoryID, skill: String)?
   @State private var selectedPair: SimilarPair.ID?
   @State private var selectedPlugin: InstalledPlugin.ID?
   @State private var selectedProjectSkill: String?
-  @State private var globalTool: Tool?
   @State private var projectFilters: [UUID: ProjectSkillFilter] = [:]
   @State private var search = ""
   @FocusState private var isSearchFocused: Bool
@@ -104,6 +128,9 @@ struct ContentView: View {
   @State private var showingLocalFolder = false
   @State private var addedSource: String?
   @State private var newSkillsetName = ""
+  @AppStorage("sidebar.globalExpanded") private var globalExpanded = true
+  /// The per-agent rows under Global, folded by default so the sections below stay in view.
+  @AppStorage("sidebar.agentsExpanded") private var agentsExpanded = false
   @AppStorage("sidebar.projectsExpanded") private var projectsExpanded = true
   @AppStorage("sidebar.activityExpanded") private var activityExpanded = true
   @AppStorage("sidebar.pluginsExpanded") private var pluginsExpanded = true
@@ -125,8 +152,8 @@ struct ContentView: View {
     case .localSource(let address): target = .address(address); kind = .local
     default: target = destination.isRepositoryBrowser ? repository.map(DiscoveryTarget.repository) : nil
     }
-    _globalTool = State(initialValue: globalTool)
-    _sidebar = State(initialValue: destination.isRepositoryBrowser ? .discovery : destination)
+    _sidebar = State(initialValue: destination.isRepositoryBrowser ? .discovery
+      : destination == .global ? globalTool.map(SidebarItem.globalAgent) ?? .global : destination)
     _discoveryKind = State(initialValue: kind)
     _discoveryTarget = State(initialValue: target)
     _selectedSkills = State(initialValue: Set(skill.map { [$0] } ?? []))
@@ -143,7 +170,8 @@ struct ContentView: View {
 
   private var skillListContext: SkillListContext {
     switch sidebar {
-    case .global: .global(globalTool)
+    case .globalShared: .globalShared
+    case .global, .globalAgent: .global(globalTool)
     case .skillset(let id): .skillset(id)
     case .used, .usedOnce, .unused: .activity
     default: .library
@@ -163,17 +191,49 @@ struct ContentView: View {
     selectedSkills = [id]
   }
 
+  /// Searches skills.sh for the Git search text, keeping it in the field, and shows the results.
+  private func searchSkillsDirectory() {
+    store.searchSkillsDirectory(search)
+    discoveryTarget = nil
+    selectedRepository = nil
+    selectedDirectoryResult = nil
+    discoveryKind = .skillsDirectory
+  }
+
+  /// Opens a skills.sh result's repository in Discovery, adding it as a custom source when needed.
+  private func openDirectoryResult(_ result: SkillsDirectory.Result) {
+    guard let address = result.repositoryAddress else { return }
+    Task {
+      do {
+        if let entry = try await store.discoveryEntry(for: address, description: "From skills.sh \u{00B7} \(result.source)") {
+          showRepository(entry, focus: result.skillId)
+        }
+      } catch {
+        store.errorMessage = error.localizedDescription
+      }
+    }
+  }
+
+  private func openSourceInDiscovery(_ address: String, description: String) {
+    Task {
+      do {
+        if let entry = try await store.discoveryEntry(for: address, description: description) { showRepository(entry) }
+      } catch {
+        store.errorMessage = error.localizedDescription
+      }
+    }
+  }
+
   private func manageGlobal(_ id: Skill.ID, tool: Tool?) {
-    globalTool = tool
-    if store.skill(id)?.isSystemOnly(in: globalScopeTools) == true { showSystemSkills = true }
+    if store.skill(id)?.isSystemOnly(in: tool.map { [$0] } ?? Set(store.tools)) == true { showSystemSkills = true }
     source = .all
     search = ""
-    sidebar = .global
+    sidebar = tool.map(SidebarItem.globalAgent) ?? .global
     selectedSkills = [id]
   }
 
   private var emptySkillListReason: SkillListEmptyState {
-    if sidebar == .global && store.tools.isEmpty { return .noTools }
+    if sidebar?.isGlobal == true && store.tools.isEmpty { return .noTools }
     if !search.isEmpty { return .search }
     if selectedSkillsetID != nil { return .skillset }
     if enabledSkills.isEmpty { return .fresh }
@@ -198,8 +258,14 @@ struct ContentView: View {
     Binding(get: { projectFilters[id] ?? ProjectSkillFilter() }, set: { projectFilters[id] = $0 })
   }
 
+  /// Opens the folded agent rows when one of them is the selection, so it stays visible.
+  private func revealAgentRow() {
+    if case .globalAgent = sidebar { agentsExpanded = true }
+  }
+
   private func clearDisabledSelections() {
-    if let globalTool, !store.tools.contains(globalTool) { self.globalTool = nil }
+    if let globalTool, !store.tools.contains(globalTool) { sidebar = .global }
+    if sidebar == .globalShared, sharedReaders.isEmpty { sidebar = .global }
     for id in projectFilters.keys {
       if let tool = projectFilters[id]?.tool, !store.tools.contains(tool) { projectFilters[id]?.tool = nil }
     }
@@ -219,7 +285,16 @@ struct ContentView: View {
     if let project = store.registerProject(folder) { sidebar = .project(project.id) }
   }
 
-  private var selectedTool: Tool? { sidebar == .global ? globalTool : nil }
+  /// The agent a Global row narrows to, nil for All agents and Shared.
+  private var globalTool: Tool? {
+    if case .globalAgent(let tool) = sidebar { tool } else { nil }
+  }
+
+  private var selectedTool: Tool? { globalTool }
+
+  /// The shared `~/.agents/skills` folder, and the enabled agents that read it.
+  private static let sharedRoot = SkillRoot.all.first { $0.kind == .shared }!
+  private var sharedReaders: [Tool] { store.tools.filter(Self.sharedRoot.readBy.contains) }
 
   private var selectedSkillsetID: UUID? {
     if case .skillset(let id) = sidebar { return id }
@@ -231,7 +306,10 @@ struct ContentView: View {
     return store.skills.filter { $0.isVisible(in: tools, includePlugins: true) }
   }
 
-  private var globalScopeTools: Set<Tool> { globalTool.map { Set([$0]) } ?? Set(store.tools) }
+  private var globalScopeTools: Set<Tool> {
+    if sidebar == .globalShared { return Set(sharedReaders) }
+    return globalTool.map { Set([$0]) } ?? Set(store.tools)
+  }
 
   private struct GlobalSkillCounts {
     let normal: Int
@@ -256,7 +334,7 @@ struct ContentView: View {
       ChoiceOption(value: SkillSource.yours, title: "Your skills"),
       ChoiceOption(value: SkillSource.plugin, title: "Plugin")
     ]
-    if sidebar == .global && showSystemSkills {
+    if sidebar?.isGlobal == true && showSystemSkills {
       options.append(ChoiceOption(value: SkillSource.builtIn, title: "System"))
     }
     return options
@@ -264,13 +342,13 @@ struct ContentView: View {
 
   private var librarySkills: [Skill] {
     if source == .builtIn {
-      if sidebar == .global && showSystemSkills {
+      if sidebar?.isGlobal == true && showSystemSkills {
         return store.skills.filter { $0.isSystemOnly(in: globalScopeTools) }
       }
       return store.skills.filter { !$0.isSystemOnly(in: Set(store.tools)) }
     }
     return store.skills.filter {
-      source.includes($0) && (sidebar == .global && showSystemSkills || !$0.isSystemOnly(in: Set(store.tools)))
+      source.includes($0) && (sidebar?.isGlobal == true && showSystemSkills || !$0.isSystemOnly(in: Set(store.tools)))
     }
   }
 
@@ -301,7 +379,9 @@ struct ContentView: View {
     var skills: [Skill]
     switch sidebar {
     case .library: skills = store.skills.filter(\.isInLibrary)
-    case .global:
+    case .globalShared:
+      skills = librarySkills.filter { $0.copies.contains { $0.root.kind == .shared } }
+    case .global, .globalAgent:
       skills = librarySkills.filter {
         !$0.availableIn.intersection(globalScopeTools).isEmpty && (showSystemSkills || !$0.isSystemOnly(in: globalScopeTools))
       }
@@ -348,6 +428,10 @@ struct ContentView: View {
     listedSkills.filter { selectedSkills.contains($0.id) }
   }
 
+  private var sharedRemoval: Removal? { .shared(removalSkills, selectedCount: selectedSkills.count) }
+
+  private var sharedSkillCount: Int { store.skills.count { $0.copies.contains { $0.root.kind == .shared } } }
+
   private var scopedRemoval: Removal? {
     guard let selectedTool else { return nil }
     return .from(selectedTool, skills: removalSkills, selectedCount: selectedSkills.count)
@@ -367,6 +451,7 @@ struct ContentView: View {
   }
 
   private var localRepositoryBrowser: Bool { discoveryKind == .local }
+  private var skillsDirectoryBrowser: Bool { sidebar == .discovery && discoveryKind == .skillsDirectory }
 
   private var discoverySelection: Binding<DiscoveryKind> {
     Binding(get: { discoveryKind }, set: { kind in
@@ -400,7 +485,10 @@ struct ContentView: View {
     }
   }
 
-  private func showRepository(_ entry: RepositoryEntry) {
+  private func showRepository(_ entry: RepositoryEntry) { showRepository(entry, focus: nil) }
+
+  private func showRepository(_ entry: RepositoryEntry, focus: String?) {
+    repositoryFocus = focus.map { (entry.id, $0) }
     discoveryTarget = nil
     discoveryKind = entry.source.isGit ? .git : .local
     selectedRepository = entry.id
@@ -443,7 +531,8 @@ struct ContentView: View {
         } detail: {
           detailPane
         }
-        .searchable(text: $search)
+        .searchable(text: $search, prompt: skillsDirectoryBrowser ? Text("Search skills.sh") : nil)
+        .onSubmit(of: .search) { if skillsDirectoryBrowser { store.searchSkillsDirectory(search) } }
         .searchFocused($isSearchFocused)
       }
     }
@@ -458,8 +547,12 @@ struct ContentView: View {
       selectedSkills.formIntersection(Set(listedSkills.map(\.id)))
       routeRepositorySelection()
       selectedProjectSkill = nil
-      if current == .global { source = .all }
+      if current == .globalShared || current?.isGlobal == true && previous?.isGlobal != true { source = .all }
       if previous?.isProjectBrowser == true || current?.isProjectBrowser == true { search = "" }
+      revealAgentRow()
+    }
+    .onChange(of: selectedRepository) {
+      if repositoryFocus?.id != selectedRepository { repositoryFocus = nil }
     }
     .onChange(of: listedSkills.map(\.id)) {
       selectedSkills.formIntersection(Set(listedSkills.map(\.id)))
@@ -490,8 +583,9 @@ struct ContentView: View {
     .onChange(of: store.repositories.map(\.id)) { routeRepositorySelection() }
     .onAppear {
       clearDisabledSelections()
+      revealAgentRow()
       routeRepositorySelection()
-      if sidebar == .global || (!showSystemSkills && source == .builtIn) { source = .all }
+      if sidebar?.isGlobal == true || (!showSystemSkills && source == .builtIn) { source = .all }
     }
     .onChange(of: store.searchRequests) { isSearchFocused = true }
     .onChange(of: store.revealRequest) {
@@ -506,6 +600,7 @@ struct ContentView: View {
   var body: some View {
     observedNavigation
     .environment(\.openInLibrary, openInLibrary)
+    .environment(\.openSourceInDiscovery, openSourceInDiscovery)
     .modifier(Presentations(store: store))
     .alert("Skillset imported", isPresented: Binding(
       get: { store.importNote != nil },
@@ -528,6 +623,18 @@ struct ContentView: View {
     }
   }
 
+  @ViewBuilder private var discoveryList: some View {
+    if discoveryKind == .skillsDirectory {
+      SkillsDirectoryList(search: $search, selection: $selectedDirectoryResult)
+    } else {
+      let handoff: (() -> Void)? = localRepositoryBrowser ? nil : { searchSkillsDirectory() }
+      RepositoryList(repositories: listedRepositories, selection: $selectedRepository,
+        localOnly: localRepositoryBrowser, searchText: search, clearSearch: { search = "" },
+        searchSkillsDirectory: handoff, onAdded: { showRepository($0) })
+        .id(discoveryKind)
+    }
+  }
+
   @ViewBuilder private var contentPane: some View {
       if sidebar == .projects {
         ProjectListView(selection: Binding(get: { selectedProject?.id }, set: { id in sidebar = id.map(SidebarItem.project) ?? .projects }), register: registerProject)
@@ -543,17 +650,16 @@ struct ContentView: View {
             .controlSize(.small)
             .padding(10)
           Divider()
-          RepositoryList(repositories: listedRepositories, selection: $selectedRepository,
-            localOnly: localRepositoryBrowser, hasSearch: !search.isEmpty, clearSearch: { search = "" },
-            onAdded: showRepository)
-            .id(discoveryKind)
+          discoveryList
         }
         .navigationTitle("Discovery")
         .navigationSplitViewColumnWidth(min: 260, ideal: 320)
       } else if sidebar == .suggestions {
         SuggestionList(suggestions: listedSuggestions, selection: $selectedSuggestion)
+          .navigationTitle("Suggestions")
       } else if sidebar == .similar {
         SimilarList(pairs: listedPairs, selection: $selectedPair)
+          .navigationTitle("Similar skills")
       } else if sidebar == .plugins {
         PluginList(plugins: listedPlugins, selection: $selectedPlugin)
       } else {
@@ -570,9 +676,25 @@ struct ContentView: View {
               addSkills: { showingSkillsetEditor = true })
           }
         }
-        .navigationTitle(sidebar == .global ? "Global" : sidebar == .library ? "Library" : "Skills")
+        .navigationTitle(skillListTitle)
         .navigationSplitViewColumnWidth(min: 280, ideal: 340)
       }
+  }
+
+  /// For one selected skill in an agent's list, the copy that agent loads, so adding starts from it.
+  private var selectedSourcePaths: [Skill.ID: String] {
+    guard let skill = store.skill(selectedSkill), let copy = selectedTool.flatMap({ skill.provider(for: $0) }) else { return [:] }
+    return [skill.id: copy.resolved.path]
+  }
+
+  private var skillListTitle: String {
+    switch sidebar {
+    case .global, .globalShared, .globalAgent: "Global"
+    case .library: "Library"
+    case .used, .usedOnce, .unused: "Chat activity"
+    case .skillset(let id): store.skillsets.first { $0.id == id }?.name ?? "Skillset"
+    default: "Skills"
+    }
   }
 
   /// The list header's natural height, so it takes only the room it needs above the list.
@@ -583,19 +705,19 @@ struct ContentView: View {
                 if case .skillset(let id) = sidebar {
                   SkillsetHeader(skillsetID: id)
                   Divider()
-                } else if sidebar == .global, let tool = globalTool, !store.skillsets.isEmpty {
+                } else if let tool = globalTool, !store.skillsets.isEmpty {
                   ToolSkillsetsView(tool: tool)
                   Divider()
                 }
-                if sidebar == .global {
-                  GlobalSkillHeader(tools: store.tools, counts: globalAgentCounts,
-                    allCount: GlobalSkillCounts(skills: store.skills, readers: Set(store.tools)).normal,
-                    normalCount: globalCounts.normal, systemCount: globalCounts.system,
-                    selectedTool: $globalTool, showSystemSkills: $showSystemSkills)
+                if sidebar == .globalShared {
+                  SharedSkillHeader(count: sharedSkillCount, readers: sharedReaders)
+                } else if sidebar?.isGlobal == true {
+                  GlobalSkillHeader(scope: globalTool?.name ?? "All enabled agents",
+                    normalCount: globalCounts.normal, systemCount: globalCounts.system, showSystemSkills: $showSystemSkills)
                 }
                 if sidebar?.listsSkills ?? true, !libraryHasNothingYet {
                   SkillListFilters(context: skillListContext,
-                    showsSource: sidebar != .library && selectedSkillsetID == nil,
+                    showsSource: sidebar != .library && sidebar != .globalShared && selectedSkillsetID == nil,
                     sourceOptions: sourceOptions, source: $source, sort: $sort)
                 }
               }
@@ -608,10 +730,18 @@ struct ContentView: View {
         if let project = selectedProject {
           ProjectDetailView(project: project, skillID: selectedProjectSkill, filter: projectFilters[project.id] ?? ProjectSkillFilter(), manageGlobal: manageGlobal).id(project.id)
         } else { ProjectWelcomeView(register: registerProject) }
+      } else if sidebar?.isRepositoryBrowser == true, discoveryKind == .skillsDirectory {
+        let results = store.skillsDirectorySearch.results ?? []
+        if let result = results.first(where: { $0.id == selectedDirectoryResult }) {
+          SkillsDirectoryResultDetail(result: result, related: results.filter { $0.source == result.source && $0.id != result.id },
+            select: { selectedDirectoryResult = $0 }, open: openDirectoryResult)
+        } else {
+          ContentUnavailableView("Choose a skills.sh result", systemImage: "globe")
+        }
       } else if sidebar?.isRepositoryBrowser == true {
         if let entry = store.repositories.first(where: { $0.id == selectedRepository }),
            entry.source.isGit != localRepositoryBrowser {
-          RepositoryDetail(repository: entry).id(entry.id)
+          RepositoryDetail(repository: entry, focus: repositoryFocus?.id == entry.id ? repositoryFocus?.skill : nil).id(entry.id)
         } else {
           ContentUnavailableView(localRepositoryBrowser ? "Choose a local folder" : "Choose a Git repository",
             systemImage: localRepositoryBrowser ? "folder" : "shippingbox")
@@ -669,7 +799,8 @@ struct ContentView: View {
       }
     } else if sidebar?.listsSkills ?? true {
       ToolbarItem {
-        SkillSelectionActions(skills: listedSkills.filter { selectedSkills.contains($0.id) }, initialTool: selectedTool)
+        SkillSelectionActions(skills: listedSkills.filter { selectedSkills.contains($0.id) },
+          initialSources: selectedSourcePaths, initialTool: selectedTool)
       }
       ToolbarItemGroup {
         if skillListContext.editsSkills {
@@ -695,7 +826,15 @@ struct ContentView: View {
             Label("Remove from skillset", systemImage: "trash")
           }
           .disabled(selectedSkills.isEmpty || store.isManagingSkillsets)
-        } else if sidebar == .global, selectedTool != nil {
+        } else if sidebar == .globalShared {
+          Button {
+            store.removal = sharedRemoval
+          } label: {
+            Label(sharedRemoval?.actionLabel ?? "Remove from Shared…", systemImage: "trash")
+          }
+          .disabled(sharedRemoval == nil)
+          .help(sharedRemoval == nil ? "Select a skill in the shared folder" : "Moves the shared copy to the Trash")
+        } else if sidebar?.isGlobal == true, selectedTool != nil {
           Button {
             store.removal = scopedRemoval
           } label: {
@@ -733,10 +872,32 @@ struct ContentView: View {
       sidebarRow("Discovery", symbol: "sparkle.magnifyingglass", count: 0, item: .discovery)
       sidebarRow("Library", symbol: "books.vertical", count: store.skills.count(where: \.isInLibrary), item: .library)
         .help("Reusable skills and sources")
-      sidebarRow("Global", symbol: "globe", count: store.skills.count {
-        !$0.availableIn.intersection(store.tools).isEmpty && !$0.isSystemOnly(in: Set(store.tools))
-      }, item: .global)
-        .help("Skills available across projects, for enabled agents")
+      Section("Global", isExpanded: $globalExpanded) {
+        sidebarRow("All agents", symbol: "globe", count: GlobalSkillCounts(skills: store.skills, readers: Set(store.tools)).normal, item: .global)
+          .help("Skills available across projects, for enabled agents")
+        if !sharedReaders.isEmpty {
+        Label {
+          VStack(alignment: .leading, spacing: 2) {
+            Text("Shared")
+            Text(Paths.abbreviate(Self.sharedRoot.url)).font(.caption2).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+          }
+        } icon: { Image(systemName: "person.2").foregroundStyle(.tint) }
+        .badge(sharedSkillCount)
+        .tag(SidebarItem.globalShared)
+        .help("Read by \(sharedReaders.map(\.name).formatted(.list(type: .and)))")
+        }
+        DisclosureGroup(isExpanded: $agentsExpanded) {
+          ForEach(store.tools.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }, id: \.self) { tool in
+            Label { Text(tool.name) } icon: { Image(systemName: tool.symbol).foregroundStyle(tool.color) }
+              .badge(globalAgentCounts[tool] ?? 0)
+              .tag(SidebarItem.globalAgent(tool))
+              .help("Skills \(tool.name) loads across projects")
+          }
+        } label: {
+          Label("Agents", systemImage: "person.crop.rectangle.stack")
+            .help("Each enabled agent's global skills")
+        }
+      }
       Section("Projects", isExpanded: $projectsExpanded) {
         sidebarRow("All projects", symbol: "folder.badge.gearshape", count: store.projectState.projects.count, item: .projects)
         ForEach(store.orderedProjects) { project in
@@ -795,7 +956,7 @@ struct ContentView: View {
           .lineLimit(3)
           .fixedSize(horizontal: false, vertical: true)
           .foregroundStyle(.secondary)
-          .help("Counts every skill Skillscout finds, in Library and in each agent's folders")
+          .help("Counts every skill Quartermaster finds, in Library and in each agent's folders")
         sidebarRow("Used in 2+ chats", symbol: "checkmark.circle", count: activitySkills.count(where: isUsed), item: .used)
           .help("Used in more than one chat in \(store.usageScopeDescription)")
         sidebarRow("Used in 1 chat", symbol: "1.circle", count: activitySkills.count(where: isUsedOnce), item: .usedOnce)
@@ -836,8 +997,16 @@ struct StatusPanel: View {
     return "Watching your chats"
   }
 
+  /// The per-agent message counts, kept in the help text so the panel stays short.
+  private var messagesByTool: String {
+    store.tools.compactMap { tool in
+      let count = store.prompts.count(where: { $0.tool == tool })
+      return count > 0 ? "\(tool.name): \(count)" : nil
+    }.joined(separator: "\n")
+  }
+
   var body: some View {
-    VStack(alignment: .leading, spacing: 6) {
+    VStack(alignment: .leading, spacing: 4) {
       HStack(spacing: 6) {
         if store.isAnalyzing || store.isLoadingPrompts {
           ProgressView().controlSize(.mini)
@@ -849,20 +1018,6 @@ struct StatusPanel: View {
       Text("\(store.prompts.count) messages in the last \(lookbackDays) days")
         .font(.caption)
         .foregroundStyle(.secondary)
-      LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6, alignment: .leading), count: 4), alignment: .leading, spacing: 4) {
-        ForEach(store.tools) { tool in
-          let count = store.prompts.count(where: { $0.tool == tool })
-          if count > 0 {
-            HStack(spacing: 3) {
-              Image(systemName: tool.symbol).foregroundStyle(tool.color)
-              Text("\(count)").lineLimit(1).minimumScaleFactor(0.8)
-            }
-            .help("\(count) messages from \(tool.name)")
-          }
-        }
-      }
-      .font(.caption2)
-      .foregroundStyle(.secondary)
       Group {
         if let last = store.lastAnalysis {
           Text("Analyzed \(last, format: .relative(presentation: .named)), \(store.newPromptCount) new since")
@@ -875,6 +1030,7 @@ struct StatusPanel: View {
     }
     .padding(12)
     .frame(maxWidth: .infinity, alignment: .leading)
+    .help("\(store.prompts.count) messages in the last \(lookbackDays) days\n\(messagesByTool)")
   }
 }
 

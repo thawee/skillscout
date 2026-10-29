@@ -116,7 +116,7 @@ extension SkillInstaller {
       throw Failure.managed(folder)
     }
     guard (try? fm.attributesOfItem(atPath: folder.path)) != nil else { return (nil, []) }
-    guard skillsetEntryIsUnchanged(entry) else { return ("Kept \(entry.skillID): its installation was changed outside Skillscout.", []) }
+    guard skillsetEntryIsUnchanged(entry) else { return ("Kept \(entry.skillID): its installation was changed outside Quartermaster.", []) }
     let referenced = skills.flatMap(\.copies).contains { copy in
       guard copy.isSymlink,
             !entries.contains(where: { entryPath(URL(fileURLWithPath: $0.path)) == entryPath(copy.folder) }),

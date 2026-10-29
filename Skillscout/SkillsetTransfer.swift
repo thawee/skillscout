@@ -159,8 +159,8 @@ struct SkillsetFile: Codable, Equatable {
 
     var errorDescription: String? {
       switch self {
-      case .notASkillset: "This file isn't a Skillscout skillset."
-      case .newerVersion(let version): "This skillset was saved by a newer Skillscout (format \(version)). Update Skillscout Mod to import it."
+      case .notASkillset: "This file isn't a Quartermaster skillset."
+      case .newerVersion(let version): "This skillset was saved by a newer Quartermaster (format \(version)). Update Quartermaster to import it."
       case .emptyName: "This skillset has no name."
       }
     }

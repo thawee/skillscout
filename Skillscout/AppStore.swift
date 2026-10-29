@@ -66,6 +66,13 @@ final class AppStore {
   /// Pairs of your skills that read alike, most alike first.
   var similar: [SimilarPair] = []
   var plugins: [InstalledPlugin] = []
+  /// Where the skills.sh CLI installed global skills from, by skill name.
+  var skillsLock: [String: SkillsLockEntry] = [:]
+  /// The last skills.sh search in Discovery, kept while you open its results' repositories.
+  var skillsDirectorySearch = SkillsDirectorySearch()
+  @ObservationIgnored var skillsDirectoryTask: Task<Void, Never>?
+  /// How Discovery searches skills.sh. The functional check swaps in made-up results.
+  @ObservationIgnored var skillsDirectorySearcher: @Sendable (String) async throws -> [SkillsDirectory.Result] = { try await SkillsDirectory.search($0) }
   /// The pairs you said aren't alike, by `SimilarPair.id`.
   var dismissedPairs: [String] = []
   /// Merged SKILL.md drafts, by `MergePlan.id`.
@@ -183,9 +190,11 @@ final class AppStore {
     recoverProjects()
     rebuildProjectWatcher()
 
-    let folders = [".agents", ".config/agents", ".config/skillscout/skills", ".config/skillscout/drafts", ".gemini/antigravity-cli"] + Tool.allCases.flatMap(\.homeFolders)
+    let folders = [".agents", ".config/agents", ".gemini/antigravity-cli"] + Tool.allCases.flatMap(\.homeFolders)
     let watchedHome = Paths.home.standardizedFileURL
-    watchedRoots = folders.map { watchedHome.appending(path: $0).path }
+    // The Library by its own path and by the folder it resolves to, which events report.
+    let library = [Paths.libraryFolder, Paths.draftsFolder].flatMap { [$0.standardizedFileURL.path, $0.resolvingSymlinksInPath().path] }
+    watchedRoots = folders.map { watchedHome.appending(path: $0).path } + Array(Set(library)).sorted()
     watcher = FileWatcher(paths: FileWatcher.watchPaths(for: watchedRoots)) { [weak self] changed in
       Task { @MainActor in self?.handle(changed) }
     }
@@ -203,11 +212,12 @@ final class AppStore {
     let dismissed = Set(dismissedPairs)
     let snapshot = await Task.detached {
       let skills = SkillScanner.scan()
-      return (skills, SkillSimilarity.pairs(in: skills, dismissed: dismissed), PluginScanner.scan())
+      return (skills, SkillSimilarity.pairs(in: skills, dismissed: dismissed), PluginScanner.scan(),
+              SkillsLock.entries(in: SkillsLock.globalFile()))
     }.value
     guard revision >= appliedSkillsRefreshRevision else { return }
     appliedSkillsRefreshRevision = revision
-    (skills, similar, plugins) = snapshot
+    (skills, similar, plugins, skillsLock) = snapshot
     reportInspectionRevision += 1
     applyTools()
     await refreshProjectInventories()
@@ -307,7 +317,7 @@ final class AppStore {
       }
       if Self.chatFolders.contains(where: path.contains) || path.hasSuffix("/.claude/history.jsonl") {
         promptsDirty = true
-      } else if path.contains("/skills") || path.contains("/skillscout/drafts") || path.contains("/plugins/cache/") || path.contains("/plugins/local/")
+      } else if path.contains("/skills") || path.contains("/quartermaster/drafts") || path.contains("/skillscout/drafts") || path.contains("/plugins/cache/") || path.contains("/plugins/local/")
         || path.hasSuffix("/.claude/settings.json") {
         skillsDirty = true
       }
@@ -605,7 +615,7 @@ final class AppStore {
       try data.write(to: stateFile, options: .atomic)
       return true
     } catch {
-      errorMessage = "Couldn't save Skillscout's state: \(error.localizedDescription)"
+      errorMessage = "Couldn't save Quartermaster's state: \(error.localizedDescription)"
       return false
     }
   }

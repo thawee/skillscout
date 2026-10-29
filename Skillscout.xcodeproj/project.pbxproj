@@ -19,9 +19,12 @@
 		0B8DACE2F382954B162647FE /* ProjectLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1238A0B0EE3C4588CB97705C /* ProjectLibrary.swift */; };
 		0CA700D9B81558C71FF5B34C /* SkillActionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54F1B5D66AEB24120C168165 /* SkillActionViews.swift */; };
 		0CBE607F8F57B6BC021097F6 /* RepositoryUpdateImpact.swift in Sources */ = {isa = PBXBuildFile; fileRef = B200EFC0406B2B0B423C9A48 /* RepositoryUpdateImpact.swift */; };
+		1175EC7BEA055EB6DE1546E3 /* SkillsDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 557B588D8DB9264B087840F2 /* SkillsDirectory.swift */; };
 		11E7DF1CFFE0D2991E331A43 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13E320FCE90C51C4EA51E9B6 /* SettingsView.swift */; };
+		124ED50CCF99E023D4FF35D0 /* SkillsDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 557B588D8DB9264B087840F2 /* SkillsDirectory.swift */; };
 		131CC0390532211BB9F54BA3 /* PluginScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1724D39BA2DCBF623F4A14 /* PluginScanner.swift */; };
 		152157737952EB4B24434289 /* ProjectTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E0250DCC16CC1ECC1416813 /* ProjectTests.swift */; };
+		166FF4CB1E02B24BD2864701 /* SkillsDirectoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2420509E4DA375BB29950E1B /* SkillsDirectoryTests.swift */; };
 		195FAB6381B443FDAED9ECC5 /* AppStore+Projects.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFC7ADB0FFA1E65248C6ED42 /* AppStore+Projects.swift */; };
 		1AA8B6FE7B6BDE1160469406 /* SkillInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1D7A86C6C2F6A665C94583 /* SkillInstaller.swift */; };
 		1AFDD133C21E40B3DF53C896 /* RepositoryUpdateImpact.swift in Sources */ = {isa = PBXBuildFile; fileRef = B200EFC0406B2B0B423C9A48 /* RepositoryUpdateImpact.swift */; };
@@ -102,12 +105,14 @@
 		CF3ADAB9F71D5CA8F6E70456 /* PluginScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1724D39BA2DCBF623F4A14 /* PluginScanner.swift */; };
 		D74C3DF23F315DC08035D237 /* SkillsetTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C869F111F332D93D6DC43741 /* SkillsetTransfer.swift */; };
 		D8C564B443D00A0E4E8EB73C /* SkillsetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F37839C6B57A808494AC4C7 /* SkillsetViews.swift */; };
+		D9B23CE878FE2BC84158C6A5 /* ConfigFolderMoveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 681549E9CCB297FED02AA2ED /* ConfigFolderMoveTests.swift */; };
 		DBB251FE54D449EE803CFF26 /* CustomRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 033B0F3CAC9D7A9BD8E4535E /* CustomRegistry.swift */; };
 		DC091714C374DE972DB89825 /* UsageReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ED59D8B041937C48C8DA639 /* UsageReport.swift */; };
 		DD2D4F0F501FABC72B272782 /* RepositoryMergeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC7F57460885522B914AFFC9 /* RepositoryMergeTests.swift */; };
 		DD6BE7DE0CE5849AC0A467D9 /* PromptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53B6FF6B0D5A3694C197EBC0 /* PromptLibrary.swift */; };
 		DDE9E1A704C7AF903D6BA424 /* PromptLibrary+Tools.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06BC03210D288EFFD8FC48F /* PromptLibrary+Tools.swift */; };
 		DF9DAA0E110C7B6854660FC7 /* RepositoryImpactTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB366C49ABD26E175BF2641D /* RepositoryImpactTests.swift */; };
+		E293186CEAD86330CCFF724D /* SkillsDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 557B588D8DB9264B087840F2 /* SkillsDirectory.swift */; };
 		E4B5A111E7E3976C42A79539 /* RepositoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41BEF20D63166E49FEA138C0 /* RepositoryViews.swift */; };
 		E7CD521610EFFCD1E25B6D72 /* AIEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEF9DD364F39E0F1EC34650C /* AIEngine.swift */; };
 		E99E842A075096D58387BF01 /* AIEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEF9DD364F39E0F1EC34650C /* AIEngine.swift */; };
@@ -158,6 +163,7 @@
 		1F37839C6B57A808494AC4C7 /* SkillsetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillsetViews.swift; sourceTree = "<group>"; };
 		213EB26EEC4D026F65364804 /* ProjectInstallerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectInstallerTests.swift; sourceTree = "<group>"; };
 		23BF1F7645C92D334B542851 /* SkillDetailInspectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillDetailInspectionTests.swift; sourceTree = "<group>"; };
+		2420509E4DA375BB29950E1B /* SkillsDirectoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillsDirectoryTests.swift; sourceTree = "<group>"; };
 		2F97773769C540ED52C83AF1 /* SkillscoutTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SkillscoutTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		365039D37C939DF6EA1C6600 /* AppUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdater.swift; sourceTree = "<group>"; };
 		36B6744572DF35BB435E8324 /* CommandLineTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandLineTool.swift; sourceTree = "<group>"; };
@@ -172,9 +178,11 @@
 		52781B5E03AC6A2DF0F72420 /* UsageReportCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageReportCache.swift; sourceTree = "<group>"; };
 		53B6FF6B0D5A3694C197EBC0 /* PromptLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptLibrary.swift; sourceTree = "<group>"; };
 		54F1B5D66AEB24120C168165 /* SkillActionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillActionViews.swift; sourceTree = "<group>"; };
+		557B588D8DB9264B087840F2 /* SkillsDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillsDirectory.swift; sourceTree = "<group>"; };
 		57E1EA96200BEB72A33D6E38 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		5B2204DD544E18EC3E164284 /* DiscoverViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverViews.swift; sourceTree = "<group>"; };
 		64E4526107B440152D6AB925 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		681549E9CCB297FED02AA2ED /* ConfigFolderMoveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigFolderMoveTests.swift; sourceTree = "<group>"; };
 		737812B0E9444153A1EA42FE /* PluginViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginViews.swift; sourceTree = "<group>"; };
 		7547C2F6AED1FDD3F3BF7C98 /* RepositoryLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryLibrary.swift; sourceTree = "<group>"; };
 		756AC6D1B9CA7B46984721E7 /* Registry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Registry.swift; sourceTree = "<group>"; };
@@ -277,6 +285,7 @@
 				E0E0DAF3A6CF8673C432C76C /* SkillReview.swift */,
 				E76FCD9E9E2549A3682D8F84 /* SkillScanner.swift */,
 				CBC9224FFE73C8083ADF7A81 /* SkillscoutApp.swift */,
+				557B588D8DB9264B087840F2 /* SkillsDirectory.swift */,
 				EAD0529B4BB35B1D34A4149E /* SkillsetInstaller.swift */,
 				C869F111F332D93D6DC43741 /* SkillsetTransfer.swift */,
 				1F37839C6B57A808494AC4C7 /* SkillsetViews.swift */,
@@ -292,6 +301,7 @@
 		18FA082FF01017D376A9474B /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				681549E9CCB297FED02AA2ED /* ConfigFolderMoveTests.swift */,
 				F6E23123CD6141D9B083D467 /* CoreTests.swift */,
 				213EB26EEC4D026F65364804 /* ProjectInstallerTests.swift */,
 				4E0250DCC16CC1ECC1416813 /* ProjectTests.swift */,
@@ -300,6 +310,7 @@
 				FC7F57460885522B914AFFC9 /* RepositoryMergeTests.swift */,
 				965BD38026A050B3269013EE /* RepositoryTests.swift */,
 				23BF1F7645C92D334B542851 /* SkillDetailInspectionTests.swift */,
+				2420509E4DA375BB29950E1B /* SkillsDirectoryTests.swift */,
 				C88FC7F9387BB774B92E3AEE /* UsageReportCacheTests.swift */,
 			);
 			path = Tests;
@@ -463,6 +474,7 @@
 				56B2C0632C4077DB2FCB717D /* SkillReview.swift in Sources */,
 				7200E247BDF839C1210920BD /* SkillScanner.swift in Sources */,
 				6A3DB35F25B28E6CC9B0D70C /* SkillSimilarity.swift in Sources */,
+				1175EC7BEA055EB6DE1546E3 /* SkillsDirectory.swift in Sources */,
 				27C9E2A4A6BC1AD429CDF52B /* SkillsetInstaller.swift in Sources */,
 				D74C3DF23F315DC08035D237 /* SkillsetTransfer.swift in Sources */,
 				63D31CC01E1C27A3F28B0EE1 /* Skillsets.swift in Sources */,
@@ -519,6 +531,7 @@
 				A8E5EF8255CE60720E91CC0F /* SkillScanner.swift in Sources */,
 				31F0312A63C31BCB33D669D0 /* SkillSimilarity.swift in Sources */,
 				BD66695BCC8D9CC8ED4ECECB /* SkillViews.swift in Sources */,
+				E293186CEAD86330CCFF724D /* SkillsDirectory.swift in Sources */,
 				7428972CE87CBDC6CA0A4568 /* SkillscoutApp.swift in Sources */,
 				6CA7602CF7C5E86F4D8442D7 /* SkillsetInstaller.swift in Sources */,
 				01A2AE019AB11C572862C32F /* SkillsetTransfer.swift in Sources */,
@@ -535,6 +548,7 @@
 			files = (
 				E99E842A075096D58387BF01 /* AIEngine.swift in Sources */,
 				0253CE05EEDB52B914C3625D /* Analyzer.swift in Sources */,
+				D9B23CE878FE2BC84158C6A5 /* ConfigFolderMoveTests.swift in Sources */,
 				CB528AE33C415D88F3FCFCA7 /* CoreTests.swift in Sources */,
 				F0493751556236295D27D37F /* Models.swift in Sources */,
 				131CC0390532211BB9F54BA3 /* PluginScanner.swift in Sources */,
@@ -560,6 +574,8 @@
 				2C5FDD83D3C6E0EB313C3F95 /* SkillReview.swift in Sources */,
 				8263994162E058F7C967DBFE /* SkillScanner.swift in Sources */,
 				B238A01D1726610A229E3179 /* SkillSimilarity.swift in Sources */,
+				124ED50CCF99E023D4FF35D0 /* SkillsDirectory.swift in Sources */,
+				166FF4CB1E02B24BD2864701 /* SkillsDirectoryTests.swift in Sources */,
 				F203EA260EEB52DF58DADC49 /* SkillsetInstaller.swift in Sources */,
 				63CEF43C596046DD34FB36F8 /* SkillsetTransfer.swift in Sources */,
 				02E535F27BDDF5C4EB2EBC2D /* UsageReport.swift in Sources */,
@@ -587,14 +603,14 @@
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Skillscout Mod";
+				INFOPLIST_KEY_CFBundleDisplayName = Quartermaster;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.skillscout;
-				PRODUCT_NAME = "Skillscout Mod";
+				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.quartermaster;
+				PRODUCT_NAME = Quartermaster;
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -611,8 +627,8 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.skillscout.cli;
-				PRODUCT_NAME = "skillscout-mod";
+				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.quartermaster.cli;
+				PRODUCT_NAME = quartermaster;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 			};
@@ -652,7 +668,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -665,7 +681,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.6.0;
+				MARKETING_VERSION = 2.0.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -684,14 +700,14 @@
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Skillscout Mod";
+				INFOPLIST_KEY_CFBundleDisplayName = Quartermaster;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.skillscout;
-				PRODUCT_NAME = "Skillscout Mod";
+				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.quartermaster;
+				PRODUCT_NAME = Quartermaster;
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -708,8 +724,8 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.skillscout.cli;
-				PRODUCT_NAME = "skillscout-mod";
+				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.quartermaster.cli;
+				PRODUCT_NAME = quartermaster;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 			};
@@ -728,7 +744,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.skillscout.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.quartermaster.tests;
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -767,7 +783,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -786,7 +802,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.6.0;
+				MARKETING_VERSION = 2.0.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -811,7 +827,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.skillscout.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.thawee.quartermaster.tests;
 				SDKROOT = macosx;
 			};
 			name = Release;

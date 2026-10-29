@@ -22,7 +22,7 @@ extension Commands {
 
   private static func one(_ values: [String], _ what: String, example: String) throws -> String {
     guard values.count == 1 else {
-      throw CLIError(message: "Pass one \(what), like: skillscout-mod skillset \(example)", usage: true)
+      throw CLIError(message: "Pass one \(what), like: quartermaster skillset \(example)", usage: true)
     }
     return values[0]
   }
@@ -33,7 +33,7 @@ extension Commands {
     }
     let names = state.skillsets.map(\.name).sorted()
     throw CLIError(message: names.isEmpty
-      ? "There are no skillsets yet. Create one in the app or with skillscout-mod skillset import."
+      ? "There are no skillsets yet. Create one in the app or with quartermaster skillset import."
       : "There's no skillset called \(name). Use one of: \(names.formatted(.list(type: .or))).")
   }
 
@@ -41,13 +41,13 @@ extension Commands {
   static func refuseWhileAppRuns() throws {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
-    process.arguments = ["-x", "Skillscout Mod"]
+    process.arguments = ["-x", "Quartermaster"]
     process.standardOutput = FileHandle.nullDevice
     process.standardError = FileHandle.nullDevice
     try process.run()
     process.waitUntilExit()
     if process.terminationStatus == 0 {
-      throw CLIError(message: "Skillscout Mod is open, and it would save over this change. Quit the app and run this again, or make the change in the app.")
+      throw CLIError(message: "Quartermaster is open, and it would save over this change. Quit the app and run this again, or make the change in the app.")
     }
   }
 
@@ -62,7 +62,7 @@ extension Commands {
       return
     }
     guard !state.skillsets.isEmpty else {
-      print("No skillsets yet. Create one in the app, or import one with skillscout-mod skillset import <file>.")
+      print("No skillsets yet. Create one in the app, or import one with quartermaster skillset import <file>.")
       return
     }
     let width = min(state.skillsets.map(\.name.count).max() ?? 0, 32)
@@ -94,7 +94,7 @@ extension Commands {
     }
     for assignment in assignments where assignment.members != set.skills {
       print()
-      print(Terminal.warn("Changes pending for \(assignment.tool.name). Run skillscout-mod skillset apply \(set.name) --to \(assignment.tool.rawValue)."))
+      print(Terminal.warn("Changes pending for \(assignment.tool.name). Run quartermaster skillset apply \(set.name) --to \(assignment.tool.rawValue)."))
     }
     for (tool, issues) in state.issues.sorted(by: { $0.key < $1.key }) where !issues.isEmpty && assignments.contains(where: { $0.tool.rawValue == tool }) {
       print()
@@ -194,7 +194,7 @@ extension Commands {
     if !sources.isEmpty {
       print()
       print("Add their repositories to the Library, then apply the skillset:")
-      for source in sources { print("  skillscout-mod install \(source) --no-link") }
+      for source in sources { print("  quartermaster install \(source) --no-link") }
     }
   }
 }

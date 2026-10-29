@@ -112,13 +112,13 @@ struct DetailFixtureView: View {
 
   @MainActor static func run(home: URL, host: NSHostingController<AnyView>, window: NSWindow) async throws {
     let fm = FileManager.default
-    let folder = home.appending(path: ".config/skillscout/skills/detail-fixture/demo")
+    let folder = home.appending(path: ".config/quartermaster/skills/detail-fixture/demo")
     try fm.createDirectory(at: folder, withIntermediateDirectories: true)
     let markdown = "---\nname: demo\ndescription: FIRST DETAIL FIXTURE\n---\nFirst body\n"
     try markdown.write(to: folder.appending(path: "SKILL.md"), atomically: true, encoding: .utf8)
     let root = SkillRoot(label: "Fixture", url: folder.deletingLastPathComponent(), kind: .managed, owner: nil, readBy: [.codex])
     let first = SkillCopy(folder: folder, resolved: folder, root: root, pluginName: nil, isSymlink: false, contentHash: "first", created: .distantPast)
-    let other = home.appending(path: ".config/skillscout/skills/detail-fixture/second")
+    let other = home.appending(path: ".config/quartermaster/skills/detail-fixture/second")
     try fm.createDirectory(at: other, withIntermediateDirectories: true)
     try "---\nname: second\ndescription: SECOND DETAIL FIXTURE\n---\nSecond body\n".write(to: other.appending(path: "SKILL.md"), atomically: true, encoding: .utf8)
     let second = SkillCopy(folder: other, resolved: other, root: root, pluginName: nil, isSymlink: false, contentHash: "second", created: .distantPast)

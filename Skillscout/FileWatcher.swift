@@ -3,7 +3,7 @@ import Foundation
 
 final class FileWatcher: @unchecked Sendable {
   private let handler: @Sendable ([String]) -> Void
-  private let queue = DispatchQueue(label: "com.thawee.skillscout.watcher")
+  private let queue = DispatchQueue(label: "com.thawee.quartermaster.watcher")
   private var stream: FSEventStreamRef?
 
   /// Watching an existing ancestor also catches agent folders created after launch.

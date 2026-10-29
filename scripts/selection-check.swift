@@ -90,7 +90,7 @@ struct SelectionFixtureView: View {
     host.sizingOptions = []
     let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 620, height: 640),
       styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
-    window.title = "Skillscout selection checks"
+    window.title = "Quartermaster selection checks"
     window.contentViewController = host
     resize(window, width: 620, height: 640)
     window.center()

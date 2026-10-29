@@ -1,4 +1,4 @@
-# Skillscout Mod UI reference
+# Quartermaster UI reference
 
 This document describes the current macOS interface and the six-perspective target presentation. The target sections below specify planned behavior. The remaining sections describe the implemented interface. [DESIGN.md](DESIGN.md) explains the rationale. [README.md](README.md) describes installation and end-user workflows.
 
@@ -12,6 +12,9 @@ Discovery
 Storage
     Library
     Global
+        All agents
+        Shared (~/.agents/skills)
+        Agents (folded): each enabled agent, A to Z
     Projects
 AI tools
 Skillsets
@@ -78,6 +81,11 @@ The detail header keeps name, description, source identity, and active scope vis
 - **Actions:**
   - Primary **Add source to Library…** for an unimported source, **Review update…** for a checked change, or **Open in Library** otherwise.
   - Addition and update previews name the whole repository or folder being imported or replaced, even when opened from one skill.
+- **skills.sh search:** a third Discovery choice, **skills.sh**, beside Git repositories and Local folders. The choice buttons read **Git**, **Folders** and **skills.sh** so none wraps in the narrow column; their tooltips give the full names. The toolbar field reads "Search skills.sh" and searches on Return; a header states the result count or progress, offers **Search** for unsent text, and says the text is sent to skills.sh. Typing alone sends nothing. Under Git repositories, a search offers **Search skills.sh** (a footer link, or an empty-state action) that switches to this choice with the same text.
+  - **List:** full height, in skills.sh's relevance order. Rows show name, `owner/repo`, compact install count, and **In Library**, **In Discovery** or **Not on GitHub**. States: prompt before any search, searching (previous results dimmed), no matches, and **Couldn't reach skills.sh** with **Try again**, which shows no stale results.
+  - **Detail:** name, skill ID when it differs, source, install count, **Open on skills.sh** and **Open repository** links, then **Add Repository to Discovery** (it saves a custom source; the caption says nothing downloads until Load skills or Add to Library) or **Show Repository** when listed, then **More from owner/repo** in these results. Opening the repository fills its skill search with the result's skill ID.
+  - The last query and results live in the store, so returning to skills.sh restores the field text and list without searching again.
+- **skills.sh origin:** a skill the `npx skills` CLI installed states **Installed with skills.sh from owner/repo** in its Sources or Global availability section, or in the project skill detail for a project lock, with **Show in Discovery**, or **Add to Discovery** when Discovery doesn't list the source yet, when the source can be cloned.
   - Supporting **Check for updates**, **Refresh from Folder**, **Choose version**, and **Inspect contents**, depending on source type.
   - Update review shows choices, final contents and impact before Apply.
 
@@ -99,7 +107,9 @@ The detail header keeps name, description, source identity, and active scope vis
 ### Storage: Global
 
 - **List item:** skill name, description, short supplying-entry or source label, copy count when multiple entries exist, protection or difference state, and all readers of the displayed entries.
-- **Header:** the agent filter. A shared entry is not exclusively owned by the selected agent. Recorded use covers all loaded history for that agent selection, without project or period selectors.
+- **Sidebar:** a Global section like Projects. **All agents** first, then **Shared** with its `~/.agents/skills` caption and the enabled agents that read it in its tooltip, then **Agents**, a disclosure holding each enabled agent sorted by name. Agents is folded by default and remembers its state; it opens when an agent row becomes the selection. Rows show their ordinary skill count; a disabled agent's row disappears and its selection falls back to All agents.
+- **Header:** the selected scope's name and counts, with Show system skills. Shared instead states how many skills the folder holds and which enabled agents read it. A shared entry is not exclusively owned by the selected agent.
+- **Shared:** lists skills with a copy in `~/.agents/skills`. The toolbar's **Remove from Shared…** moves only that copy (and links that resolve to it) to the Trash, after a review that names every enabled agent reading the folder. Adding stays on agent rows. Recorded use covers all loaded history for that agent selection, without project or period selectors.
 - **Detail order:** Global entries, Supplying source and readers, Differences and protection, Action, Selected contents and scoped recorded use.
 - **Detail facts:**
   - Each entry shows its physical path, resolved target, link or copy form, source kind, and every reader.
@@ -149,7 +159,7 @@ The detail header keeps name, description, source identity, and active scope vis
 - **Detail facts:**
   - Membership, Global assignments, project target snapshots, and actual availability stay distinct.
   - When resolution fails, show the expected source path and alternatives.
-  - Preferred source is app-wide per skill identity. A change affects later plans across Skillscout, not just this skillset, and does not rewrite existing copies.
+  - Preferred source is app-wide per skill identity. A change affects later plans across Quartermaster, not just this skillset, and does not rewrite existing copies.
 - **Badges:** Member, Missing source, Assigned to [destination], Changes pending for [destination].
 - **Actions:**
   - Primary **Open source**, or **Choose source…** when the source is missing or ambiguous.
@@ -217,7 +227,7 @@ These are implementation acceptance criteria, not a record of completed tests.
 
 Dashboard uses a sidebar and a report pane. Other destinations generally use a sidebar, a content list, and a detail pane. The search field filters the active non-Dashboard destination. `⌘F` focuses search.
 
-The sidebar has a minimum width of 210 points and an ideal width of 230 points. A status panel appears at its bottom. Group sections have disclosure controls.
+The sidebar has a minimum width of 210 points and an ideal width of 230 points. A status panel appears at its bottom, three short lines: the watch status, the message count for the loaded days, and the last analysis; its tooltip lists the messages per agent. Group sections have disclosure controls.
 
 ## Sidebar destinations
 
@@ -284,7 +294,7 @@ Skill rows show the name, description, usage information, and agent badges. Badg
 
 The skill and project list columns have a minimum width of 280 points and an ideal width of 340. A skill-list header takes its natural height, up to the smaller of 360 points or 55% of the list pane, and scrolls beyond that. The skill list occupies the remaining area.
 
-Skill details present installation availability, sources, skillset membership, recorded use, contents review where applicable, and locations. Actions follow the selected list context. Only Global shows removal. Each removal link names every agent that loses the skill: **Remove from Codex…**, **Remove from Codex and Cursor…** when another agent reads the same folder, or **Remove from Codex and 7 other agents…** for a widely shared folder; the confirmation lists them all. In Global, plugin-supplied skills name their supplying plugin and offer **View plugin…** beside availability. The plugin sheet shows its provider, included skills, locations and read-only management guidance. Plugin and built-in skills cannot be removed individually in Skillscout; their providers are managed in the original tool. Personal copies retain their reviewed removal action even when plugin access remains.
+Skill details present installation availability, sources, skillset membership, recorded use, contents review where applicable, and locations. Actions follow the selected list context; adding to agents and skillsets lives in the toolbar and the row menu, not repeated in the detail. Only Global shows removal, inside the card of the copy each link removes, under the agents that read it. Each removal link names every agent that loses the skill: **Remove from Codex…**, **Remove from Codex and Cursor…** when another agent reads the same folder, or **Remove from Codex and 7 other agents…** for a widely shared folder; the confirmation lists them all. In Global, plugin-supplied skills name their supplying plugin and offer **View plugin…** beside availability. The plugin sheet shows its provider, included skills, locations and read-only management guidance. Plugin and built-in skills cannot be removed individually in Quartermaster; their providers are managed in the original tool. Personal copies retain their reviewed removal action even when plugin access remains.
 
 ## Skill details by view
 
@@ -292,8 +302,8 @@ Skill details present installation availability, sources, skillset membership, r
 
 | View | Sections, in order | Actions |
 | --- | --- | --- |
-| Library | Problems, Sources, Contents, Skillsets, Usage, What it does, SKILL.md | Add skills, Add to skillset, Edit, Rename, Manage in Global… |
-| Global | Problems, Global availability, Contents, Skillsets, Usage, SKILL.md | Add skills, Add to skillset, Remove from [agent], Move to Library, View plugin… |
+| Library | Problems, Sources, Contents, Skillsets, Usage, What it does, SKILL.md | Add skills and Add to skillset (toolbar and row menu), Edit, Rename, Manage in Global… |
+| Global | Problems, Global availability, Contents, Skillsets, Usage, SKILL.md | Add skills and Add to skillset (toolbar and row menu), Remove from [agent] in the card of the copy it removes, Move to Library, View plugin… |
 | Chat activity | Usage, Sources, SKILL.md (collapsed) | Open in Library, Manage in Global… |
 | Skillset | Skillsets (this membership and its source), Sources, Usage, SKILL.md | Remove from [skillset] |
 | Discovery skill | Contents, Problems, Sources, What it does, SKILL.md | Open in Library |
@@ -301,7 +311,7 @@ Skill details present installation availability, sources, skillset membership, r
 
 Edit and Rename appear only in Library. A personal Global skill outside Library says **Move this skill to Library to edit or rename it.** The Skillsets section lists the skillsets that contain the skill; **Add to skillset** sits with the other installation actions, and there are no per-skillset toggles. The Chat activity toolbar offers **Open in Library** and **Manage in Global** instead of Add, Edit and Rename.
 
-The Library folder, `~/.config/skillscout/skills` with its drafts, is Skillscout's own storage. Only Library shows its path, reveals it in Finder, or opens its `SKILL.md` in an editor. Every other view, sheet and the command-line tool names it instead, as **Library · repo/skill**. Outside Library, Sources hides the Library copy and lists the agent links that point to it, a skill stored only in Library says **Stored in Library. Not added to an agent.**, its SKILL.md is read-only with **Open this skill in Library to edit it.**, and the menu offers **Open in Library**. The command's `--json` output keeps full paths for scripts.
+The Library folder, `~/.config/quartermaster/skills` with its drafts, is Quartermaster's own storage. Only Library shows its path, reveals it in Finder, or opens its `SKILL.md` in an editor. Every other view, sheet and the command-line tool names it instead, as **Library · repo/skill**. Outside Library, Sources hides the Library copy and lists the agent links that point to it, a skill stored only in Library says **Stored in Library. Not added to an agent.**, its SKILL.md is read-only with **Open this skill in Library to edit it.**, and the menu offers **Open in Library**. The command's `--json` output keeps full paths for scripts.
 
 ## Repository updates
 
@@ -341,7 +351,7 @@ The screen lists available collections and their assignment state. Project rows 
 
 Global's final review uses **Apply** or **Unassign**. Project review uses **Apply changes** or **Unassign and apply changes**. Opening a review or cancelling it does not change installations or assignment snapshots.
 
-Unassigning preserves the central skillset. Installations still needed by another skillset remain. Removable installations owned by Skillscout move to Trash; modified or unowned project files remain in place. Project recovery, an unavailable folder, or an incompatible target prevents application. Assignments for disabled tools remain stored.
+Unassigning preserves the central skillset. Installations still needed by another skillset remain. Removable installations owned by Quartermaster move to Trash; modified or unowned project files remain in place. Project recovery, an unavailable folder, or an incompatible target prevents application. Assignments for disabled tools remain stored.
 
 ## Add and remove flows
 
@@ -358,7 +368,7 @@ Project review shows the target group and changes before Apply. Shared and Claud
 | Screen | Main UI |
 | --- | --- |
 | Dashboard | Agent, project, and period controls; recorded-use totals; ranked skills; library review for similar skills, differing copies, and source contents. |
-| Discovery | Git repositories and Local folders choices; source list; repository details; skill preview; import, update review, and version selection. A repository in Library leads with **Add skills to agents…**, which opens Add skills with its skills selected and their sources set to that repository. **Check all for updates** in the toolbar shows "Checking N of M…", then a summary of updates, failed checks and unchecked local folders, and switches to **Updates available** when any are found. |
+| Discovery | **Git** (repositories), **Folders** (local folders) and **skills.sh** choices; source list; repository details; skill preview; import, update review, and version selection. A repository in Library leads with **Add skills to agents…**, which opens Add skills with its skills selected and their sources set to that repository. **Check all for updates** in the toolbar shows "Checking N of M…", then a summary of updates, failed checks and unchecked local folders, and switches to **Updates available** when any are found. |
 | Skillsets | Membership editor, source choices, shared Global/project assignment manager, reviewed apply and unassign actions, and import or export actions. |
 | Suggestions | Repeated-task ideas, AI draft generation, save-destination chips, and actions for the saved skill. |
 | Similar skills | Similar pairs, comparison details, and a reviewed merge flow. |
