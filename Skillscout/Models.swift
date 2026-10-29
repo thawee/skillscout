@@ -211,6 +211,9 @@ struct SkillCopy: Identifiable, Sendable, Hashable {
 
   var id: String { folder.path }
 
+  /// In one of your own skills folders. Plugins and tools manage the others.
+  var isRemovable: Bool { [.user, .shared, .managed, .drafts].contains(root.kind) }
+
   /// The files live in Skillscout's storage, directly or through a link.
   var isInLibraryStorage: Bool { Paths.libraryLocation(resolved) != nil }
 
@@ -248,8 +251,7 @@ struct Skill: Identifiable, Sendable, Hashable {
   /// proves it existed earlier.
   func created(usage: SkillUsage?) -> Date { min(folderCreated, usage?.firstUsed ?? .distantFuture) }
 
-  /// The copies in your own skills folders. Plugins and tools manage the others.
-  var removableCopies: [SkillCopy] { copies.filter { $0.root.kind == .user || $0.root.kind == .shared || $0.root.kind == .managed || $0.root.kind == .drafts } }
+  var removableCopies: [SkillCopy] { copies.filter(\.isRemovable) }
 
   var isPersonal: Bool { !removableCopies.isEmpty }
 

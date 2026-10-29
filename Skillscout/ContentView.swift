@@ -93,12 +93,16 @@ private enum DiscoveryTarget {
 enum SkillSource: String {
   case yours, plugin, builtIn, all
 
-  func includes(_ skill: Skill) -> Bool {
+  /// With `readers`, only the copies those agents read count, so a skill whose personal copy only Claude Code reads
+  /// is a plugin skill for Codex when Codex reads it from a plugin.
+  func includes(_ skill: Skill, readers: Set<Tool>? = nil) -> Bool {
+    let copies = readers.map { readers in skill.copies.filter { !$0.root.readBy.isDisjoint(with: readers) } } ?? skill.copies
+    let personal = copies.contains(where: \.isRemovable)
     switch self {
-    case .yours: skill.isPersonal
-    case .plugin: !skill.isPersonal && skill.copies.contains { $0.root.kind == .plugin }
-    case .builtIn: !skill.isPersonal && skill.copies.contains { $0.root.kind == .builtIn }
-    case .all: true
+    case .yours: return personal
+    case .plugin: return !personal && copies.contains { $0.root.kind == .plugin }
+    case .builtIn: return !personal && copies.contains { $0.root.kind == .builtIn }
+    case .all: return true
     }
   }
 }
@@ -348,7 +352,8 @@ struct ContentView: View {
       return store.skills.filter { !$0.isSystemOnly(in: Set(store.tools)) }
     }
     return store.skills.filter {
-      source.includes($0) && (sidebar?.isGlobal == true && showSystemSkills || !$0.isSystemOnly(in: Set(store.tools)))
+      source.includes($0, readers: sidebar?.isGlobal == true ? globalScopeTools : nil)
+        && (sidebar?.isGlobal == true && showSystemSkills || !$0.isSystemOnly(in: Set(store.tools)))
     }
   }
 

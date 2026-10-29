@@ -24,6 +24,7 @@
 
 ### Fixed
 
+- In Global, **Your skills**, **Plugin** and **System** judge only the copies the selected agents read. A skill linked into Claude Code that Codex loads from a plugin now shows under Plugin on the Codex row.
 - Default and named branch previews clone one commit. This avoids the 60-second Git timeout caused by downloading a large repository's full history, including Archify's.
 
 ## Previous releases

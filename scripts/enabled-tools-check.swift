@@ -804,6 +804,25 @@ func enabledToolsCheck(_ condition: @autoclosure () throws -> Bool, _ message: S
     UserDefaults.standard.set("builtIn", forKey: "skillSource")
     let restored = try await show(AnyView(ContentView(sidebar: .global).environment(store)), name: "system-stale-filter-restored", width: 1280, height: 900, output: output, host: host, window: window)
     try enabledToolsCheck(restored.contains("pets") && UserDefaults.standard.string(forKey: "skillSource") == "all", "hidden systems normalize a stale built-in source preference")
+
+    try writeSkill(Paths.at(".gemini/skills/split-fixture"), name: "split-fixture")
+    try writeSkill(provider.appending(path: "skills/split-fixture"), name: "split-fixture")
+    await store.refreshSkills()
+    _ = try await show(codex, name: "source-codex", width: 1280, height: 900, output: output, host: host, window: window)
+    try await press("choice.Show.Your skills", title: "Your skills", window: window)
+    let codexYours = try visible(window)
+    try snapshot("source-codex-yours", output: output, window: window)
+    try enabledToolsCheck(!codexYours.contains("split-fixture") && !codexYours.contains("pets") && codexYours.contains("system-personal"), "Your skills on Codex leaves out a skill Codex reads only from a plugin")
+    try await press("choice.Show.Plugin", title: "Plugin", window: window)
+    let codexPlugin = try visible(window)
+    try snapshot("source-codex-plugin", output: output, window: window)
+    try enabledToolsCheck(codexPlugin.contains("split-fixture") && codexPlugin.contains("pets") && !codexPlugin.contains("system-personal"), "Plugin on Codex lists a skill Codex reads only from a plugin")
+    _ = try await show(global, name: "source-all", width: 1280, height: 900, output: output, host: host, window: window)
+    try await press("choice.Show.Your skills", title: "Your skills", window: window)
+    let allYours = try visible(window)
+    try snapshot("source-all-yours", output: output, window: window)
+    try enabledToolsCheck(allYours.contains("split-fixture") && !allYours.contains("pets"), "Your skills on All agents keeps a skill another agent reads from your folder")
+    UserDefaults.standard.set("all", forKey: "skillSource")
   }
 
   @MainActor static func runProviders(output: URL, host: NSHostingController<AnyView>, window: NSWindow) async throws {
