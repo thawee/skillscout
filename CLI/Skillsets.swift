@@ -254,7 +254,12 @@ extension Commands {
   private static func skillsetExport(_ name: String, args: Arguments) throws {
     let state = try SkillsetState.load()
     let set = try find(name, in: state)
-    let data = try SkillsetFile(set, skills: SkillScanner.scan(), preferences: state.sourcePreferences).encoded()
+    let export = SkillsetFile.export(set, skills: SkillScanner.scan(), preferences: state.sourcePreferences)
+    let data = try export.file.encoded()
+    defer {
+      // Notes go to standard error, so a file written to standard output stays valid JSON.
+      for note in export.unwritten { FileHandle.standardError.write(Data((Terminal.warn("Not in the file: \(note)") + "\n").utf8)) }
+    }
     if let output = args.option("output") {
       let url = URL(fileURLWithPath: (output as NSString).expandingTildeInPath)
       try (data + Data("\n".utf8)).write(to: url, options: .atomic)
@@ -272,9 +277,11 @@ extension Commands {
     var state = try SkillsetState.load()
     let name = SkillsetFile.availableName(file.name, among: state.skillsets)
     state.skillsets.append(Skillset(name: name, skills: Set(file.skills.map(\.name))))
+    let installed = SkillScanner.scan()
+    let unmatched = file.applyVersionChoices(to: &state.sourcePreferences, skills: installed)
     try state.save()
     print("Imported \(name) with \(plural(file.skills.count, "skill")). It isn't assigned to a tool yet.")
-    let installed = SkillScanner.scan()
+    for note in unmatched { print(Terminal.warn(note)) }
     for difference in file.versionDifferences(among: installed, preferences: state.sourcePreferences) { print(Terminal.warn(difference)) }
     let missing = file.missing(among: installed)
     guard !missing.isEmpty else { return }

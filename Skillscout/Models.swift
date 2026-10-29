@@ -115,6 +115,15 @@ enum Tool: String, CaseIterable, Codable, Identifiable, Sendable {
     }
   }
 
+  /// Whether a skill in the agent's home folder wins over a project skill with the same name. Claude Code documents
+  /// "personal over project" (code.claude.com/docs/en/skills); the others don't say which copy they use.
+  var personalOverridesProject: Bool {
+    switch self {
+    case .claude: true
+    case .cursor, .codex, .copilot, .gemini, .antigravity, .opencode, .droid, .pi, .amp: false
+    }
+  }
+
   /// Folders the tool creates the first time it runs.
   var homeFolders: [String] {
     switch self {

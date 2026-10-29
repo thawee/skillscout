@@ -81,6 +81,7 @@ struct SkillsetState {
     var preferredSources: [Skill.ID: String]?
     var agentSources: [Skill.ID: [Tool: String]]?
     var skippedAgents: [Skill.ID: Set<Tool>]?
+    var projectSources: [String: [Skill.ID: String]]?
   }
 
   static func load(from file: URL = Paths.stateFile) throws -> SkillsetState {
@@ -89,7 +90,7 @@ struct SkillsetState {
     return SkillsetState(skillsets: stored.skillsets ?? [], assignments: stored.skillsetAssignments ?? [],
       entries: stored.skillsetEntries ?? [], issues: stored.skillsetIssues ?? [:],
       sourcePreferences: SourcePreferences(defaults: stored.preferredSources ?? [:], byTool: stored.agentSources ?? [:],
-        skipped: stored.skippedAgents ?? [:]))
+        skipped: stored.skippedAgents ?? [:], byProject: stored.projectSources ?? [:]))
   }
 
   func save(to file: URL = Paths.stateFile) throws {
@@ -102,7 +103,7 @@ struct SkillsetState {
     }
     let stored = Stored(skillsets: skillsets, skillsetAssignments: assignments, skillsetEntries: entries,
       skillsetIssues: issues, preferredSources: sourcePreferences.defaults, agentSources: sourcePreferences.byTool,
-      skippedAgents: sourcePreferences.skipped)
+      skippedAgents: sourcePreferences.skipped, projectSources: sourcePreferences.byProject)
     guard let updates = try JSONSerialization.jsonObject(with: JSONEncoder().encode(stored)) as? [String: Any] else {
       throw CocoaError(.coderInvalidValue)
     }
@@ -114,6 +115,16 @@ struct SkillsetState {
 
 /// A skillset saved to share or move to another Mac: its name, its skills, and where each Library skill came from.
 struct SkillsetFile: Codable, Equatable {
+  /// The version an agent uses, found again by its content, since versions can come from different repositories.
+  struct AgentVersion: Codable, Hashable {
+    /// The repository URL, as in `Member.source`; nil when the copy is in no repository.
+    var source: String?
+    /// The folder of the copy relative to that repository.
+    var path: String?
+    /// `SkillCopy.contentHash` of the chosen version.
+    var contentHash: String
+  }
+
   struct Member: Codable, Equatable {
     let name: String
     /// The Git repository a Library skill was added from, without credentials. Nil for personal skills and
@@ -121,14 +132,25 @@ struct SkillsetFile: Codable, Equatable {
     let source: String?
     let ref: RepositoryRef?
     let commit: String?
+    /// Tool argument string to the version that agent uses, for a skill with versions.
+    var agents: [String: AgentVersion]?
+    /// Tool argument strings of the agents that go without the skill.
+    var skippedAgents: [String]?
 
-    init(name: String, source: String?, ref: RepositoryRef? = nil, commit: String? = nil) {
+    init(name: String, source: String?, ref: RepositoryRef? = nil, commit: String? = nil,
+         agents: [String: AgentVersion]? = nil, skippedAgents: [String]? = nil) {
       self.name = name
       self.source = source
       self.ref = ref
       self.commit = commit
+      self.agents = agents
+      self.skippedAgents = skippedAgents
     }
   }
+
+  /// Where a copy lives in a Library repository: the repository's address, nil for a local folder, and the copy's
+  /// folder relative to it.
+  typealias Location = (source: String?, path: String)
 
   var format = "skillscout-skillset"
   var version = 1
@@ -140,16 +162,99 @@ struct SkillsetFile: Codable, Equatable {
     self.skills = skills
   }
 
-  init(_ skillset: Skillset, skills: [Skill], preferences: SourcePreferences) {
-    name = skillset.name
-    self.skills = skillset.skills.sorted().map { id in
-      let copy = skills.first { $0.id == id }
-        .flatMap { SkillInstaller.skillsetSource($0, for: nil, preferences: preferences) ?? $0.copies.first(where: SkillInstaller.isFromLibrary) }
-      guard let copy, SkillInstaller.isFromLibrary(copy), let repo = SkillInstaller.libraryRepo(of: copy),
-            let source = try? SkillInstaller.repoSource(name: repo), !source.hasPrefix("/") else { return Member(name: id, source: nil) }
-      let snapshot = try? RepositoryLibrary.snapshot(in: SkillInstaller.managedRepoFolder(repo))
-      return Member(name: id, source: SkillInstaller.redactedSource(source), ref: snapshot?.ref, commit: snapshot?.commit)
+  /// The file for a skillset, and every per-agent version choice it couldn't write, for the user to read.
+  static func export(_ skillset: Skillset, skills: [Skill], preferences: SourcePreferences,
+                     locate: (SkillCopy) -> Location? = SkillsetFile.libraryLocation(of:)) -> (file: SkillsetFile, unwritten: [String]) {
+    var unwritten: [String] = []
+    let members = skillset.skills.sorted().map { id in
+      let skill = skills.first { $0.id == id }
+      let copy = skill.flatMap { SkillInstaller.skillsetSource($0, for: nil, preferences: preferences) ?? $0.copies.first(where: SkillInstaller.isFromLibrary) }
+      var member: Member
+      if let copy, SkillInstaller.isFromLibrary(copy), let repo = SkillInstaller.libraryRepo(of: copy),
+         let source = try? SkillInstaller.repoSource(name: repo), !source.hasPrefix("/") {
+        let snapshot = try? RepositoryLibrary.snapshot(in: SkillInstaller.managedRepoFolder(repo))
+        member = Member(name: id, source: SkillInstaller.redactedSource(source), ref: snapshot?.ref, commit: snapshot?.commit)
+      } else {
+        member = Member(name: id, source: nil)
+      }
+      guard let skill, SkillVersions.versions(of: skill).count > 1 else { return member }
+      var agents: [String: AgentVersion] = [:]
+      for (tool, path) in (preferences.byTool[id] ?? [:]).sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
+        let chosen = SkillInstaller.installableSources(for: skill).first { $0.resolved.path == path }
+        guard let chosen else {
+          unwritten.append("\(id) for \(tool.name): its chosen version is no longer installed, so the file doesn't record it.")
+          continue
+        }
+        let version = SkillVersions.versions(of: skill).first { $0[0].contentHash == chosen.contentHash } ?? [chosen]
+        guard let location = ([chosen] + version).lazy.compactMap(locate).first else {
+          unwritten.append("\(id) for \(tool.name): its version is in no Library repository (\(Paths.abbreviate(chosen.resolved))), so the file doesn't record it.")
+          continue
+        }
+        agents[tool.rawValue] = AgentVersion(source: location.source, path: location.path, contentHash: chosen.contentHash)
+      }
+      let skipped = Tool.allCases.filter { preferences.skipped[id]?.contains($0) == true }.map(\.rawValue)
+      member.agents = agents.isEmpty ? nil : agents
+      member.skippedAgents = skipped.isEmpty ? nil : skipped
+      return member
     }
+    return (SkillsetFile(name: skillset.name, skills: members), unwritten)
+  }
+
+  static func libraryLocation(of copy: SkillCopy) -> Location? {
+    guard let repo = SkillInstaller.libraryRepo(of: copy) else { return nil }
+    let base = SkillInstaller.managedRepoFolder(repo).resolvingSymlinksInPath().standardizedFileURL.pathComponents
+    let parts = copy.resolved.resolvingSymlinksInPath().standardizedFileURL.pathComponents
+    guard parts.starts(with: base) else { return nil }
+    let source = (try? SkillInstaller.repoSource(name: repo)).flatMap { $0.hasPrefix("/") ? nil : SkillInstaller.redactedSource($0) }
+    return (source, parts.dropFirst(base.count).joined(separator: "/"))
+  }
+
+  /// Sets each member's per-agent versions from the local copy with the same content, preferring the one at the same
+  /// repository and path. Returns the choices it couldn't apply; nothing is guessed.
+  func applyVersionChoices(to preferences: inout SourcePreferences, skills: [Skill],
+                           locate: (SkillCopy) -> Location? = SkillsetFile.libraryLocation(of:)) -> [String] {
+    var unmatched: [String] = []
+    for member in self.skills where member.agents != nil || member.skippedAgents != nil {
+      guard let skill = skills.first(where: { $0.id == member.name }) else {
+        unmatched.append("\(member.name): not on this Mac, so its agent versions weren't applied.")
+        continue
+      }
+      let sources = SkillInstaller.installableSources(for: skill)
+      for (argument, version) in (member.agents ?? [:]).sorted(by: { $0.key < $1.key }) {
+        guard let tool = Tool(argument: argument) else {
+          unmatched.append("\(member.name): unknown agent \(argument), so its version wasn't applied.")
+          continue
+        }
+        let candidates = sources.filter { $0.contentHash == version.contentHash }
+        let sameRepository: (SkillCopy) -> Bool = { copy in
+          guard let location = locate(copy) else { return version.source == nil && version.path == nil }
+          return Self.sameRepository(location.source, version.source) && location.path == version.path
+        }
+        guard let copy = candidates.first(where: sameRepository) ?? candidates.first else {
+          unmatched.append("\(member.name) for \(tool.name): no copy on this Mac has the chosen version, so it wasn't applied.")
+          continue
+        }
+        preferences.byTool[skill.id, default: [:]][tool] = copy.resolved.path
+        preferences.skipped[skill.id]?.remove(tool)
+      }
+      for argument in member.skippedAgents ?? [] {
+        guard let tool = Tool(argument: argument) else {
+          unmatched.append("\(member.name): unknown agent \(argument), so its skip wasn't applied.")
+          continue
+        }
+        preferences.skipped[skill.id, default: []].insert(tool)
+        preferences.byTool[skill.id]?[tool] = nil
+      }
+      if preferences.byTool[skill.id]?.isEmpty == true { preferences.byTool[skill.id] = nil }
+      if preferences.skipped[skill.id]?.isEmpty == true { preferences.skipped[skill.id] = nil }
+    }
+    return unmatched
+  }
+
+  private static func sameRepository(_ a: String?, _ b: String?) -> Bool {
+    guard let a, let b else { return a == b }
+    guard let first = try? RepositorySource(address: a), let second = try? RepositorySource(address: b) else { return a == b }
+    return RepositoryID(source: first) == RepositoryID(source: second)
   }
 
   func encoded() throws -> Data {

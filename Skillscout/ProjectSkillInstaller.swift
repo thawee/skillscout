@@ -19,6 +19,10 @@ struct ProjectSkillPlan {
   var changes: [ProjectSkillChange] = []
   var kept: [String] = []
   var issues: [String] = []
+  /// Changes left out so no agent reads two versions of a skill; the rest of the plan still applies.
+  var leftOut: [String] = []
+  /// Worth knowing before applying, but not blocking.
+  var warnings: [String] = []
   var canApply: Bool { issues.isEmpty }
   var sourcePaths: [String] { Array(Set(changes.compactMap(\.sourcePath))).sorted() }
 
@@ -133,6 +137,7 @@ extension SkillInstaller {
       let desired = proposed.reduce(into: Set<Skill.ID>()) { $0.formUnion($1.members) }
       let reconciled: Set<Skill.ID> = intent == .reconcile ? desired : []
       var destinations: [String: String] = [:]
+      var plannedHashes: [String: String] = [:]
       for id in reconciled.sorted() {
         let destination = try projectDestination(id, project: project, target: target)
         if let other = destinations[destination.path], other != id {
@@ -160,8 +165,9 @@ extension SkillInstaller {
           continue
         }
         do {
-          let (source, fingerprint) = try projectSource(skill, preferences: preferences)
+          let (source, fingerprint) = try projectSource(skill, project: project, preferences: preferences)
           plan.observations.append("source:\(id):\(source.path):\(fingerprint)")
+          plannedHashes[destination.path] = shortHash(try String(contentsOf: source.appending(path: "SKILL.md"), encoding: .utf8))
           if projectExists(destination) {
             if let receipt {
               if receipt.installedFingerprint == fingerprint {
@@ -198,8 +204,54 @@ extension SkillInstaller {
           plan.kept.append("\(receipt.skillID): kept its modified copy; it will no longer be tracked.")
         }
       }
+      checkProjectVersions(&plan, plannedHashes: plannedHashes)
     } catch { plan.issues.append(error.localizedDescription) }
     return plan
+  }
+
+  /// Keeps each agent on one version of a skill across the project's own folders. A change that would give an agent
+  /// a second version is left out; a conflict the project already has is reported. Neither stops the other skills.
+  private static func checkProjectVersions(_ plan: inout ProjectSkillPlan, plannedHashes: [String: String]) {
+    let existing = ProjectLibrary.inventory(project: plan.project, globalSkills: []).skills.flatMap { row in
+      row.localCopies.map { PlannedCopy(skillID: row.name, folder: $0.folder, contentHash: $0.contentHash, readBy: $0.root.readBy) }
+    }
+    let target = plan.target
+    func additions(_ changes: [ProjectSkillChange]) -> [PlannedCopy] {
+      changes.compactMap { change in
+        plannedHashes[change.destinationPath].map {
+          PlannedCopy(skillID: change.skillID, folder: URL(fileURLWithPath: change.destinationPath), contentHash: $0, readBy: target.readBy)
+        }
+      }
+    }
+    let removing = Set(plan.changes.filter { $0.kind == .remove }.map { SkillVersions.key(URL(fileURLWithPath: $0.destinationPath)) })
+    let adding = additions(plan.changes)
+    let created = SkillVersions.newConflicts(existing: existing, adding: adding, removing: removing)
+    for text in created.map({ SkillVersions.message($0, adding: adding) }) where !plan.leftOut.contains(text) { plan.leftOut.append(text) }
+    let blocked = Set(created.map(\.skillID))
+    plan.changes.removeAll { $0.kind != .remove && blocked.contains($0.skillID) }
+    let kept = additions(plan.changes)
+    plan.warnings += SkillVersions.conflicts(existing: existing, adding: kept, removing: removing).map { SkillVersions.message($0) }
+    plan.warnings += homeWarnings(kept, skills: plan.skills)
+  }
+
+  /// An agent that reads a project copy can also read a different copy in a home folder. Which one it uses is the
+  /// agent's call, so this warns instead of blocking.
+  private static func homeWarnings(_ adding: [PlannedCopy], skills: [Skill]) -> [String] {
+    let agents = SkillVersions.countedAgents
+    return adding.flatMap { planned -> [String] in
+      guard let skill = skills.first(where: { $0.id == planned.skillID }) else { return [] }
+      return Tool.allCases.filter { planned.readBy.contains($0) && agents.contains($0) }.compactMap { tool -> String? in
+        // Plugin skills are namespaced by their plugin, so they load next to a project skill instead of competing.
+        let folders = skill.copies.filter { $0.root.kind != .plugin && $0.root.readBy.contains(tool) && $0.contentHash != planned.contentHash }
+          .map { Paths.abbreviate($0.folder.deletingLastPathComponent()) }
+          .reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+        guard !folders.isEmpty else { return nil }
+        let start = "\(planned.skillID): \(tool.name) also reads a different copy in \(folders.joined(separator: ", "))."
+        return tool.personalOverridesProject
+          ? "\(start) \(tool.name) uses its personal copy over the project's."
+          : "\(start) Which copy \(tool.name) uses is up to \(tool.name)."
+      }
+    }
   }
 
   static func applyProjectPlan(_ plan: ProjectSkillPlan, state: inout ProjectState,
@@ -232,7 +284,7 @@ extension SkillInstaller {
       proposedAssignments: plan.proposedAssignments, steps: steps, intent: plan.intent)
     try saveProjectState(next, into: &state, persist: persist)
     var result = try continueProjectJournal(state: &state, persist: persist, trash: trash)
-    result.notes = plan.kept + result.notes
+    result.notes = plan.leftOut + plan.kept + result.notes
     return result
   }
 
@@ -458,11 +510,18 @@ extension SkillInstaller {
     return result as URL
   }
 
-  private static func projectSource(_ skill: Skill, preferences: SourcePreferences) throws -> (URL, String) {
+  /// A skill with versions uses only the project's own choice; `defaults` picks among copies with the same content.
+  private static func projectSource(_ skill: Skill, project: RegisteredProject,
+                                    preferences: SourcePreferences) throws -> (URL, String) {
     let sources = installableSources(for: skill)
     guard !sources.isEmpty else { throw ProjectInstallFailure.unsafe("This skill has no installable source.") }
     var fingerprints: [(URL, String)] = []
-    let preferred = preferences.path(for: skill.id, tool: nil).flatMap { path in sources.contains { $0.resolved.path == path } ? path : nil }
+    let versions = SkillVersions.versions(of: skill).count
+    let saved = versions > 1 ? preferences.byProject[project.path]?[skill.id] : preferences.defaults[skill.id]
+    let preferred = saved.flatMap { path in sources.contains { $0.resolved.path == path } ? path : nil }
+    if versions > 1 && preferred == nil {
+      throw ProjectInstallFailure.unsafe("It has \(versions) versions. Choose the version this project uses before applying.")
+    }
     for copy in sources {
       let source = copy.resolved.standardizedFileURL.resolvingSymlinksInPath()
       if let preferred, preferred != copy.resolved.path { continue }

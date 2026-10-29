@@ -486,21 +486,28 @@ struct ProjectApplySheet: View {
           Divider()
           if let plan {
             if plan.changes.isEmpty, plan.issues.isEmpty { Text("No project files need to change. The project assignment will be saved.").font(.caption).foregroundStyle(.secondary) }
-            ForEach(plan.issues, id: \.self) { Text($0).foregroundStyle(.orange).textSelection(.enabled) }
+            ForEach(plan.issues + plan.leftOut, id: \.self) { Text($0).foregroundStyle(.orange).textSelection(.enabled) }
+            ForEach(plan.warnings, id: \.self) { warning in
+              Label { Text(warning).foregroundStyle(.secondary).textSelection(.enabled) } icon: {
+                Image(systemName: "info.circle").foregroundStyle(.secondary)
+              }.font(.callout).help("A warning. It doesn't stop Apply.")
+            }
             ForEach(sourceChoices) { skill in
               VStack(alignment: .leading, spacing: 5) {
-                ChoiceAction(title: "Choose source for \(skill.name)", options: SkillInstaller.installableSources(for: skill).map { source in
+                ChoiceAction(title: "\(hasVersions(skill) ? "Choose version" : "Choose source") for \(skill.name)", options: SkillInstaller.installableSources(for: skill).map { source in
                   let version = SkillVersions.title(of: source, in: skill)
                   return ChoiceOption(value: source, title: version ?? source.sourceLabel,
                     detail: version == nil ? source.visiblePath : [source.sourceLabel, source.visiblePath].compactMap { $0 }.joined(separator: " · "),
                     symbol: "folder")
                 }) { source in
-                  if store.setPreferredSource(source, for: skill) { refreshPreview() }
-                }.help("This choice becomes the skill's preferred source across Quartermaster.")
+                  if store.setProjectSource(source, for: skill, in: project) { refreshPreview() }
+                }.help(hasVersions(skill) ? "This version is used in this project only." : "This choice becomes the skill's preferred source across Quartermaster.")
                 if let source = chosenSource(for: skill) {
-                  Text([source.sourceLabel, source.visiblePath].compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+                  Text([SkillVersions.title(of: source, in: skill), source.sourceLabel, source.visiblePath].compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+                } else if hasVersions(skill), let suggested = preferredSource(for: skill) {
+                  Text("Not chosen for this project. Suggested: \(SkillVersions.title(of: suggested, in: skill) ?? suggested.sourceLabel).").font(.caption).foregroundStyle(.secondary)
                 } else {
-                  Text("Choose which copy to use when the preview reports different sources.").font(.caption).foregroundStyle(.secondary)
+                  Text(hasVersions(skill) ? "Choose which version this project uses." : "Choose which copy to use when the preview reports different sources.").font(.caption).foregroundStyle(.secondary)
                 }
               }
             }
@@ -576,9 +583,18 @@ struct ProjectApplySheet: View {
       .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
   }
 
+  private func hasVersions(_ skill: Skill) -> Bool { SkillVersions.versions(of: skill).count > 1 }
+
+  /// The preferred source only suggests a version here; the project's own choice decides it.
+  private func preferredSource(for skill: Skill) -> SkillCopy? {
+    store.sourcePreferences.defaults[skill.id].flatMap { path in SkillInstaller.installableSources(for: skill).first { $0.resolved.path == path } }
+  }
+
   private func chosenSource(for skill: Skill) -> SkillCopy? {
     let sources = SkillInstaller.installableSources(for: skill)
-    let saved = store.sourcePreferences.defaults[skill.id].flatMap { path in sources.first { $0.resolved.path == path } }
+    let saved = hasVersions(skill)
+      ? store.sourcePreferences.byProject[project.path]?[skill.id].flatMap { path in sources.first { $0.resolved.path == path } }
+      : preferredSource(for: skill)
     let planned = plan?.changes.first { $0.skillID == skill.id }?.sourcePath
     return saved ?? sources.first { $0.resolved.path == planned }
   }

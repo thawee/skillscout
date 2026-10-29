@@ -53,6 +53,7 @@
 		56460DB43815702262614465 /* ProjectLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1238A0B0EE3C4588CB97705C /* ProjectLibrary.swift */; };
 		56B2C0632C4077DB2FCB717D /* SkillReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0E0DAF3A6CF8673C432C76C /* SkillReview.swift */; };
 		56FCE9E583B218C2270A5D84 /* GlobalSkillHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E1BCE7FAB93CFA8C6BE5F4 /* GlobalSkillHeader.swift */; };
+		59D02008F5CD73C976A00F5D /* ProjectVersionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47038B7D03AB6DFB466BC972 /* ProjectVersionsTests.swift */; };
 		5F85019D7561BB0D7566001B /* SuggestionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076A549C0CCE0367FE4D11D0 /* SuggestionViews.swift */; };
 		62C88BC3E3B945945C3EA296 /* PromptLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53B6FF6B0D5A3694C197EBC0 /* PromptLibrary.swift */; };
 		63CEF43C596046DD34FB36F8 /* SkillsetTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C869F111F332D93D6DC43741 /* SkillsetTransfer.swift */; };
@@ -174,6 +175,7 @@
 		414FE5AD94D9FE8882D117D9 /* Commands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Commands.swift; sourceTree = "<group>"; };
 		41BEF20D63166E49FEA138C0 /* RepositoryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryViews.swift; sourceTree = "<group>"; };
 		46933578EAC457E1CAA3DB42 /* RepositoryUpdateImpactViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryUpdateImpactViews.swift; sourceTree = "<group>"; };
+		47038B7D03AB6DFB466BC972 /* ProjectVersionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectVersionsTests.swift; sourceTree = "<group>"; };
 		470A830374A881BA320C6298 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		4AAFE37161CC662239F26FAD /* SkillVersionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillVersionsTests.swift; sourceTree = "<group>"; };
 		4BA2C1123EB529424750426F /* ProjectViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectViews.swift; sourceTree = "<group>"; };
@@ -313,6 +315,7 @@
 				213EB26EEC4D026F65364804 /* ProjectInstallerTests.swift */,
 				4E0250DCC16CC1ECC1416813 /* ProjectTests.swift */,
 				B7A33788AAEA857D37BA6C92 /* ProjectUsageTests.swift */,
+				47038B7D03AB6DFB466BC972 /* ProjectVersionsTests.swift */,
 				DB366C49ABD26E175BF2641D /* RepositoryImpactTests.swift */,
 				FC7F57460885522B914AFFC9 /* RepositoryMergeTests.swift */,
 				965BD38026A050B3269013EE /* RepositoryTests.swift */,
@@ -567,6 +570,7 @@
 				38761BCB2565CFA33CA371FE /* ProjectSkillInstaller.swift in Sources */,
 				152157737952EB4B24434289 /* ProjectTests.swift in Sources */,
 				359295C6B7DA767E7D7D1D17 /* ProjectUsageTests.swift in Sources */,
+				59D02008F5CD73C976A00F5D /* ProjectVersionsTests.swift in Sources */,
 				65C46532FF8BCCB4B172F689 /* PromptLibrary+Tools.swift in Sources */,
 				796A56F34B6065273974C9B4 /* PromptLibrary.swift in Sources */,
 				72573D7336C236C38A5DA342 /* Registry.swift in Sources */,

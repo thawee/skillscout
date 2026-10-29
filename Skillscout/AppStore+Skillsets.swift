@@ -137,8 +137,11 @@ extension AppStore {
   func exportSkillset(id: UUID, to url: URL) {
     guard let skillset = skillsets.first(where: { $0.id == id }) else { return }
     do {
-      let data = try SkillsetFile(skillset, skills: skills, preferences: sourcePreferences).encoded()
-      try (data + Data("\n".utf8)).write(to: url, options: .atomic)
+      let export = SkillsetFile.export(skillset, skills: skills, preferences: sourcePreferences)
+      try (export.file.encoded() + Data("\n".utf8)).write(to: url, options: .atomic)
+      if !export.unwritten.isEmpty {
+        exportNote = (["Saved \(skillset.name). These agent versions aren't in the file:"] + export.unwritten).joined(separator: "\n\n")
+      }
     } catch {
       errorMessage = "Couldn't export \(skillset.name): \(error.localizedDescription)"
     }
@@ -151,12 +154,16 @@ extension AppStore {
     do {
       let file = try SkillsetFile.decode(Data(contentsOf: url))
       let skillset = Skillset(name: SkillsetFile.availableName(file.name, among: skillsets), skills: Set(file.skills.map(\.name)))
+      let previousPreferences = sourcePreferences
       skillsets.append(skillset)
+      let unmatched = file.applyVersionChoices(to: &sourcePreferences, skills: skills)
       guard saveState() else {
         skillsets.removeAll { $0.id == skillset.id }
+        sourcePreferences = previousPreferences
         return nil
       }
       var lines = ["\(skillset.name) has \(file.skills.count) skills. It isn't assigned to a tool yet."]
+      lines.append(contentsOf: unmatched)
       let missing = file.missing(among: skills)
       lines.append(contentsOf: file.versionDifferences(among: skills, preferences: sourcePreferences))
       if !missing.isEmpty {

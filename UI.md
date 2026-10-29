@@ -333,6 +333,8 @@ Rows appear once per skill and can show both **Project** and **Inherited from Gl
 
 The overview shows individual additions, read-only applied skillset summaries, native roots, inventory issues, and recovery state. Skillset actions live in **Manage…**, using the [shared management screen](#shared-skillset-management). Unavailable projects have an explicit unavailable state. Filtered empty lists offer Reset filters when applicable. After an apply, the overview shows one summary line with **Dismiss**, and the per-skill results sit under **Details (N)**. The apply sheet scrolls its content in a short window while keeping its action buttons visible.
 
+The apply sheet leaves out a change that would give an agent two versions of a skill across the project's folders, with an orange line naming the agent and folder, and applies the rest. Conflicts that already exist and differing home-folder copies show as secondary warnings with an info symbol. Neither disables **Apply changes**. For a skill with versions, **Choose source** saves the version for this project only and says "Not chosen for this project" until it has one, with the preferred source as a suggestion.
+
 ## Skillset membership view
 
 Selecting a skillset shows its members, **Edit…**, assignment summary, **Install skillset…**, and Sort choices. The list and member details omit **Project** and **Period** controls. Chat counts, **Use** sorting, and usage labels cover all loaded history for enabled agents. Saved project and period filters from other screens do not change this view.

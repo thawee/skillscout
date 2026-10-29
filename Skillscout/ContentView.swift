@@ -610,6 +610,14 @@ struct ContentView: View {
     } message: {
       Text(store.importNote ?? "")
     }
+    .alert("Skillset exported", isPresented: Binding(
+      get: { store.exportNote != nil },
+      set: { if !$0 { store.exportNote = nil } }
+    )) {
+      Button("OK") {}
+    } message: {
+      Text(store.exportNote ?? "")
+    }
     .alert("New Skillset", isPresented: $showingNewSkillset) {
       TextField("Skillset Name", text: $newSkillsetName)
       Button("Cancel", role: .cancel) { newSkillsetName = "" }

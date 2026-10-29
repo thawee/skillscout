@@ -6,15 +6,28 @@ struct SourcePreferences: Codable, Hashable, Sendable {
   var byTool: [Skill.ID: [Tool: String]] = [:]
   /// Agents that skillsets leave without the skill, since none of its versions suits them.
   var skipped: [Skill.ID: Set<Tool>] = [:]
+  /// The version each project uses for a skill with versions, by the project's standardized folder path.
+  var byProject: [String: [Skill.ID: String]] = [:]
 
   func path(for id: Skill.ID, tool: Tool?) -> String? {
     tool.flatMap { byTool[id]?[$0] } ?? defaults[id]
+  }
+
+  /// The project review's pick. A version stays with that project, since `defaults` would decide it for every agent
+  /// and project without a choice of its own; copies with the same content still share the preferred source.
+  mutating func choose(_ path: String, for skill: Skill, in project: RegisteredProject) {
+    if SkillVersions.versions(of: skill).count > 1 {
+      byProject[project.path, default: [:]][skill.id] = path
+    } else {
+      defaults[skill.id] = path
+    }
   }
 
   /// Saved paths follow folders that moved.
   mutating func relocate(_ folders: [String: String]) {
     defaults = defaults.mapValues { SkillInstaller.relocatedPath($0, folders: folders) }
     byTool = byTool.mapValues { $0.mapValues { SkillInstaller.relocatedPath($0, folders: folders) } }
+    byProject = byProject.mapValues { $0.mapValues { SkillInstaller.relocatedPath($0, folders: folders) } }
   }
 
   /// A renamed skill keeps its choices; a merged one drops them, since the kept skill has its own.
@@ -22,10 +35,16 @@ struct SourcePreferences: Codable, Hashable, Sendable {
     let oldDefault = defaults.removeValue(forKey: oldID)
     let oldByTool = byTool.removeValue(forKey: oldID)
     let oldSkipped = skipped.removeValue(forKey: oldID)
+    let oldByProject = byProject.compactMapValues { $0[oldID] }
+    for project in oldByProject.keys {
+      byProject[project]?[oldID] = nil
+      if byProject[project]?.isEmpty == true { byProject[project] = nil }
+    }
     guard keep else { return }
     skipped[newID] = oldSkipped
     if let oldDefault { defaults[newID] = SkillInstaller.relocatedPath(oldDefault, folders: folders) }
     if let oldByTool { byTool[newID] = oldByTool.mapValues { SkillInstaller.relocatedPath($0, folders: folders) } }
+    for (project, path) in oldByProject { byProject[project, default: [:]][newID] = SkillInstaller.relocatedPath(path, folders: folders) }
   }
 }
 
@@ -69,6 +88,8 @@ enum SkillVersions {
   /// count; tests set every agent so they don't depend on the machine.
   @TaskLocal static var agents: Set<Tool>?
 
+  static var countedAgents: Set<Tool> { agents ?? Set(Tool.allCases.filter(\.isInstalled)) }
+
   /// Distinct-content groups among a skill's installable copies; >1 means the skill has versions.
   static func versions(of skill: Skill) -> [[SkillCopy]] {
     var groups: [[SkillCopy]] = []
@@ -85,8 +106,13 @@ enum SkillVersions {
   /// Conflicts each agent would have after adding `adding` and removing the folders in `removing`.
   /// `removing` holds `key(_:)` values.
   static func conflicts(skills: [Skill], adding: [PlannedCopy], removing: Set<String>) -> [VersionConflict] {
-    let seen = visible(skills: skills, adding: adding, removing: removing)
-    let agents = agents ?? Set(Tool.allCases.filter(\.isInstalled))
+    conflicts(existing: existing(skills), adding: adding, removing: removing)
+  }
+
+  /// The same check over copies that carry their own readers, such as a project's skill folders.
+  static func conflicts(existing: [PlannedCopy], adding: [PlannedCopy], removing: Set<String>) -> [VersionConflict] {
+    let seen = visible(existing: existing, adding: adding, removing: removing)
+    let agents = countedAgents
     return seen.keys.sorted().flatMap { id in
       Tool.allCases.filter(agents.contains).compactMap { tool in
         guard let versions = seen[id]?[tool], versions.count > 1 else { return nil }
@@ -97,24 +123,31 @@ enum SkillVersions {
 
   /// The conflicts a change would create: an agent that saw one version now sees two, or sees a version it didn't.
   static func newConflicts(skills: [Skill], adding: [PlannedCopy], removing: Set<String>) -> [VersionConflict] {
-    let before = visible(skills: skills, adding: [], removing: [])
-    let after = visible(skills: skills, adding: adding, removing: removing)
-    return conflicts(skills: skills, adding: adding, removing: removing).filter { conflict in
+    newConflicts(existing: existing(skills), adding: adding, removing: removing)
+  }
+
+  static func newConflicts(existing: [PlannedCopy], adding: [PlannedCopy], removing: Set<String>) -> [VersionConflict] {
+    let before = visible(existing: existing, adding: [], removing: [])
+    let after = visible(existing: existing, adding: adding, removing: removing)
+    return conflicts(existing: existing, adding: adding, removing: removing).filter { conflict in
       let earlier = Set(before[conflict.skillID]?[conflict.tool].map { Array($0.keys) } ?? [])
       let later = Set(after[conflict.skillID]?[conflict.tool].map { Array($0.keys) } ?? [])
       return earlier.count <= 1 || !later.isSubset(of: earlier)
     }
   }
 
+  private static func existing(_ skills: [Skill]) -> [PlannedCopy] {
+    skills.flatMap { skill in
+      skill.copies.map { PlannedCopy(skillID: skill.id, folder: $0.folder, contentHash: $0.contentHash, readBy: $0.root.readBy) }
+    }
+  }
+
   /// Skill, then agent, then content hash, to one folder holding that content. An existing copy stands for its
   /// content ahead of a planned one, so a planned duplicate of what an agent already reads never looks new.
-  private static func visible(skills: [Skill], adding: [PlannedCopy], removing: Set<String>) -> [Skill.ID: [Tool: [String: URL]]] {
+  private static func visible(existing: [PlannedCopy], adding: [PlannedCopy], removing: Set<String>) -> [Skill.ID: [Tool: [String: URL]]] {
     var copies: [Skill.ID: [String: PlannedCopy]] = [:]
-    for skill in skills {
-      for copy in skill.copies where !removing.contains(key(copy.folder)) {
-        copies[skill.id, default: [:]][key(copy.folder)] = PlannedCopy(skillID: skill.id, folder: copy.folder,
-          contentHash: copy.contentHash, readBy: copy.root.readBy)
-      }
+    for copy in existing where !removing.contains(key(copy.folder)) {
+      copies[copy.skillID, default: [:]][key(copy.folder)] = copy
     }
     var planned: Set<String> = []
     for copy in adding {

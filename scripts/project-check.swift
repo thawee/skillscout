@@ -266,6 +266,40 @@ enum ProjectCheck {
       ("project-apply-light", AnyView(ProjectApplySheet(project: second, request: ProjectApplyRequest(skillsetID: base.id)).environment(store))),
     ]
     try await render(scenes, output: output, host: host, window: window)
+
+    let thirdFolder = home.appending(path: "workspaces/three/demo")
+    try projectFixtureSkill(thirdFolder.appending(path: ".cursor/skills/conflict-demo"), name: "conflict-demo", body: "Hand-made Cursor copy")
+    try projectFixtureSkill(Paths.at(".config/quartermaster/drafts/conflict-demo"), name: "conflict-demo", body: "Library version")
+    try projectFixtureSkill(Paths.at(".config/quartermaster/drafts/home-demo"), name: "home-demo", body: "Library version")
+    try projectFixtureSkill(Paths.at(".claude/skills/home-demo"), name: "home-demo", body: "Personal version")
+    try fm.createDirectory(at: Paths.at(".cursor"), withIntermediateDirectories: true)
+    await store.refreshSkills()
+    guard let third = store.registerProject(thirdFolder),
+          let homeSkill = store.skills.first(where: { $0.id == "home-demo" }),
+          let libraryCopy = homeSkill.copies.first(where: { $0.root.kind == .drafts }) else {
+      throw ProjectCheckFailure.failed("Version fixtures: \(store.errorMessage ?? "missing skill")")
+    }
+    try projectCheck(store.setProjectSource(libraryCopy, for: homeSkill, in: third), "a project version choice saves")
+    try projectCheck(store.sourcePreferences.byProject[third.path]?["home-demo"] == libraryCopy.resolved.path
+      && store.sourcePreferences.defaults["home-demo"] == nil, "a project version choice stays out of the global defaults")
+    let versionChecks = Skillset(name: "Version checks", skills: ["conflict-demo", "home-demo"])
+    store.skillsets.append(versionChecks)
+    guard let versionPlan = store.projectPlan(third, skillsetID: versionChecks.id, target: .claude) else {
+      throw ProjectCheckFailure.failed("Missing version preview")
+    }
+    try projectCheck(versionPlan.canApply && versionPlan.leftOut.contains { $0.hasPrefix("conflict-demo: Cursor would see two versions") }
+      && versionPlan.changes.map(\.skillID) == ["home-demo"], "a hand-made Cursor copy leaves out only a different project version")
+    try projectCheck(versionPlan.warnings.contains { $0.hasPrefix("home-demo: Claude Code also reads a different copy") && $0.contains("personal copy over the project's") },
+      "a different personal copy warns that Claude Code prefers it")
+    try await render([("project-apply-versions", AnyView(ProjectApplySheet(project: third,
+      request: ProjectApplyRequest(skillsetID: versionChecks.id, target: .claude)).environment(store)))],
+      output: output, host: host, window: window)
+    store.skillsets.removeAll { $0.id == versionChecks.id }
+    try projectCheck(store.forgetProject(third.id), "the version fixture project can be forgotten")
+    for name in ["conflict-demo", "home-demo"] { try fm.removeItem(at: Paths.at(".config/quartermaster/drafts/" + name)) }
+    try fm.removeItem(at: Paths.at(".claude/skills/home-demo"))
+    await store.refreshSkills()
+
     let templatesBeforeDirectAdd = store.skillsets
     let directRequest = SkillAddPresentation(skillIDs: ["direct-demo"], destination: .project(first.id), tool: .claude)
     try await render([("project-add-individual", AnyView(SkillAddFlowSheet(request: directRequest).environment(store)))],
@@ -363,7 +397,12 @@ enum ProjectCheck {
     guard let claudePlan = store.projectPlan(first, skillsetID: base.id, target: .claude) else {
       throw ProjectCheckFailure.failed("Missing Claude target preview")
     }
+    try projectCheck(claudePlan.canApply && claudePlan.leftOut.contains { $0.hasPrefix("editable-demo: Cursor would see two versions") }
+      && !claudePlan.changes.contains { $0.skillID == "editable-demo" } && claudePlan.changes.contains { $0.skillID == "portable-demo" },
+      "the edited shared copy leaves out only its different Claude target version")
     trashed += await store.applyProjectPlan(claudePlan)
+    try projectCheck(!fm.fileExists(atPath: firstFolder.appending(path: ".claude/skills/editable-demo").path),
+      "applying skips the left-out version")
     try projectCheck(store.projectState.assignments.contains { $0.projectID == first.id && $0.target == .claude },
       "Claude project target has its own applied assignment")
     try projectCheck(store.saveState(), "project state saves successfully")

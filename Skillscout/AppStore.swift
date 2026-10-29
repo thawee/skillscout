@@ -87,6 +87,7 @@ final class AppStore {
   var pendingRepoUpdate: RepoUpdate?
   var pendingReviewedAdd: PendingReviewedAdd?
   var importNote: String?
+  var exportNote: String?
   var addConflict: SkillInstaller.AddConflict?
   var pendingSkillAdd: SkillAddPresentation?
   var searchRequests = 0
@@ -168,6 +169,19 @@ final class AppStore {
     sourcePreferences.defaults[skill.id] = source.resolved.path
     guard saveState() else {
       sourcePreferences.defaults[skill.id] = previous
+      return false
+    }
+    return true
+  }
+
+  /// The project review's source pick: the project's own version for a skill with versions, else the preferred source.
+  @discardableResult
+  func setProjectSource(_ source: SkillCopy, for skill: Skill, in project: RegisteredProject) -> Bool {
+    guard SkillInstaller.installableSources(for: skill).contains(where: { $0.resolved.path == source.resolved.path }) else { return false }
+    let previous = sourcePreferences
+    sourcePreferences.choose(source.resolved.path, for: skill, in: project)
+    guard saveState() else {
+      sourcePreferences = previous
       return false
     }
     return true
@@ -590,6 +604,7 @@ final class AppStore {
     var preferredSources: [Skill.ID: String]?
     var agentSources: [Skill.ID: [Tool: String]]?
     var skippedAgents: [Skill.ID: Set<Tool>]?
+    var projectSources: [String: [Skill.ID: String]]?
     var dismissedPairs: [String]?
     var projectState: ProjectState?
   }
@@ -608,7 +623,7 @@ final class AppStore {
     skillsetEntries = state.skillsetEntries ?? []
     skillsetIssues = state.skillsetIssues ?? [:]
     sourcePreferences = SourcePreferences(defaults: state.preferredSources ?? [:], byTool: state.agentSources ?? [:],
-      skipped: state.skippedAgents ?? [:])
+      skipped: state.skippedAgents ?? [:], byProject: state.projectSources ?? [:])
     dismissedPairs = state.dismissedPairs ?? []
     projectState = state.projectState ?? ProjectState()
   }
@@ -630,6 +645,7 @@ final class AppStore {
       preferredSources: sourcePreferences.defaults,
       agentSources: sourcePreferences.byTool,
       skippedAgents: sourcePreferences.skipped,
+      projectSources: sourcePreferences.byProject,
       dismissedPairs: dismissedPairs,
       projectState: projectState
     )
@@ -753,6 +769,7 @@ extension AppStore.SavedState {
       preferredSources: try container.decodeIfPresent([Skill.ID: String].self, forKey: .preferredSources),
       agentSources: try container.decodeIfPresent([Skill.ID: [Tool: String]].self, forKey: .agentSources),
       skippedAgents: try container.decodeIfPresent([Skill.ID: Set<Tool>].self, forKey: .skippedAgents),
+      projectSources: try container.decodeIfPresent([String: [Skill.ID: String]].self, forKey: .projectSources),
       dismissedPairs: try container.decodeIfPresent([String].self, forKey: .dismissedPairs),
       projectState: try container.decodeIfPresent(ProjectState.self, forKey: .projectState))
   }
