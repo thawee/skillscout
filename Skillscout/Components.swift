@@ -426,6 +426,10 @@ enum Finder {
     NSWorkspace.shared.activateFileViewerSelecting([url])
   }
 
+  static func reveal(_ urls: [URL]) {
+    NSWorkspace.shared.activateFileViewerSelecting(urls)
+  }
+
   static func open(_ url: URL) {
     NSWorkspace.shared.open(url)
   }

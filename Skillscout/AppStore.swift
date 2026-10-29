@@ -21,7 +21,7 @@ final class AppStore {
   var skillsetEntries: [SkillsetEntry] = []
   var skillsetIssues: [String: [String]] = [:]
   var skillsetNotes: [String: [String]] = [:]
-  var preferredSources: [Skill.ID: String] = [:]
+  var sourcePreferences = SourcePreferences()
   var isManagingSkillsets = false
   var projectState = ProjectState()
   var orderedProjects: [RegisteredProject] {
@@ -157,17 +157,35 @@ final class AppStore {
     skills.first { $0.id == id }
   }
 
-  func preferredSource(for skill: Skill) -> SkillCopy? {
-    SkillInstaller.skillsetSource(skill, preferredSources: preferredSources)
+  func preferredSource(for skill: Skill, tool: Tool? = nil) -> SkillCopy? {
+    SkillInstaller.skillsetSource(skill, for: tool, preferences: sourcePreferences)
   }
 
   @discardableResult
   func setPreferredSource(_ source: SkillCopy, for skill: Skill) -> Bool {
     guard SkillInstaller.installableSources(for: skill).contains(where: { $0.resolved.path == source.resolved.path }) else { return false }
-    let previous = preferredSources[skill.id]
-    preferredSources[skill.id] = source.resolved.path
+    let previous = sourcePreferences.defaults[skill.id]
+    sourcePreferences.defaults[skill.id] = source.resolved.path
     guard saveState() else {
-      preferredSources[skill.id] = previous
+      sourcePreferences.defaults[skill.id] = previous
+      return false
+    }
+    return true
+  }
+
+  /// Saves which version each agent in `tools` gets, or that it goes without. An agent in `tools` with neither has
+  /// no saved choice, so applying asks again; agents outside `tools` keep theirs.
+  @discardableResult
+  func setAgentSources(_ choices: [Tool: String], skipped: Set<Tool>, for skill: Skill, tools: [Tool]) -> Bool {
+    let paths = Set(SkillInstaller.installableSources(for: skill).map(\.resolved.path))
+    guard choices.values.allSatisfy(paths.contains) else { return false }
+    let previous = sourcePreferences
+    let kept = (sourcePreferences.byTool[skill.id] ?? [:]).filter { !tools.contains($0.key) }.merging(choices) { $1 }
+    let skips = (sourcePreferences.skipped[skill.id] ?? []).subtracting(tools).union(skipped)
+    sourcePreferences.byTool[skill.id] = kept.isEmpty ? nil : kept
+    sourcePreferences.skipped[skill.id] = skips.isEmpty ? nil : skips
+    guard saveState() else {
+      sourcePreferences = previous
       return false
     }
     return true
@@ -392,7 +410,7 @@ final class AppStore {
   /// is shown for review first, unless the user already reviewed it.
   func add(_ skill: Skill, to tool: Tool, from source: SkillCopy? = nil, reviewed: Bool = false) async {
     guard tools.contains(tool) else { return }
-    if !reviewed, let chosen = source ?? preferredSource(for: skill), SkillInstaller.isFromLibrary(chosen) {
+    if !reviewed, let chosen = source ?? preferredSource(for: skill, tool: tool), SkillInstaller.isFromLibrary(chosen) {
       let review = SkillReview.inspect(chosen.resolved)
       if review.needsReview {
         pendingReviewedAdd = PendingReviewedAdd(skill: skill, tool: tool, source: source, folder: chosen.resolved, review: review)
@@ -400,7 +418,7 @@ final class AppStore {
       }
     }
     do {
-      _ = try SkillInstaller.add(skill, to: tool, from: source ?? preferredSource(for: skill))
+      _ = try SkillInstaller.add(skill, to: tool, from: source ?? preferredSource(for: skill, tool: tool))
       if let source { setPreferredSource(source, for: skill) }
       await refreshSkills()
     } catch let conflict as SkillInstaller.AddConflict {
@@ -570,6 +588,8 @@ final class AppStore {
     var skillsetEntries: [SkillsetEntry]?
     var skillsetIssues: [String: [String]]?
     var preferredSources: [Skill.ID: String]?
+    var agentSources: [Skill.ID: [Tool: String]]?
+    var skippedAgents: [Skill.ID: Set<Tool>]?
     var dismissedPairs: [String]?
     var projectState: ProjectState?
   }
@@ -587,7 +607,8 @@ final class AppStore {
     skillsetAssignments = state.skillsetAssignments ?? []
     skillsetEntries = state.skillsetEntries ?? []
     skillsetIssues = state.skillsetIssues ?? [:]
-    preferredSources = state.preferredSources ?? [:]
+    sourcePreferences = SourcePreferences(defaults: state.preferredSources ?? [:], byTool: state.agentSources ?? [:],
+      skipped: state.skippedAgents ?? [:])
     dismissedPairs = state.dismissedPairs ?? []
     projectState = state.projectState ?? ProjectState()
   }
@@ -606,7 +627,9 @@ final class AppStore {
       skillsetAssignments: skillsetAssignments,
       skillsetEntries: skillsetEntries,
       skillsetIssues: skillsetIssues,
-      preferredSources: preferredSources,
+      preferredSources: sourcePreferences.defaults,
+      agentSources: sourcePreferences.byTool,
+      skippedAgents: sourcePreferences.skipped,
       dismissedPairs: dismissedPairs,
       projectState: projectState
     )
@@ -630,7 +653,7 @@ final class AppStore {
   }
 
   func addRepoToLibrary(source: String, token: String? = nil) async throws -> URL {
-    let destination = try await SkillInstaller.install(source: source, explicitTools: [], token: token)
+    let destination = try await SkillInstaller.install(source: source, token: token)
     await refreshSkills()
     return destination
   }
@@ -728,6 +751,8 @@ extension AppStore.SavedState {
       skillsetEntries: try container.decodeIfPresent([SkillsetEntry].self, forKey: .skillsetEntries),
       skillsetIssues: try container.decodeIfPresent([String: [String]].self, forKey: .skillsetIssues),
       preferredSources: try container.decodeIfPresent([Skill.ID: String].self, forKey: .preferredSources),
+      agentSources: try container.decodeIfPresent([Skill.ID: [Tool: String]].self, forKey: .agentSources),
+      skippedAgents: try container.decodeIfPresent([Skill.ID: Set<Tool>].self, forKey: .skippedAgents),
       dismissedPairs: try container.decodeIfPresent([String].self, forKey: .dismissedPairs),
       projectState: try container.decodeIfPresent(ProjectState.self, forKey: .projectState))
   }

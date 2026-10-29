@@ -54,6 +54,7 @@ targets:
       - Skillscout/ProjectLibrary.swift
       - Skillscout/ProjectSkillInstaller.swift
       - Skillscout/SkillsetInstaller.swift
+      - Skillscout/SkillVersions.swift
       - Skillscout/Analyzer.swift
       - Skillscout/AIEngine.swift
       - Skillscout/Registry.swift
@@ -92,6 +93,7 @@ targets:
       - Skillscout/ProjectLibrary.swift
       - Skillscout/ProjectSkillInstaller.swift
       - Skillscout/SkillsetInstaller.swift
+      - Skillscout/SkillVersions.swift
       - Skillscout/Analyzer.swift
       - Skillscout/AIEngine.swift
       - Skillscout/Registry.swift

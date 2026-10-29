@@ -144,21 +144,21 @@ extension AppStore {
 
   func projectPlan(_ project: RegisteredProject, skillsetID: UUID, target: ProjectSkillTarget, unassign: Bool = false) -> ProjectSkillPlan? {
     if unassign {
-      return SkillInstaller.projectUnassignPlan(project: project, state: projectState, skills: skills, skillsetID: skillsetID, target: target, preferredSources: preferredSources)
+      return SkillInstaller.projectUnassignPlan(project: project, state: projectState, skills: skills, skillsetID: skillsetID, target: target, preferences: sourcePreferences)
     }
     guard let skillset = skillsets.first(where: { $0.id == skillsetID }) else { return nil }
     return SkillInstaller.projectPlan(project: project, state: projectState, skills: skills, skillsetID: skillsetID,
-      members: skillset.skills, target: target, preferredSources: preferredSources)
+      members: skillset.skills, target: target, preferences: sourcePreferences)
   }
 
   func projectSkillsPlan(_ project: RegisteredProject, skillIDs: Set<Skill.ID>, target: ProjectSkillTarget) -> ProjectSkillPlan? {
     SkillInstaller.projectSkillsPlan(project: project, state: projectState, skills: skills,
-      skillIDs: skillIDs, target: target, preferredSources: preferredSources)
+      skillIDs: skillIDs, target: target, preferences: sourcePreferences)
   }
 
   func projectRemoveSkillPlan(_ project: RegisteredProject, skillID: Skill.ID, target: ProjectSkillTarget) -> ProjectSkillPlan? {
     SkillInstaller.projectRemoveSkillPlan(project: project, state: projectState, skills: skills,
-      skillID: skillID, target: target, preferredSources: preferredSources)
+      skillID: skillID, target: target, preferences: sourcePreferences)
   }
 
   @discardableResult

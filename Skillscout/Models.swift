@@ -156,6 +156,9 @@ enum Tool: String, CaseIterable, Codable, Identifiable, Sendable {
   }
 }
 
+/// Lets `[Tool: String]` save as a JSON object keyed by the raw value instead of a flat array.
+extension Tool: CodingKeyRepresentable {}
+
 struct SkillRoot: Sendable, Hashable {
   enum Kind: Sendable { case shared, user, builtIn, plugin, managed, drafts }
 

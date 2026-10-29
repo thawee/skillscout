@@ -71,7 +71,7 @@ private func skill(_ name: String, folder: URL, kind: SkillRoot.Kind = .user, de
     let folder = Paths.at(".config/quartermaster/skills/acme/review")
     let copy = SkillCopy(folder: folder, resolved: folder, root: library, pluginName: nil, isSymlink: false, contentHash: "a", created: .distantPast)
     let skill = Skill(name: "review", description: "", copies: [copy])
-    #expect(SkillInstaller.skillsetSource(skill, preferredSources: ["review": "/gone/review"]) == copy)
+    #expect(SkillInstaller.skillsetSource(skill, for: nil, preferences: SourcePreferences(defaults: ["review": "/gone/review"])) == copy)
   }
 
   @Test func pluginErrorsNamePlugins() {

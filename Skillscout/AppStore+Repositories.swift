@@ -129,7 +129,7 @@ extension AppStore {
         RepositoryLibrary.discard(preview)
         repositoryPreviews[entry.id] = nil
       }
-      _ = try await Task.detached { try SkillInstaller.importRepository(preview: preview, explicitTools: [], consumePreview: true) }.value
+      _ = try await Task.detached { try SkillInstaller.importRepository(preview: preview, consumePreview: true) }.value
       await refreshSkills()
     } catch {
       repositoryErrors[entry.id] = error.localizedDescription

@@ -8,17 +8,26 @@ struct SkillsetIssue: Identifiable {
     case differentContent(URL)
     case builtIn
     case destination(URL)
+    /// The skill has versions and nothing says which one this agent gets.
+    case chooseVersions
+    /// Applying would make `tool` see the versions in `folders`.
+    case versionConflict(tool: Tool, folders: [URL])
+    /// `tool` already sees the versions in `folders`. Only changing those copies fixes it.
+    case existingVersions(tool: Tool, folders: [URL])
   }
   let skillID: Skill.ID
   let reason: Reason
   let message: String
-  var id: Skill.ID { skillID }
+  /// A skill can have several issues for one agent, such as a kept copy and the versions it already sees.
+  var id: String { skillID + "\n" + message }
 }
 
 struct SkillsetPlan {
   var additions: [Skill] = []
   var removals: [SkillsetEntry] = []
   var kept = 0
+  /// Members this agent is set to go without.
+  var skipped: [Skill.ID] = []
   var issues: [String] = []
   var issueDetails: [SkillsetIssue] = []
 
@@ -33,26 +42,73 @@ extension SkillInstaller {
     url.deletingLastPathComponent().resolvingSymlinksInPath().path + "/" + url.lastPathComponent
   }
 
-  static func skillsetSource(_ skill: Skill, preferredSources: [Skill.ID: String] = [:]) -> SkillCopy? {
-    let sources = installableSources(for: skill)
-    if let path = preferredSources[skill.id], let preferred = sources.first(where: { $0.resolved.path == path }) {
-      return preferred
-    }
+  /// The copy `tool` gets. A skill with versions follows `SkillVersions.resolve`, and gets nil when nothing decides
+  /// this agent's version, so the plan asks instead of picking one. Otherwise it's the saved choice, else the only
+  /// candidate.
+  static func skillsetSource(_ skill: Skill, for tool: Tool?, preferences: SourcePreferences = SourcePreferences()) -> SkillCopy? {
+    let versions = SkillVersions.versions(of: skill)
     // A saved choice whose copy moved or went away no longer applies.
-    return defaultSource(for: skill)
+    let saved = [tool.flatMap { preferences.byTool[skill.id]?[$0] }, preferences.defaults[skill.id]].compactMap { $0 }
+    if versions.count > 1, let tool {
+      guard let index = SkillVersions.resolve(SkillVersions.savedChoice(for: skill, preferences: preferences))[tool]?.version else { return nil }
+      return versions[index].first { saved.contains($0.resolved.path) } ?? versions[index][0]
+    }
+    if let chosen = saved.lazy.compactMap({ path in installableSources(for: skill).first { $0.resolved.path == path } }).first { return chosen }
+    return versions.count > 1 ? nil : defaultSource(for: skill)
   }
 
-  static func skillsetPlan(tool: Tool, assignments: [SkillsetAssignment], entries: [SkillsetEntry], skills: [Skill], preferredSources: [Skill.ID: String] = [:]) -> SkillsetPlan {
-    let desired = assignments.filter { $0.tool == tool }.reduce(into: Set<Skill.ID>()) { $0.formUnion($1.members) }
+  /// Plans for every tool in `tools`, checked together so no agent ends up reading two versions of a skill,
+  /// including agents outside this change that read the same folders.
+  static func skillsetPlans(tools: [Tool], assignments: [SkillsetAssignment], entries: [SkillsetEntry], skills: [Skill],
+                            preferences: SourcePreferences = SourcePreferences()) -> [Tool: SkillsetPlan] {
+    var plans = Dictionary(uniqueKeysWithValues: tools.map { tool in
+      (tool, skillsetPlan(tool: tool, assignments: assignments, entries: entries, skills: skills, preferences: preferences))
+    })
+    let removing = Set(plans.values.flatMap(\.removals).map { SkillVersions.key(URL(fileURLWithPath: $0.path)) })
+    let involved = Set(tools.flatMap { tool in assignments.filter { $0.tool == tool }.flatMap(\.members) })
+    for skill in skills where involved.contains(skill.id) {
+      let additions = tools.compactMap { tool -> (Tool, PlannedCopy)? in
+        guard plans[tool]?.additions.contains(where: { $0.id == skill.id }) == true,
+              let source = skillsetSource(skill, for: tool, preferences: preferences) else { return nil }
+        return (tool, PlannedCopy(skillID: skill.id, folder: tool.skillsFolder.appending(path: slug(skill.name)), contentHash: source.contentHash))
+      }
+      let fresh = SkillVersions.newConflicts(skills: [skill], adding: additions.map(\.1), removing: removing)
+      // Dropping every planned copy the agent reads leaves it with what it reads today, so one pass is enough.
+      for conflict in fresh {
+        for (tool, planned) in additions where planned.readBy.contains(conflict.tool) {
+          guard plans[tool]?.additions.contains(where: { $0.id == skill.id }) == true else { continue }
+          plans[tool]?.additions.removeAll { $0.id == skill.id }
+          plans[tool]?.addIssue(skill.id, reason: .versionConflict(tool: conflict.tool, folders: conflict.folders),
+            message: SkillVersions.message(conflict, adding: additions.map(\.1)))
+        }
+      }
+      let existing = SkillVersions.conflicts(skills: [skill], adding: [], removing: [])
+      for conflict in existing where !fresh.contains(where: { $0.tool == conflict.tool }) {
+        for tool in tools where assignments.contains(where: { $0.tool == tool && $0.members.contains(skill.id) }) {
+          plans[tool]?.addIssue(skill.id, reason: .existingVersions(tool: conflict.tool, folders: conflict.folders),
+            message: SkillVersions.message(conflict))
+        }
+      }
+    }
+    return plans
+  }
+
+  /// One tool's plan on its own. Apply and preview go through `skillsetPlans`, which adds the version check.
+  private static func skillsetPlan(tool: Tool, assignments: [SkillsetAssignment], entries: [SkillsetEntry], skills: [Skill],
+                                   preferences: SourcePreferences) -> SkillsetPlan {
+    var desired = assignments.filter { $0.tool == tool }.reduce(into: Set<Skill.ID>()) { $0.formUnion($1.members) }
     var plan = SkillsetPlan()
+    plan.skipped = desired.filter { preferences.skipped[$0]?.contains(tool) == true }.sorted()
+    desired.subtract(plan.skipped)
     plan.removals = entries.filter { $0.tool == tool && !desired.contains($0.skillID) }
     for id in desired.sorted() {
       guard let skill = skills.first(where: { $0.id == id }) else {
         plan.addIssue(id, reason: .missingSource, message: "\(id): source is missing. Restore it or remove it from the skillset.")
         continue
       }
-      let source = skillsetSource(skill, preferredSources: preferredSources)
-      if source == nil && installableSources(for: skill).count > 1 {
+      let source = skillsetSource(skill, for: tool, preferences: preferences)
+      let versioned = SkillVersions.versions(of: skill).count > 1
+      if source == nil && !versioned && installableSources(for: skill).count > 1 {
         plan.addIssue(id, reason: .chooseSource, message: "\(id): choose a source before applying.")
         continue
       }
@@ -71,6 +127,9 @@ extension SkillInstaller {
         } else {
           plan.kept += 1
         }
+      } else if source == nil && versioned {
+        plan.addIssue(id, reason: .chooseVersions,
+          message: "\(id): has \(SkillVersions.versions(of: skill).count) versions. Choose which one \(tool.name) gets before applying.")
       } else if source == nil {
         plan.addIssue(id, reason: .builtIn, message: "\(id): built into another tool and cannot be installed here.")
       } else {
@@ -86,8 +145,8 @@ extension SkillInstaller {
     return plan
   }
 
-  static func addForSkillset(_ skill: Skill, to tool: Tool, preferredSources: [Skill.ID: String] = [:]) throws -> SkillsetEntry {
-    guard let source = skillsetSource(skill, preferredSources: preferredSources) else {
+  static func addForSkillset(_ skill: Skill, to tool: Tool, preferences: SourcePreferences = SourcePreferences()) throws -> SkillsetEntry {
+    guard let source = skillsetSource(skill, for: tool, preferences: preferences) else {
       if installableSources(for: skill).isEmpty { throw Failure.builtIn(skill.name) }
       throw InstallFailure.sourceChoiceRequired(skill.name)
     }

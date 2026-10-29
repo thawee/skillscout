@@ -13,7 +13,7 @@ struct Arguments {
   private var flags: Set<String> = []
   private var options: [String: String] = [:]
 
-  private static let valued: Set<String> = ["days", "tool", "to", "from", "sort", "engine", "model", "output", "branch", "tag", "commit"]
+  private static let valued: Set<String> = ["days", "tool", "to", "from", "sort", "engine", "model", "output", "branch", "tag", "commit", "use"]
 
   init(_ raw: [String]) throws {
     var queue = raw[...]
@@ -181,7 +181,7 @@ enum Command: String, CaseIterable {
     case .plugins:
       "Lists the plugins installed in Claude Code, Codex and Cursor, with their skills and what they run on your Mac: hooks, MCP and language servers, monitors and executables. Environment values are never shown. Quartermaster only reads plugins; install, update or turn them off in the agent."
     case .skillset:
-      "Works with the skillsets you make in the app. The actions are list, show <set>, apply <set> --to <tool>, unassign <set> --from <tool>, export <set> and import <file>. apply links a skillset's skills into a tool, and unassign removes the links and copies Quartermaster made for it that no other assigned skillset needs; both show the changes first and need a yes, or --yes without a terminal. export saves a skillset as JSON, with the Git repository each Library skill came from, and import adds one, listing the skills this Mac doesn't have yet. apply, unassign and import change the app's saved state, so they stop while Quartermaster is open."
+      "Works with the skillsets you make in the app. The actions are list, show <set>, apply <set> --to <tool>, unassign <set> --from <tool>, version <skill>, export <set> and import <file>. apply links a skillset's skills into a tool, and unassign removes the links and copies Quartermaster made for it that no other assigned skillset needs; both show the changes first and need a yes, or --yes without a terminal. export saves a skillset as JSON, with the Git repository each Library skill came from, and import adds one, listing the skills this Mac doesn't have yet. A skill whose copies differ has versions. No agent may read two of them, so apply asks you to choose one per agent first, and leaves out an addition that would give an agent a second version. version <skill> lists the versions and the one each agent gets, and version <skill> --to <tool> --use <number> saves one, refusing a choice that would leave an agent reading two versions. An agent that reads another agent's skills folder gets that agent's version. --use skip makes skillsets leave that agent without the skill, and --use none clears the choice. apply, unassign, version --use and import change the app's saved state, so they stop while Quartermaster is open."
     }
   }
 
@@ -246,7 +246,8 @@ enum Command: String, CaseIterable {
       return [json]
     case .skillset:
       return [
-        ("--to <tool>", "apply: the tool to assign it to"),
+        ("--to <tool>", "apply: the tool to assign it to. version: the tool to choose for"),
+        ("--use <n|none|skip>", "version: the version number that tool gets, none to clear it, or skip to leave it out"),
         ("--from <tool>", "unassign: the tool to remove it from"),
         ("--yes", "apply, unassign: change without asking"),
         ("--output <file>", "export: save to a file instead of printing"),

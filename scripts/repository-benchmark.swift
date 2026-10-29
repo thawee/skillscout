@@ -5,7 +5,7 @@ import Foundation
     let source = URL(fileURLWithPath: CommandLine.arguments[1])
     let clock = ContinuousClock()
     let start = clock.now
-    let installed = try await SkillInstaller.install(source: source.path, explicitTools: [])
+    let installed = try await SkillInstaller.install(source: source.path)
     let importDuration = start.duration(to: clock.now)
     let scanStart = clock.now
     let count = SkillScanner.scan().count

@@ -490,8 +490,10 @@ struct ProjectApplySheet: View {
             ForEach(sourceChoices) { skill in
               VStack(alignment: .leading, spacing: 5) {
                 ChoiceAction(title: "Choose source for \(skill.name)", options: SkillInstaller.installableSources(for: skill).map { source in
-                  ChoiceOption(value: source, title: source.sourceLabel,
-                    detail: source.visiblePath, symbol: "folder")
+                  let version = SkillVersions.title(of: source, in: skill)
+                  return ChoiceOption(value: source, title: version ?? source.sourceLabel,
+                    detail: version == nil ? source.visiblePath : [source.sourceLabel, source.visiblePath].compactMap { $0 }.joined(separator: " · "),
+                    symbol: "folder")
                 }) { source in
                   if store.setPreferredSource(source, for: skill) { refreshPreview() }
                 }.help("This choice becomes the skill's preferred source across Quartermaster.")
@@ -576,7 +578,7 @@ struct ProjectApplySheet: View {
 
   private func chosenSource(for skill: Skill) -> SkillCopy? {
     let sources = SkillInstaller.installableSources(for: skill)
-    let saved = store.preferredSources[skill.id].flatMap { path in sources.first { $0.resolved.path == path } }
+    let saved = store.sourcePreferences.defaults[skill.id].flatMap { path in sources.first { $0.resolved.path == path } }
     let planned = plan?.changes.first { $0.skillID == skill.id }?.sourcePath
     return saved ?? sources.first { $0.resolved.path == planned }
   }

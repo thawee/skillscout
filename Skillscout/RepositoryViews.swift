@@ -310,8 +310,13 @@ struct RepositoryDetail: View {
         }
       } else if isImported {
         Button("Add skills to agents…") {
-          store.pendingSkillAdd = SkillAddPresentation(skillIDs: Array(Set(contents.map(\.skill.id))).sorted(),
-            sources: Dictionary(contents.map { ($0.skill.id, $0.copy.resolved.path) }, uniquingKeysWith: { first, _ in first }))
+          let byID = Dictionary(grouping: contents, by: \.skill.id)
+          // A skill whose repository copies differ has versions, so the add sheet leaves its source unset for the
+          // user to choose, and refuses an agent that would then read two versions.
+          let sources = byID.compactMapValues { copies in
+            Set(copies.map(\.copy.contentHash)).count == 1 ? copies[0].copy.resolved.path : nil
+          }
+          store.pendingSkillAdd = SkillAddPresentation(skillIDs: byID.keys.sorted(), sources: sources)
         }
         .buttonStyle(.borderedProminent)
         .disabled(contents.isEmpty || store.tools.isEmpty || store.isManagingSkillsets)

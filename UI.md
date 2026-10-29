@@ -160,9 +160,13 @@ The detail header keeps name, description, source identity, and active scope vis
   - Membership, Global assignments, project target snapshots, and actual availability stay distinct.
   - When resolution fails, show the expected source path and alternatives.
   - Preferred source is app-wide per skill identity. A change affects later plans across Quartermaster, not just this skillset, and does not rewrite existing copies.
+  - Copies with different content are versions. No agent may read two versions of a skill, counting every folder it reads. A versioned skill has no default source: each agent needs a saved version, or the shared preferred source.
 - **Badges:** Member, Missing source, Assigned to [destination], Changes pending for [destination].
 - **Actions:**
   - Primary **Open source**, or **Choose source…** when the source is missing or ambiguous.
+  - **Choose versions…** when a member has versions or an addition would give an agent a second version. The sheet lists each version, titled by the agents it's for ("For Claude Code") or the folder segments that differ, with **Show contents**. Then one row per enabled agent: **Decide later** (**Preferred source** when the skill has one), **Skip**, or a version, prefilled from `supported_tools`, the version's folder, or its installs, and never prefilled into a conflict. An agent that reads another agent's skills folder shows "Same as Claude Code (reads ~/.claude/skills)" instead of a choice. A choice that would give an agent two versions shows the reason in red under that agent and disables Save.
+  - **Show conflicting copies** for a conflict that already exists. It reveals the folders in Finder; choosing versions can't fix copies already installed.
+  - Skipped members count as **Skip N** in the summary and aren't issues.
   - Supporting **Remove from [skillset]**, **Add to another skillset**, and **Review unassign from [destination]…** affect their named records.
   - Removing membership does not uninstall skills or rewrite project snapshots.
 

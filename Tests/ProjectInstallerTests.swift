@@ -422,7 +422,7 @@ private final class ProjectInstallFixture {
     let ambiguous = Skill(name: "demo", description: "", copies: fixture.skill.copies + second.copies)
     #expect(!fixture.plan(skills: [ambiguous]).canApply)
     let chosen = SkillInstaller.projectPlan(project: fixture.project, state: fixture.state, skills: [ambiguous],
-      skillsetID: fixture.skillsetID, members: ["demo"], target: .shared, preferredSources: ["demo": other.path])
+      skillsetID: fixture.skillsetID, members: ["demo"], target: .shared, preferences: SourcePreferences(defaults: ["demo": other.path]))
     #expect(chosen.canApply)
     #expect(chosen.changes.first?.sourcePath == other.path)
     let collision = SkillInstaller.projectPlan(project: fixture.project, state: fixture.state,

@@ -18,14 +18,14 @@ extension AppStore {
   var skillsetState: SkillsetState {
     get {
       SkillsetState(skillsets: skillsets, assignments: skillsetAssignments, entries: skillsetEntries,
-        issues: skillsetIssues, preferredSources: preferredSources)
+        issues: skillsetIssues, sourcePreferences: sourcePreferences)
     }
     set {
       skillsets = newValue.skillsets
       skillsetAssignments = newValue.assignments
       skillsetEntries = newValue.entries
       skillsetIssues = newValue.issues
-      preferredSources = newValue.preferredSources
+      sourcePreferences = newValue.sourcePreferences
     }
   }
 
@@ -82,8 +82,8 @@ extension AppStore {
   }
 
   func skillsetPreview(_ skillset: Skillset, to tool: Tool, assigned: Bool) -> SkillsetPlan {
-    SkillInstaller.skillsetPlan(tool: tool, assignments: proposedAssignments(skillset, to: tool, assigned: assigned),
-      entries: skillsetEntries, skills: skills, preferredSources: preferredSources)
+    SkillInstaller.skillsetPlans(tools: [tool], assignments: proposedAssignments(skillset, to: tool, assigned: assigned),
+      entries: skillsetEntries, skills: skills, preferences: sourcePreferences)[tool] ?? SkillsetPlan()
   }
 
   @discardableResult
@@ -103,7 +103,7 @@ extension AppStore {
     await refreshSkills()
     var entries = skillsetEntries
     let result = SkillInstaller.reconcileSkillsets(tool: tool, assignments: skillsetAssignments, entries: &entries,
-      skills: skills, preferredSources: preferredSources) { updated in
+      skills: skills, preferences: sourcePreferences) { updated in
       skillsetEntries = updated
       return saveState()
     }
@@ -137,7 +137,7 @@ extension AppStore {
   func exportSkillset(id: UUID, to url: URL) {
     guard let skillset = skillsets.first(where: { $0.id == id }) else { return }
     do {
-      let data = try SkillsetFile(skillset, skills: skills, preferredSources: preferredSources).encoded()
+      let data = try SkillsetFile(skillset, skills: skills, preferences: sourcePreferences).encoded()
       try (data + Data("\n".utf8)).write(to: url, options: .atomic)
     } catch {
       errorMessage = "Couldn't export \(skillset.name): \(error.localizedDescription)"
@@ -158,7 +158,7 @@ extension AppStore {
       }
       var lines = ["\(skillset.name) has \(file.skills.count) skills. It isn't assigned to a tool yet."]
       let missing = file.missing(among: skills)
-      lines.append(contentsOf: file.versionDifferences(among: skills, preferredSources: preferredSources))
+      lines.append(contentsOf: file.versionDifferences(among: skills, preferences: sourcePreferences))
       if !missing.isEmpty {
         lines.append("Not on this Mac yet: \(missing.map(\.name).formatted(.list(type: .and))).")
         let sources = Array(Set(missing.compactMap(\.source))).sorted()

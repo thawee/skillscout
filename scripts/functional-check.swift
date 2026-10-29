@@ -218,6 +218,8 @@ enum FunctionalCheck {
     let source = home.appending(path: "fixtures/\(prefix)")
     try writeSkill(source, name: prefix, tools: "['claude', \"codex\"]")
     let destination = try await SkillInstaller.install(source: source.path)
+    let skipped = try SkillInstaller.linkSkills(in: destination, explicitTools: nil)
+    try check(skipped.isEmpty, "repository links skip nothing")
     try check(fm.fileExists(atPath: Tool.codex.skillsFolder.appending(path: prefix).path), "frontmatter links Codex")
     try check(fm.fileExists(atPath: Tool.claude.skillsFolder.appending(path: prefix).path), "frontmatter links Claude")
     try check(!fm.fileExists(atPath: Tool.amp.skillsFolder.appending(path: prefix).path), "frontmatter excludes other tools")
@@ -228,7 +230,7 @@ enum FunctionalCheck {
     let unlinkedName = prefix + "-unlinked"
     let unlinkedSource = home.appending(path: "fixtures/\(unlinkedName)")
     try writeSkill(unlinkedSource.appending(path: "category/demo"), name: unlinkedName)
-    _ = try await SkillInstaller.install(source: unlinkedSource.path, explicitTools: [])
+    _ = try await SkillInstaller.install(source: unlinkedSource.path)
     let unlinked = SkillScanner.scan().first { $0.name == unlinkedName }!
     try check(unlinked.availableIn.isEmpty, "unlinked repository has no agent availability")
     let visible = SkillScanner.scan().filter { $0.isVisible(in: [.codex], includePlugins: false) }
@@ -238,17 +240,17 @@ enum FunctionalCheck {
     let hiddenName = prefix + "-hidden"
     let hiddenSource = home.appending(path: "fixtures/\(hiddenName)")
     try writeSkill(hiddenSource.appending(path: ".claude/skills/\(hiddenName)"), name: hiddenName)
-    _ = try await SkillInstaller.install(source: hiddenSource.path, explicitTools: [])
+    _ = try await SkillInstaller.install(source: hiddenSource.path)
     try check(SkillScanner.scan().contains { $0.name == hiddenName && $0.isManaged },
       "managed repositories include hidden Claude skill folders")
 
     let explicit = home.appending(path: "fixtures/\(prefix)-explicit")
     try writeSkill(explicit, name: prefix + "-explicit", tools: "[claude]")
-    _ = try await SkillInstaller.install(source: explicit.path, explicitTools: [.copilot])
+    _ = try SkillInstaller.linkSkills(in: try await SkillInstaller.install(source: explicit.path), explicitTools: [.copilot])
     try check(fm.fileExists(atPath: Tool.copilot.skillsFolder.appending(path: prefix + "-explicit").path), "explicit target overrides frontmatter")
     let defaultSource = home.appending(path: "fixtures/\(prefix)-default")
     try writeSkill(defaultSource, name: prefix + "-default")
-    _ = try await SkillInstaller.install(source: defaultSource.path)
+    _ = try SkillInstaller.linkSkills(in: try await SkillInstaller.install(source: defaultSource.path), explicitTools: nil)
     try check(Tool.allCases.allSatisfy { fm.fileExists(atPath: $0.skillsFolder.appending(path: prefix + "-default").path) }, "default installation links all enabled tools")
 
     let localName = prefix + "-local"
@@ -376,7 +378,7 @@ enum FunctionalCheck {
     try check(store.skillsetPreview(duplicateSet, to: .cursor, assigned: true).additions.map(\.name) == [duplicateName],
       "chosen source enables skillset application")
     await store.add(duplicate, to: .amp, from: chosen)
-    try check(Tool.amp.skillsFolder.appending(path: chosen.resolved.lastPathComponent).resolvingSymlinksInPath().path == chosen.resolved.path,
+    try check(Tool.amp.skillsFolder.appending(path: SkillInstaller.slug(duplicateName)).resolvingSymlinksInPath().path == chosen.resolved.path,
       "Add to tool uses the selected repository copy")
     try CustomRegistry.shared.add(repoURL: "https://github.com/android/skills")
     try CustomRegistry.shared.add(repoURL: "https://github.com/tt-a1i/archify")
@@ -443,7 +445,7 @@ enum FunctionalCheck {
     let refreshTrash = try await store.redownloadRepo(name: SkillInstaller.repoName(for: localSource.path))
     let refreshedLocalSkill = try String(contentsOf: localLibrary.appending(path: "nested/SKILL.md"), encoding: .utf8)
     try check(refreshedLocalSkill.contains("Updated in the source folder.")
-      && Tool.codex.skillsFolder.appending(path: "nested/SKILL.md").resolvingSymlinksInPath().path == localLibrary.appending(path: "nested/SKILL.md").path,
+      && Tool.codex.skillsFolder.appending(path: SkillInstaller.slug(localSkillName)).appending(path: "SKILL.md").resolvingSymlinksInPath().path == localLibrary.appending(path: "nested/SKILL.md").path,
       "Refresh from Folder updates the library copy without breaking its tool link")
     store.createSkillset(name: "Demo skillset")
     store.toggleSkillInSkillset(skill: installed, skillsetID: store.skillsets[0].id)
@@ -749,7 +751,7 @@ enum FunctionalCheck {
       "Add to Library keeps all skills without supported-tools auto-linking")
     let selected = store.repositorySkills(imported).first { $0.relativePath == "nested/second" }!
     let scoped = store.scopedSkill(selected)
-    let selectedLink = Tool.amp.skillsFolder.appending(path: selected.copy.resolved.lastPathComponent)
+    let selectedLink = Tool.amp.skillsFolder.appending(path: SkillInstaller.slug(selected.skill.name))
     try check(scoped.primary.resolved == selected.copy.resolved && scoped.copies.allSatisfy { $0.resolved == selected.copy.resolved },
       "repository skill inspection stays bound to the selected same-name copy")
     await store.add(scoped, to: .amp, from: selected.copy, reviewed: true)
@@ -850,7 +852,7 @@ enum FunctionalCheck {
     let repo = library.lastPathComponent
     let skill = store.skills.first { $0.name == name }!
     await store.add(skill, to: .codex)
-    let link = Tool.codex.skillsFolder.appending(path: library.lastPathComponent)
+    let link = Tool.codex.skillsFolder.appending(path: SkillInstaller.slug(name))
     try check(store.pendingReviewedAdd?.skill.name == name && !fm.fileExists(atPath: link.path),
       "Add to tool asks before linking a flagged library skill")
     store.pendingReviewedAdd = nil
@@ -858,7 +860,7 @@ enum FunctionalCheck {
     try check(fm.fileExists(atPath: link.appending(path: "SKILL.md").path), "Add Anyway links the reviewed skill")
     let linked = store.skills.first { $0.name == name }!
     await store.add(linked, to: .amp)
-    try check(store.pendingReviewedAdd != nil && !fm.fileExists(atPath: Tool.amp.skillsFolder.appending(path: library.lastPathComponent).path),
+    try check(store.pendingReviewedAdd != nil && !fm.fileExists(atPath: Tool.amp.skillsFolder.appending(path: SkillInstaller.slug(name)).path),
       "Add to tool still asks after the skill has a tool link into the Library")
     store.pendingReviewedAdd = nil
 
@@ -1165,7 +1167,7 @@ enum FunctionalCheck {
     let receipt = store.skillsetEntries.first { $0.skillID == beta && $0.tool == .codex }!
     try check(receipt.path == Tool.codex.skillsFolder.appending(path: beta).path
       && SkillInstaller.skillsetEntryIsUnchanged(receipt)
-      && store.preferredSources[beta] == Tool.amp.skillsFolder.appending(path: beta).path,
+      && store.sourcePreferences.defaults[beta] == Tool.amp.skillsFolder.appending(path: beta).path,
       "rename migrates ownership paths, link targets and preferred sources")
     let disk = try SkillsetState.load()
     try check(disk.skillsets.contains { $0.id == renamed.id && $0.skills == [beta] }
@@ -1254,7 +1256,7 @@ enum FunctionalCheck {
       var saveCalls = 0
       let failed = SkillInstaller.reconcileSkillsets(tool: .amp,
         assignments: [SkillsetAssignment(skillsetID: UUID(), tool: .amp, members: [name, next])],
-        entries: &receipts, skills: store.skills, preferredSources: [:]) { updated in
+        entries: &receipts, skills: store.skills, preferences: SourcePreferences()) { updated in
           callbackReceipts = updated
           saveCalls += 1
           return false
@@ -1277,7 +1279,7 @@ enum FunctionalCheck {
     let changedDestination = Tool.amp.skillsFolder.appending(path: changed)
     let refusedRollback = SkillInstaller.reconcileSkillsets(tool: .amp,
       assignments: [SkillsetAssignment(skillsetID: UUID(), tool: .amp, members: [changed])],
-      entries: &changedReceipts, skills: store.skills, preferredSources: [:]) { _ in
+      entries: &changedReceipts, skills: store.skills, preferences: SourcePreferences()) { _ in
         try! fm.removeItem(at: changedDestination)
         try! writeSkill(changedDestination, name: changed)
         return false
@@ -1645,6 +1647,58 @@ extension FunctionalCheck {
     try check(recoveryPlan.issueDetails.contains { if case .missingSource = $0.reason { true } else { false } }
       && store.skillsetEntries == receiptsBeforePreview,
       "typed missing-source recovery leaves ownership unchanged before applying")
+    let versionedName = prefix + "-versioned"
+    let versionsRepo = RepositoryLibrary.managedRoot.appending(path: prefix + "-versions")
+    try writeSkill(versionsRepo.appending(path: "claude/\(versionedName)"), name: versionedName, tools: "[claude]")
+    try writeSkill(versionsRepo.appending(path: "generic/\(versionedName)"), name: versionedName)
+    await store.refreshSkills()
+    guard let versioned = store.skill(versionedName) else { throw CheckFailure.failed("versioned fixture skill is missing") }
+    let versionSet = Skillset(name: "Made-up versions", skills: [versionedName])
+    store.skillsets.append(versionSet)
+    let unchosen = store.skillsetPreview(versionSet, to: .amp, assigned: true)
+    try check(unchosen.additions.isEmpty && unchosen.issueDetails.contains { if case .chooseVersions = $0.reason { true } else { false } },
+      "a skillset member with versions asks which one each agent gets")
+    guard let genericVersion = SkillVersions.versions(of: versioned).first(where: { $0[0].resolved.path.contains("/generic/") })?.first else {
+      throw CheckFailure.failed("versioned fixture has no generic version")
+    }
+    try check(store.setAgentSources([.amp: genericVersion.resolved.path], skipped: [], for: versioned, tools: [.amp])
+      && store.skillsetPreview(versionSet, to: .amp, assigned: true).additions.map(\.name) == [versionedName],
+      "a saved per-agent version lets the skillset apply to that agent")
+    guard let claudeVersion = SkillVersions.versions(of: versioned).first(where: { $0[0].resolved.path.contains("/claude/") })?.first else {
+      throw CheckFailure.failed("versioned fixture has no Claude Code version")
+    }
+    try check(store.setAgentSources([.claude: claudeVersion.resolved.path, .amp: genericVersion.resolved.path],
+      skipped: [.codex], for: versioned, tools: Tool.allCases), "per-agent versions and a skip save")
+    let codexPlan = store.skillsetPreview(versionSet, to: .codex, assigned: true)
+    try check(codexPlan.skipped == [versionedName] && codexPlan.additions.isEmpty && codexPlan.issues.isEmpty,
+      "a skipped agent's plan reports the member as skipped, not as an issue")
+    for tool in [Tool.claude, .cursor, .amp, .codex] { _ = await store.applySkillset(id: versionSet.id, to: tool) }
+    await store.refreshSkills()
+    func installedHash(_ tool: Tool) -> String? {
+      let file = tool.skillsFolder.appending(path: SkillInstaller.slug(versionedName)).appending(path: "SKILL.md")
+      return (try? String(contentsOf: file, encoding: .utf8)).map(shortHash)
+    }
+    let claudeHash = shortHash(try String(contentsOf: claudeVersion.resolved.appending(path: "SKILL.md"), encoding: .utf8))
+    let genericHash = shortHash(try String(contentsOf: genericVersion.resolved.appending(path: "SKILL.md"), encoding: .utf8))
+    try check(claudeHash != genericHash && installedHash(.claude) == claudeHash && installedHash(.amp) == genericHash
+      && installedHash(.codex) == nil && [nil, claudeHash].contains(installedHash(.cursor)),
+      "applying per-agent versions puts each agent's version in its folder and skips Codex")
+    try check(!SkillVersions.conflicts(skills: store.skills, adding: [], removing: []).contains { $0.skillID == versionedName },
+      "applying per-agent versions leaves no agent reading two versions")
+    for tool in [Tool.claude, .cursor, .amp, .codex] { _ = await store.applySkillset(id: versionSet.id, to: tool, assigned: false) }
+    _ = store.setAgentSources([:], skipped: [], for: versioned, tools: Tool.allCases)
+    let duplicateName = prefix + "-duplicate"
+    for (folder, tools) in [("\(duplicateName)-a", "[gemini]"), ("\(duplicateName)-b", "[gemini, amp]")] {
+      try writeSkill(Tool.gemini.skillsFolder.appending(path: folder), name: duplicateName, tools: tools)
+    }
+    await store.refreshSkills()
+    let duplicate = store.skill(duplicateName)
+    let duplicatePlan = store.skillsetPreview(Skillset(name: "Made-up duplicate", skills: [duplicateName]), to: .gemini, assigned: true)
+    try check(duplicate?.copies.filter { $0.root.url == Tool.gemini.skillsFolder }.count == 2
+      && duplicatePlan.issueDetails.contains { if case .existingVersions(.gemini, let folders) = $0.reason { folders.count == 2 } else { false } },
+      "two versions in one agent folder show as an existing conflict")
+    let duplicateSet = Skillset(name: "Made-up duplicate", skills: [duplicateName])
+    store.skillsets.append(duplicateSet)
     store.setUsageScope(UsageScope(project: store.usageProjects.first, days: 7))
     let emptyStore = AppStore()
     return [
@@ -1657,6 +1711,9 @@ extension FunctionalCheck {
         initialTool: .amp, initialResults: Array(results.prefix(2))).environment(store))),
       ("usability-contents-review", AnyView(SkillContentsSheet(source: changed.primary).environment(store))),
       ("usability-skillset-recovery", AnyView(SkillsetPreview(skillsetID: recoverySet.id, tool: .amp, assigned: true).environment(store))),
+      ("usability-version-recovery", AnyView(SkillsetPreview(skillsetID: versionSet.id, tool: .codex, assigned: true).environment(store))),
+      ("usability-version-picker", AnyView(SkillVersionPicker(skill: versioned).environment(store))),
+      ("usability-existing-versions", AnyView(SkillsetPreview(skillsetID: duplicateSet.id, tool: .gemini, assigned: true).environment(store))),
       ("usability-saved-idea", AnyView(SuggestionDetail(suggestion: store.suggestion(draft.id)!).environment(store))),
       ("usability-plugin-copy", AnyView(SkillDetail(skill: match.skill, installationSource: match.copy, context: .plugin).environment(store))),
       ("usability-scoped-use", AnyView(ContentView(sidebar: .used).environment(store))),

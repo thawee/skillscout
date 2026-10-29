@@ -12,14 +12,14 @@ struct SkillsetReconcileResult {
 extension SkillInstaller {
   /// Saves receipts after each change, rolling back a newly added entry if its receipt cannot be saved.
   static func reconcileSkillsets(tool: Tool, assignments: [SkillsetAssignment], entries: inout [SkillsetEntry],
-                                 skills: [Skill], preferredSources: [Skill.ID: String],
+                                 skills: [Skill], preferences: SourcePreferences,
                                  persist: ([SkillsetEntry]) -> Bool) -> SkillsetReconcileResult {
-    let plan = skillsetPlan(tool: tool, assignments: assignments, entries: entries, skills: skills, preferredSources: preferredSources)
+    let plan = skillsetPlans(tools: [tool], assignments: assignments, entries: entries, skills: skills, preferences: preferences)[tool] ?? SkillsetPlan()
     var result = SkillsetReconcileResult(issues: plan.issues)
     for skill in plan.additions {
       do {
         let previousEntries = entries
-        let entry = try addForSkillset(skill, to: tool, preferredSources: preferredSources)
+        let entry = try addForSkillset(skill, to: tool, preferences: preferences)
         // Replace an old receipt if an externally removed entry was recreated.
         entries.removeAll { $0.path == entry.path }
         entries.append(entry)
@@ -71,7 +71,7 @@ struct SkillsetState {
   var assignments: [SkillsetAssignment] = []
   var entries: [SkillsetEntry] = []
   var issues: [String: [String]] = [:]
-  var preferredSources: [Skill.ID: String] = [:]
+  var sourcePreferences = SourcePreferences()
 
   private struct Stored: Codable {
     var skillsets: [Skillset]?
@@ -79,6 +79,8 @@ struct SkillsetState {
     var skillsetEntries: [SkillsetEntry]?
     var skillsetIssues: [String: [String]]?
     var preferredSources: [Skill.ID: String]?
+    var agentSources: [Skill.ID: [Tool: String]]?
+    var skippedAgents: [Skill.ID: Set<Tool>]?
   }
 
   static func load(from file: URL = Paths.stateFile) throws -> SkillsetState {
@@ -86,7 +88,8 @@ struct SkillsetState {
     let stored = try JSONDecoder().decode(Stored.self, from: Data(contentsOf: file))
     return SkillsetState(skillsets: stored.skillsets ?? [], assignments: stored.skillsetAssignments ?? [],
       entries: stored.skillsetEntries ?? [], issues: stored.skillsetIssues ?? [:],
-      preferredSources: stored.preferredSources ?? [:])
+      sourcePreferences: SourcePreferences(defaults: stored.preferredSources ?? [:], byTool: stored.agentSources ?? [:],
+        skipped: stored.skippedAgents ?? [:]))
   }
 
   func save(to file: URL = Paths.stateFile) throws {
@@ -98,7 +101,8 @@ struct SkillsetState {
       object = existing
     }
     let stored = Stored(skillsets: skillsets, skillsetAssignments: assignments, skillsetEntries: entries,
-      skillsetIssues: issues, preferredSources: preferredSources)
+      skillsetIssues: issues, preferredSources: sourcePreferences.defaults, agentSources: sourcePreferences.byTool,
+      skippedAgents: sourcePreferences.skipped)
     guard let updates = try JSONSerialization.jsonObject(with: JSONEncoder().encode(stored)) as? [String: Any] else {
       throw CocoaError(.coderInvalidValue)
     }
@@ -136,11 +140,11 @@ struct SkillsetFile: Codable, Equatable {
     self.skills = skills
   }
 
-  init(_ skillset: Skillset, skills: [Skill], preferredSources: [Skill.ID: String]) {
+  init(_ skillset: Skillset, skills: [Skill], preferences: SourcePreferences) {
     name = skillset.name
     self.skills = skillset.skills.sorted().map { id in
       let copy = skills.first { $0.id == id }
-        .flatMap { SkillInstaller.skillsetSource($0, preferredSources: preferredSources) ?? $0.copies.first(where: SkillInstaller.isFromLibrary) }
+        .flatMap { SkillInstaller.skillsetSource($0, for: nil, preferences: preferences) ?? $0.copies.first(where: SkillInstaller.isFromLibrary) }
       guard let copy, SkillInstaller.isFromLibrary(copy), let repo = SkillInstaller.libraryRepo(of: copy),
             let source = try? SkillInstaller.repoSource(name: repo), !source.hasPrefix("/") else { return Member(name: id, source: nil) }
       let snapshot = try? RepositoryLibrary.snapshot(in: SkillInstaller.managedRepoFolder(repo))
@@ -184,12 +188,12 @@ struct SkillsetFile: Codable, Equatable {
     return "\(name) \(number)"
   }
 
-  func versionDifferences(among skills: [Skill], preferredSources: [Skill.ID: String] = [:]) -> [String] {
+  func versionDifferences(among skills: [Skill], preferences: SourcePreferences = SourcePreferences()) -> [String] {
     self.skills.compactMap { member in
       guard let expected = member.commit, let address = member.source,
             let source = try? RepositorySource(address: address),
             let skill = skills.first(where: { $0.id == member.name }) else { return nil }
-      let copy = SkillInstaller.skillsetSource(skill, preferredSources: preferredSources)
+      let copy = SkillInstaller.skillsetSource(skill, for: nil, preferences: preferences)
         ?? skill.copies.first(where: SkillInstaller.isFromLibrary)
       guard let copy, let repo = SkillInstaller.libraryRepo(of: copy),
             let snapshot = try? RepositoryLibrary.snapshot(in: SkillInstaller.managedRepoFolder(repo)),

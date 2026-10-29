@@ -454,10 +454,11 @@ enum SkillInstaller {
 
   static func add(_ skill: Skill, to tool: Tool, from selectedSource: SkillCopy? = nil) throws -> URL {
     guard !installableSources(for: skill).isEmpty else { throw Failure.builtIn(skill.name) }
-    guard let source = selectedSource ?? defaultSource(for: skill) else { throw InstallFailure.sourceChoiceRequired(skill.name) }
+    guard let source = selectedSource ?? skillsetSource(skill, for: tool) else { throw InstallFailure.sourceChoiceRequired(skill.name) }
     switch try addPreview(skill, to: tool, from: source) {
     case .available(let destination): return destination
     case .conflict(let conflict): throw conflict
+    case .versionConflict(let message): throw Failure.problem(message)
     case .ready(let destination):
       try FileManager.default.createDirectory(at: tool.skillsFolder, withIntermediateDirectories: true)
       try createInstallation(from: source, at: destination)
@@ -545,7 +546,7 @@ enum SkillInstaller {
     }
   }
 
-  static func install(source: String, explicitTools: [Tool]? = nil, token: String? = nil, stagingAt: URL? = nil, ref: RepositoryRef = .defaultBranch) async throws -> URL {
+  static func install(source: String, token: String? = nil, stagingAt: URL? = nil, ref: RepositoryRef = .defaultBranch) async throws -> URL {
     let repositorySource = try RepositorySource(address: source)
     let preview = try await RepositoryLibrary.preview(source: repositorySource, ref: ref, token: token)
     defer { RepositoryLibrary.discard(preview) }
@@ -553,10 +554,9 @@ enum SkillInstaller {
     if let staged = stagingAt {
       guard staged.deletingLastPathComponent().standardizedFileURL == RepositoryLibrary.managedRoot.standardizedFileURL else { throw InstallFailure.notFound }
       try copyRepositoryPreview(preview, to: staged, consume: true)
-      try linkSkills(in: staged, name: repoName(for: source), explicitTools: explicitTools)
       return staged
     }
-    return try importRepository(preview: preview, explicitTools: explicitTools, consumePreview: true)
+    return try importRepository(preview: preview, consumePreview: true)
   }
 
   static func writeRepositorySnapshot(_ preview: RepositoryPreview, in folder: URL) throws {
@@ -616,7 +616,7 @@ enum SkillInstaller {
     catch { try? fm.removeItem(at: destination); throw error }
   }
 
-  static func importRepository(preview: RepositoryPreview, explicitTools: [Tool]? = [], root: URL = RepositoryLibrary.managedRoot,
+  static func importRepository(preview: RepositoryPreview, root: URL = RepositoryLibrary.managedRoot,
                                consumePreview: Bool = false) throws -> URL {
     defer { if consumePreview { RepositoryLibrary.discard(preview) } }
     let inventory = RepositoryLibrary.inventory(catalog: [], root: root)
@@ -626,7 +626,6 @@ enum SkillInstaller {
             existing.snapshot?.commit == preview.commit,
             existing.snapshot?.ref == preview.ref,
             SkillReview.fingerprints(folder) == preview.fingerprints else { throw RepositoryLibrary.Failure.conflictingInstall }
-      try linkSkills(in: folder, explicitTools: explicitTools)
       return folder
     }
     let slug = repoName(for: preview.source.address)
@@ -640,7 +639,6 @@ enum SkillInstaller {
     try copyRepositoryPreview(preview, to: staged, consume: consumePreview)
     defer { if exists(staged) { try? FileManager.default.removeItem(at: staged) } }
     try FileManager.default.moveItem(at: staged, to: destination)
-    try linkSkills(in: destination, explicitTools: explicitTools)
     return destination
   }
 
@@ -668,40 +666,90 @@ enum SkillInstaller {
     return skillDirs
   }
 
-  /// Links each skill of a Library repository into the tools that should load it: the explicit tools,
-  /// else the skill's `supported_tools`, else every enabled tool.
-  static func linkSkills(in destination: URL, name: String? = nil, explicitTools: [Tool]?) throws {
-    if explicitTools?.isEmpty == true { return }
-    let fm = FileManager.default
+  struct RepositoryLink: Hashable, Sendable {
+    let tool: Tool
+    let link: URL
+    let target: URL
+  }
+
+  /// Which repository skills link into which tools: the explicit tools, else each skill's `supported_tools`, else
+  /// every enabled tool. When one name has several versions, a tool gets a version only when exactly one version
+  /// lists it. A link that would give an agent two versions is left out too. Every skip comes back as a message.
+  static func linkPlan(in destination: URL, name: String? = nil, explicitTools: [Tool]?,
+                       skills: [Skill]) -> (links: [RepositoryLink], skipped: [String]) {
+    if explicitTools?.isEmpty == true { return ([], []) }
+    struct Found { let folder: URL; let hash: String; let claims: Set<Tool>? }
     let name = name ?? destination.lastPathComponent
-    let skillDirs = skillFolders(in: destination)
-    for skillDir in skillDirs {
-       let skillFile = skillDir.appending(path: "SKILL.md")
-       guard skillFile.resolvingSymlinksInPath().path.hasPrefix(destination.resolvingSymlinksInPath().path + "/") else { continue }
-       let markdown = (try? String(contentsOf: skillFile, encoding: .utf8)) ?? ""
-       let frontmatter = Frontmatter.parse(markdown)
-
-       var toolsToLink = Tool.enabled
-       if let explicit = explicitTools {
-          toolsToLink = explicit
-       } else if let supported = frontmatter["supported_tools"] {
-          let names = supported.replacingOccurrences(of: "[", with: "").replacingOccurrences(of: "]", with: "").split(separator: ",").map { $0.trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: "\"'"))) }
-          toolsToLink = names.compactMap { Tool(argument: $0) }
-       }
-
-
-       let fallbackName = skillDir == destination ? name : skillDir.lastPathComponent
-       let linkName = slug(frontmatter["name"] ?? fallbackName)
-
-       // Managed folders aren't read by agents, so each requested tool needs its own link.
-       for tool in toolsToLink {
-          let link = tool.skillsFolder.appending(path: linkName)
-          if !exists(link) {
-            try fm.createDirectory(at: tool.skillsFolder, withIntermediateDirectories: true)
-            try fm.createSymbolicLink(at: link, withDestinationURL: skillDir)
-          }
-       }
+    let base = destination.resolvingSymlinksInPath().path + "/"
+    var groups: [String: (id: Skill.ID, found: [Found])] = [:]
+    var skipped: [String] = []
+    for folder in skillFolders(in: destination).sorted(by: { $0.path < $1.path }) {
+      let file = folder.appending(path: "SKILL.md")
+      guard file.resolvingSymlinksInPath().path.hasPrefix(base) else { continue }
+      let markdown = (try? String(contentsOf: file, encoding: .utf8)) ?? ""
+      let frontmatter = Frontmatter.parse(markdown)
+      let linkName = slug(frontmatter["name"] ?? (folder == destination ? name : folder.lastPathComponent))
+      guard !linkName.isEmpty else {
+        skipped.append("\(Paths.abbreviate(folder)): not linked, since its name has no letters or digits.")
+        continue
+      }
+      let id = frontmatter["name"].flatMap { $0.isEmpty ? nil : $0 } ?? linkName
+      groups[linkName, default: (id, [])].found.append(Found(folder: folder, hash: shortHash(markdown),
+        claims: SkillVersions.supportedTools(frontmatter)))
     }
+    let ordered: (Set<Tool>) -> [Tool] = { set in Tool.allCases.filter(set.contains) }
+    var links: [RepositoryLink] = []
+    var planned: [PlannedCopy] = []
+    for linkName in groups.keys.sorted() {
+      let (id, found) = groups[linkName]!
+      var versions: [Found] = []
+      for item in found where !versions.contains(where: { $0.hash == item.hash }) { versions.append(item) }
+      var chosen: [(Tool, Found)] = []
+      if versions.count == 1 {
+        chosen = (explicitTools ?? versions[0].claims.map(ordered) ?? Tool.enabled).map { ($0, versions[0]) }
+      } else {
+        let claimed = versions.reduce(into: Set<Tool>()) { $0.formUnion($1.claims ?? []) }
+        var unclear: [Tool] = []
+        for tool in explicitTools ?? (claimed.isEmpty ? Tool.enabled : ordered(claimed)) {
+          let claimants = versions.filter { $0.claims?.contains(tool) == true }
+          if claimants.count == 1 { chosen.append((tool, claimants[0])) } else { unclear.append(tool) }
+        }
+        if !unclear.isEmpty {
+          skipped.append("\(linkName): this repository has \(versions.count) versions, and no single one lists \(unclear.map(\.name).formatted()) in supported_tools. Not linked there.")
+        }
+      }
+      for (tool, item) in chosen {
+        let link = tool.skillsFolder.appending(path: linkName)
+        if exists(link) {
+          if link.resolvingSymlinksInPath().path != item.folder.resolvingSymlinksInPath().path {
+            skipped.append("\(linkName): \(Paths.abbreviate(link)) already exists. Not linked to \(tool.name).")
+          }
+          continue
+        }
+        links.append(RepositoryLink(tool: tool, link: link, target: item.folder))
+        planned.append(PlannedCopy(skillID: id, folder: link, contentHash: item.hash))
+      }
+    }
+    // Leaving out every link the agent would read keeps it at what it reads today.
+    for conflict in SkillVersions.newConflicts(skills: skills, adding: planned, removing: []) {
+      let keys = Set(planned.filter { $0.skillID == conflict.skillID && $0.readBy.contains(conflict.tool) }.map { SkillVersions.key($0.folder) })
+      let tools = links.filter { keys.contains(SkillVersions.key($0.link)) }.map(\.tool)
+      guard !tools.isEmpty else { continue }
+      links.removeAll { keys.contains(SkillVersions.key($0.link)) }
+      skipped.append("\(SkillVersions.message(conflict, adding: planned)) Not linked to \(tools.map(\.name).formatted()).")
+    }
+    return (links, skipped)
+  }
+
+  /// Creates the links `linkPlan` allows and returns what it skipped, for the caller to show.
+  static func linkSkills(in destination: URL, name: String? = nil, explicitTools: [Tool]?) throws -> [String] {
+    let plan = linkPlan(in: destination, name: name, explicitTools: explicitTools, skills: SkillScanner.scan())
+    let fm = FileManager.default
+    for link in plan.links where !exists(link.link) {
+      try fm.createDirectory(at: link.tool.skillsFolder, withIntermediateDirectories: true)
+      try fm.createSymbolicLink(at: link.link, withDestinationURL: link.target)
+    }
+    return plan.skipped
   }
 
   static func save(markdown: String, fallbackName: String, to target: SaveTarget) throws -> URL {
@@ -736,7 +784,7 @@ enum SkillInstaller {
     var covered = SkillRoot.all[0].readBy
     return tools.filter { tool in
       guard !covered.contains(tool) else { return false }
-      covered.formUnion(SkillRoot.all.first { $0.url == tool.skillsFolder }?.readBy ?? [tool])
+      covered.formUnion(SkillRoot.containing(tool.skillsFolder)?.readBy ?? [tool])
       return true
     }
   }
@@ -866,9 +914,7 @@ extension SkillsetState {
     for index in assignments.indices where assignments[index].members.remove(oldID) != nil {
       assignments[index].members.insert(newID)
     }
-    if let preferred = preferredSources.removeValue(forKey: oldID), !merging {
-      preferredSources[newID] = SkillInstaller.relocatedPath(preferred, folders: movedFolders)
-    }
+    sourcePreferences.move(oldID, to: newID, folders: movedFolders, keep: !merging)
     entries = entries.compactMap { entry in
       let path = SkillInstaller.relocatedPath(entry.path, folders: movedFolders)
       if merging && entry.skillID == oldID && (path == entry.path || !ownedBefore.contains(entry)) { return nil }
@@ -882,7 +928,7 @@ extension SkillsetState {
   }
 
   mutating func relocateFolders(_ folders: [String: String], removedPaths: Set<String>, ownedBefore: Set<SkillsetEntry>) {
-    preferredSources = preferredSources.mapValues { SkillInstaller.relocatedPath($0, folders: folders) }
+    sourcePreferences.relocate(folders)
     entries = entries.filter { !removedPaths.contains($0.path) }.map { entry in
       migratedEntry(entry, id: entry.skillID, path: SkillInstaller.relocatedPath(entry.path, folders: folders),
         movedFolders: folders, ownedBefore: ownedBefore)
@@ -892,7 +938,7 @@ extension SkillsetState {
   /// After a move into the Library: saved sources and recorded link targets follow the moved folders, while
   /// each receipt keeps its own path, which now holds a link.
   mutating func relocateSources(_ folders: [String: String], ownedBefore: Set<SkillsetEntry>) {
-    preferredSources = preferredSources.mapValues { SkillInstaller.relocatedPath($0, folders: folders) }
+    sourcePreferences.relocate(folders)
     entries = entries.map { entry in
       let moved = folders.keys.contains(entry.path)
       return migratedEntry(entry, id: entry.skillID, path: entry.path, movedFolders: folders, ownedBefore: ownedBefore, refreshContents: moved)
@@ -927,6 +973,8 @@ extension SkillInstaller {
     case available(URL)
     case ready(URL)
     case conflict(AddConflict)
+    /// Adding would give an agent a second version of the skill; the message names it.
+    case versionConflict(String)
   }
 
   static func addPreview(_ skill: Skill, to tool: Tool, from source: SkillCopy) throws -> AddPreview {
@@ -941,7 +989,14 @@ extension SkillInstaller {
         && $0.folder.resolvingSymlinksInPath().path == source.resolved.path
         && FileManager.default.fileExists(atPath: $0.folder.appending(path: "SKILL.md").path)
     }) { return .available(source.resolved) }
-    let destination = tool.skillsFolder.appending(path: source.resolved.lastPathComponent)
+    let name = slug(skill.name)
+    guard !name.isEmpty else { throw InstallFailure.invalidSkill }
+    let destination = tool.skillsFolder.appending(path: name)
+    let planned = PlannedCopy(skillID: skill.id, folder: destination, contentHash: source.contentHash)
+    let replacing: Set<String> = exists(destination) ? [SkillVersions.key(destination)] : []
+    if let conflict = SkillVersions.newConflicts(skills: [skill], adding: [planned], removing: replacing).first {
+      return .versionConflict(SkillVersions.message(conflict, adding: [planned]))
+    }
     if exists(destination) {
       if destination.resolvingSymlinksInPath().path == source.resolved.path { return .available(destination) }
       guard !isManaged(destination.deletingLastPathComponent()) else { throw Failure.managed(destination) }
@@ -969,6 +1024,7 @@ extension SkillInstaller {
       switch try addPreview(skill, to: request.tool, from: source) {
       case .available(let folder): outcome = .available(folder)
       case .conflict(let conflict): outcome = .conflict(conflict)
+      case .versionConflict(let message): outcome = .failed(message)
       case .ready: outcome = .added(try add(skill, to: request.tool, from: source))
       }
       return SkillAddResult(request: request, outcome: outcome)

@@ -36,7 +36,10 @@ enum SkillScanner {
           copiesInRoot[name, default: []].append(copy)
         } else {
           let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
-          let identity = plugin.map { "\(name)|\($0.marketplace)|\($0.name)" } ?? name
+          // Copies with different content in one agent folder are two versions that agent reads, so both stay
+          // visible. A plugin cache keeps old plugin versions, which no agent reads, so only the newest counts.
+          let identity = plugin.map { "\(name)|\($0.marketplace)|\($0.name)" }
+            ?? (root.kind == .plugin ? name : "\(name)|\(copy.contentHash)")
           if let existing = newestInRoot[identity], existing.modified >= modified { continue }
           newestInRoot[identity] = (name, copy, modified)
         }

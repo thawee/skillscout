@@ -342,7 +342,7 @@ enum Commands {
         continue
       }
       let destination = try SkillInstaller.add(skill, to: tool)
-      covered.formUnion(SkillRoot.all.first { $0.url == tool.skillsFolder }?.readBy ?? [tool])
+      covered.formUnion(SkillRoot.containing(tool.skillsFolder)?.readBy ?? [tool])
       let verb = skill.isPluginOnly ? "Copied" : "Linked"
       print("\(verb) \(skill.name) into \(Paths.abbreviate(destination.deletingLastPathComponent())) for \(Terminal.tint(tool.name, tool))")
       added += 1
@@ -564,7 +564,7 @@ enum Commands {
     let destination: URL
     do {
       // Download into the Library first, which agents don't read, so the files can be reviewed before linking.
-      destination = try await SkillInstaller.install(source: source, explicitTools: [], ref: ref)
+      destination = try await SkillInstaller.install(source: source, ref: ref)
     } catch {
       Terminal.clearStatus()
       throw error
@@ -591,7 +591,7 @@ enum Commands {
         return
       }
     }
-    try SkillInstaller.linkSkills(in: destination, explicitTools: explicit)
+    for message in try SkillInstaller.linkSkills(in: destination, explicitTools: explicit) { print("  \(Terminal.warn("!"))  \(message)") }
   }
 
   static func update(_ args: Arguments) async throws {

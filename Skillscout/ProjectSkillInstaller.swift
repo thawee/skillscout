@@ -23,7 +23,7 @@ struct ProjectSkillPlan {
   var sourcePaths: [String] { Array(Set(changes.compactMap(\.sourcePath))).sorted() }
 
   fileprivate let skills: [Skill]
-  fileprivate let preferredSources: [Skill.ID: String]
+  fileprivate let preferences: SourcePreferences
   fileprivate let baseline: ProjectState
   fileprivate var observations: [String] = []
 }
@@ -50,19 +50,19 @@ enum ProjectInstallFailure: LocalizedError {
 extension SkillInstaller {
   static func projectPlan(project: RegisteredProject, state: ProjectState, skills: [Skill],
                           skillsetID: UUID, members: Set<Skill.ID>, target: ProjectSkillTarget,
-                          preferredSources: [Skill.ID: String] = [:]) -> ProjectSkillPlan {
+                          preferences: SourcePreferences = SourcePreferences()) -> ProjectSkillPlan {
     var assignments = state.assignments.filter {
       !($0.projectID == project.id && $0.skillsetID == skillsetID && $0.target == target && $0.individualSkillID == nil)
     }
     assignments.append(ProjectSkillsetAssignment(projectID: project.id, skillsetID: skillsetID,
                                                  target: target, members: members))
     return makeProjectPlan(project: project, state: state, skills: skills, assignments: assignments,
-                           target: target, preferredSources: preferredSources)
+                           target: target, preferences: preferences)
   }
 
   static func projectSkillsPlan(project: RegisteredProject, state: ProjectState, skills: [Skill],
                                 skillIDs: Set<Skill.ID>, target: ProjectSkillTarget,
-                                preferredSources: [Skill.ID: String] = [:]) -> ProjectSkillPlan {
+                                preferences: SourcePreferences = SourcePreferences()) -> ProjectSkillPlan {
     var assignments = state.assignments
     for id in skillIDs.sorted() where !assignments.contains(where: {
       $0.projectID == project.id && $0.target == target && $0.individualSkillID == id
@@ -73,15 +73,15 @@ extension SkillInstaller {
         target: target, members: [id], individualSkillID: id))
     }
     return makeProjectPlan(project: project, state: state, skills: skills, assignments: assignments,
-      target: target, preferredSources: preferredSources)
+      target: target, preferences: preferences)
   }
 
   static func projectRemoveSkillPlan(project: RegisteredProject, state: ProjectState, skills: [Skill],
                                      skillID: Skill.ID, target: ProjectSkillTarget,
-                                     preferredSources: [Skill.ID: String] = [:]) -> ProjectSkillPlan {
+                                     preferences: SourcePreferences = SourcePreferences()) -> ProjectSkillPlan {
     let assignments = removingProjectSkill(skillID, from: state.assignments, projectID: project.id, target: target)
     return makeProjectPlan(project: project, state: state, skills: skills, assignments: assignments,
-      target: target, preferredSources: preferredSources, intent: .removeSkill(skillID))
+      target: target, preferences: preferences, intent: .removeSkill(skillID))
   }
 
   private static func removingProjectSkill(_ id: Skill.ID, from assignments: [ProjectSkillsetAssignment],
@@ -96,20 +96,20 @@ extension SkillInstaller {
 
   static func projectUnassignPlan(project: RegisteredProject, state: ProjectState, skills: [Skill],
                                   skillsetID: UUID, target: ProjectSkillTarget,
-                                  preferredSources: [Skill.ID: String] = [:]) -> ProjectSkillPlan {
+                                  preferences: SourcePreferences = SourcePreferences()) -> ProjectSkillPlan {
     let assignments = state.assignments.filter {
       !($0.projectID == project.id && $0.skillsetID == skillsetID && $0.target == target)
     }
     return makeProjectPlan(project: project, state: state, skills: skills, assignments: assignments,
-                           target: target, preferredSources: preferredSources)
+                           target: target, preferences: preferences)
   }
 
   private static func makeProjectPlan(project: RegisteredProject, state: ProjectState, skills: [Skill],
                                       assignments: [ProjectSkillsetAssignment], target: ProjectSkillTarget,
-                                      preferredSources: [Skill.ID: String], intent: ProjectPlanIntent = .reconcile) -> ProjectSkillPlan {
+                                      preferences: SourcePreferences, intent: ProjectPlanIntent = .reconcile) -> ProjectSkillPlan {
     let proposed = assignments.filter { $0.projectID == project.id && $0.target == target }
     var plan = ProjectSkillPlan(project: project, target: target, intent: intent, proposedAssignments: proposed,
-                               skills: skills, preferredSources: preferredSources, baseline: state)
+                               skills: skills, preferences: preferences, baseline: state)
     do {
       guard state.pending == nil else { throw ProjectInstallFailure.pendingOperation }
       guard state.projects.contains(project) else { throw ProjectInstallFailure.unsafe("Register this project before applying skills.") }
@@ -160,7 +160,7 @@ extension SkillInstaller {
           continue
         }
         do {
-          let (source, fingerprint) = try projectSource(skill, preferredSources: preferredSources)
+          let (source, fingerprint) = try projectSource(skill, preferences: preferences)
           plan.observations.append("source:\(id):\(source.path):\(fingerprint)")
           if projectExists(destination) {
             if let receipt {
@@ -215,7 +215,7 @@ extension SkillInstaller {
     guard scope(state) == scope(plan.baseline) else { throw ProjectInstallFailure.stalePreview }
     let current = makeProjectPlan(project: plan.project, state: state, skills: plan.skills,
       assignments: state.assignments.filter { !($0.projectID == plan.project.id && $0.target == plan.target) }
-        + plan.proposedAssignments, target: plan.target, preferredSources: plan.preferredSources, intent: plan.intent)
+        + plan.proposedAssignments, target: plan.target, preferences: plan.preferences, intent: plan.intent)
     guard current.canApply, current.observations == plan.observations,
           current.changes == plan.changes, current.kept == plan.kept else { throw ProjectInstallFailure.stalePreview }
     let steps = plan.changes.map { change in
@@ -458,11 +458,11 @@ extension SkillInstaller {
     return result as URL
   }
 
-  private static func projectSource(_ skill: Skill, preferredSources: [Skill.ID: String]) throws -> (URL, String) {
+  private static func projectSource(_ skill: Skill, preferences: SourcePreferences) throws -> (URL, String) {
     let sources = installableSources(for: skill)
     guard !sources.isEmpty else { throw ProjectInstallFailure.unsafe("This skill has no installable source.") }
     var fingerprints: [(URL, String)] = []
-    let preferred = preferredSources[skill.id].flatMap { path in sources.contains { $0.resolved.path == path } ? path : nil }
+    let preferred = preferences.path(for: skill.id, tool: nil).flatMap { path in sources.contains { $0.resolved.path == path } ? path : nil }
     for copy in sources {
       let source = copy.resolved.standardizedFileURL.resolvingSymlinksInPath()
       if let preferred, preferred != copy.resolved.path { continue }

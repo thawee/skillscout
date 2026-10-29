@@ -179,7 +179,7 @@ struct SkillAddSheet: View {
         }
       }
       if !targets.isEmpty {
-        let readers = Set(targets.flatMap { tool in SkillRoot.all.first(where: { $0.url == tool.skillsFolder })?.readBy ?? [tool] })
+        let readers = Set(targets.flatMap { tool in SkillRoot.containing(tool.skillsFolder)?.readBy ?? [tool] })
         Text("Affected agents · \(store.tools.filter(readers.contains).map(\.name).joined(separator: ", "))")
           .font(.caption).foregroundStyle(.secondary)
         DisabledReaderNotice(readers: readers)
@@ -269,7 +269,12 @@ struct SkillAddSheet: View {
       } else {
         SearchChoice(title: "Source", options:
           [ChoiceOption(value: "", title: "Choose a source")]
-            + choices.map { ChoiceOption(value: $0.resolved.path, title: $0.sourceLabel, detail: $0.visiblePath, symbol: "folder") },
+            + choices.map { source in
+              let version = SkillVersions.title(of: source, in: skill)
+              return ChoiceOption(value: source.resolved.path, title: version ?? source.sourceLabel,
+                detail: version == nil ? source.visiblePath : [source.sourceLabel, source.visiblePath].compactMap { $0 }.joined(separator: " · "),
+                symbol: "folder")
+            },
           selection: Binding(
             get: { sources[skill.id] ?? "" },
             set: { sources[skill.id] = $0; inspect(skill) }
@@ -306,11 +311,12 @@ struct SkillAddSheet: View {
           Button("Replace…") { replacing = result }
         }
       } else {
-        switch try? SkillInstaller.addPreview(skill, to: tool, from: source) {
-        case .available: Text("Already available from this source").foregroundStyle(.secondary)
-        case .ready(let folder): Text("Add at \(Paths.abbreviate(folder))").foregroundStyle(.secondary)
-        case .conflict(let conflict): Text("Existing installation will be kept at \(Paths.abbreviate(conflict.destination))").foregroundStyle(.orange)
-        case nil: Text("Cannot add this source. Refresh review.").foregroundStyle(.orange)
+        switch Result(catching: { try SkillInstaller.addPreview(skill, to: tool, from: source) }) {
+        case .success(.available): Text("Already available from this source").foregroundStyle(.secondary)
+        case .success(.ready(let folder)): Text("Add at \(Paths.abbreviate(folder))").foregroundStyle(.secondary)
+        case .success(.conflict(let conflict)): Text("Existing installation will be kept at \(Paths.abbreviate(conflict.destination))").foregroundStyle(.orange)
+        case .success(.versionConflict(let message)): Text(message).foregroundStyle(.red)
+        case .failure(let error): Text(error.localizedDescription).foregroundStyle(.orange)
         }
       }
     }.font(.caption)

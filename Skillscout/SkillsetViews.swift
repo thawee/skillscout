@@ -351,16 +351,18 @@ struct SkillsetPreview: View {
   @Environment(AppStore.self) private var store
   @Environment(\.dismiss) private var dismiss
   @State private var inspecting: SkillCopy?
+  @State private var choosingVersions: Skill?
 
   var body: some View {
     if store.tools.contains(tool), let skillset = store.skillsets.first(where: { $0.id == skillsetID }) {
       let plan = store.skillsetPreview(skillset, to: tool, assigned: assigned)
       let reviews = plan.additions.reduce(into: [Skill.ID: SkillReview]()) { $0[$1.id] = additionReview($1) }
-      let affected = SkillRoot.all.first { $0.url.standardizedFileURL == tool.skillsFolder.standardizedFileURL }?.readBy ?? [tool]
+      let affected = SkillRoot.containing(tool.skillsFolder)?.readBy ?? [tool]
       VStack(alignment: .leading, spacing: 16) {
         Text("\(assigned ? "Apply" : "Unassign") \(skillset.name) \(assigned ? "to" : "from") \(tool.name)")
           .font(.headline)
-        Text("Add \(plan.additions.count) · Keep \(plan.kept) existing · Remove up to \(plan.removals.count)")
+        Text("Add \(plan.additions.count) · Keep \(plan.kept) existing · Remove up to \(plan.removals.count)"
+          + (plan.skipped.isEmpty ? "" : " · Skip \(plan.skipped.count)"))
         Text("Affected agents: \(store.tools.filter(affected.contains).map(\.name).formatted())")
           .font(.caption).foregroundStyle(.secondary)
         DisabledReaderNotice(readers: Set(affected))
@@ -373,7 +375,7 @@ struct SkillsetPreview: View {
                 Label("Add \(skill.name): \(review.summary.lowercased())", systemImage: "exclamationmark.triangle")
                   .foregroundStyle(.orange)
                   .help("Read this source's contents before applying.")
-                if let source = SkillInstaller.skillsetSource(skill, preferredSources: store.preferredSources) {
+                if let source = SkillInstaller.skillsetSource(skill, for: tool, preferences: store.sourcePreferences) {
                   Button("Inspect \(skill.name) contents") { inspecting = source }
                 }
               } else {
@@ -381,6 +383,7 @@ struct SkillsetPreview: View {
               }
             }
             ForEach(plan.removals, id: \.path) { Label("Remove \($0.skillID)", systemImage: "minus") }
+            ForEach(plan.skipped, id: \.self) { Label("Skip \($0): this agent is set to skip it", systemImage: "forward") }
             ForEach(plan.issueDetails) { issue in
               VStack(alignment: .leading, spacing: 6) {
                 Label(issue.message, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
@@ -417,6 +420,7 @@ struct SkillsetPreview: View {
       .disabled(store.isManagingSkillsets)
       .interactiveDismissDisabled(store.isManagingSkillsets)
       .sheet(item: $inspecting) { SkillContentsSheet(source: $0) }
+      .sheet(item: $choosingVersions) { SkillVersionPicker(skill: $0) }
     } else {
       VStack(alignment: .leading, spacing: 12) {
         Text("This destination is disabled. Enable it in Settings and open a new preview.")
@@ -442,6 +446,13 @@ struct SkillsetPreview: View {
           }
         }
       }
+    case .chooseVersions, .versionConflict:
+      if let skill = store.skill(issue.skillID), SkillVersions.versions(of: skill).count > 1 {
+        Button("Choose versions…") { choosingVersions = skill }
+      }
+    case .existingVersions(_, let folders):
+      Button("Show conflicting copies") { Finder.reveal(folders) }
+        .help("Move one copy to Trash or make the copies match. Choosing versions can't change copies that are already installed.")
     case .differentContent(let folder), .destination(let folder):
       Button("Open existing copy") { Finder.reveal(folder) }
     case .builtIn:
@@ -451,10 +462,134 @@ struct SkillsetPreview: View {
 
   /// The review of an addition's source when it comes from a downloaded repository and needs a look.
   private func additionReview(_ skill: Skill) -> SkillReview? {
-    guard let source = SkillInstaller.skillsetSource(skill, preferredSources: store.preferredSources),
+    guard let source = SkillInstaller.skillsetSource(skill, for: tool, preferences: store.sourcePreferences),
           SkillInstaller.isFromLibrary(source) else { return nil }
     let review = SkillReview.inspect(source.resolved)
     return review.needsReview ? review : nil
+  }
+}
+
+/// Which version of a skill each enabled agent gets. An agent that reads another agent's skills folder takes that
+/// agent's version, and a choice that would still leave an agent reading two versions can't be saved.
+struct SkillVersionPicker: View {
+  let skill: Skill
+  @Environment(AppStore.self) private var store
+  @Environment(\.dismiss) private var dismiss
+  @State private var choice = VersionChoice()
+  @State private var inspecting: SkillCopy?
+  @State private var saveFailed = false
+
+  private enum Pick: Hashable { case later, skip, version(Int) }
+
+  var body: some View {
+    let versions = SkillVersions.versions(of: skill)
+    let titles = SkillVersions.titles(for: skill)
+    let resolved = SkillVersions.resolve(choice)
+    let problems = SkillVersions.choiceProblems(for: skill, choice: choice, skills: store.skills)
+    let installed = SkillVersions.installedVersions(of: skill)
+    VStack(alignment: .leading, spacing: 14) {
+      Text("Choose versions of \(skill.name)").font(.headline)
+      Text("Each agent reads one version. An agent that reads another agent's folder gets the same one.")
+        .font(.callout).foregroundStyle(.secondary)
+      ForEach(versions.indices, id: \.self) { index in
+        HStack(alignment: .top) {
+          VStack(alignment: .leading, spacing: 2) {
+            Text("\(index + 1). \(titles[index])")
+            Text("\(versions[index][0].sourceLabel) · \(Paths.abbreviate(versions[index][0].resolved))")
+              .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+          }
+          Spacer()
+          Button("Show contents") { inspecting = versions[index][0] }.controlSize(.small)
+        }
+      }
+      Divider()
+      ScrollView {
+        VStack(alignment: .leading, spacing: 10) {
+          ForEach(store.tools, id: \.self) { tool in
+            VStack(alignment: .leading, spacing: 4) {
+              if let leaders = resolved[tool]?.follows, !leaders.isEmpty {
+                Text(tool.name).font(.caption).foregroundStyle(.secondary)
+                Text(followText(leaders, version: resolved[tool]?.version, titles: titles)).font(.callout)
+              } else {
+                SearchChoice(title: tool.name, options: options(titles), selection: pick(tool))
+              }
+              if let reading = installed[tool], let version = resolved[tool]?.version, !reading.contains(version) {
+                Text("Already reads \(reading.sorted().map { "version \($0 + 1)" }.formatted()), which stays until you change that copy.")
+                  .font(.caption).foregroundStyle(.secondary)
+              }
+              ForEach(problems[tool] ?? [], id: \.self) { Text($0).font(.caption).foregroundStyle(.red) }
+            }
+          }
+          let shown = Set(store.tools.flatMap { problems[$0] ?? [] })
+          ForEach(Set(problems.values.joined()).subtracting(shown).sorted(), id: \.self) {
+            Text($0).font(.caption).foregroundStyle(.red)
+          }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+      }
+      .frame(maxHeight: 320)
+      if saveFailed { Text("Couldn't save these choices. Try again.").font(.callout).foregroundStyle(.red) }
+      HStack {
+        Spacer()
+        Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+        Button("Save") { save(versions: versions, resolved: resolved) }
+          .buttonStyle(.borderedProminent)
+          .keyboardShortcut(.defaultAction)
+          .disabled(!problems.isEmpty)
+      }
+    }
+    .padding(24)
+    .frame(width: 540)
+    .onAppear { choice = initialChoice() }
+    .sheet(item: $inspecting) { SkillContentsSheet(source: $0) }
+  }
+
+  /// "Decide later" means the shared preferred source when the skill has one, so the option says so.
+  private func options(_ titles: [String]) -> [ChoiceOption<Pick>] {
+    let later = choice.fallback.map { ChoiceOption(value: Pick.later, title: "Preferred source", detail: "\($0 + 1). \(titles[$0])") }
+      ?? ChoiceOption(value: Pick.later, title: "Decide later", detail: "Applying asks again")
+    return [later, ChoiceOption(value: .skip, title: "Skip", detail: "Skillsets leave this agent without it")]
+      + titles.indices.map { ChoiceOption(value: Pick.version($0), title: "\($0 + 1). \(titles[$0])", symbol: "folder") }
+  }
+
+  private func pick(_ tool: Tool) -> Binding<Pick> {
+    Binding(get: {
+      if choice.skipped.contains(tool) { return .skip }
+      return choice.own[tool].map(Pick.version) ?? .later
+    }, set: { pick in
+      choice.skipped.remove(tool)
+      choice.own[tool] = nil
+      switch pick {
+      case .later: break
+      case .skip: choice.skipped.insert(tool)
+      case .version(let index): choice.own[tool] = index
+      }
+    })
+  }
+
+  private func followText(_ leaders: [Tool], version: Int?, titles: [String]) -> String {
+    let folders = Set(leaders.map { Paths.abbreviate($0.skillsFolder) }).sorted().formatted()
+    guard let version else { return "Reads \(folders), which get different versions" }
+    return "Same as \(leaders.map(\.name).formatted()) (reads \(folders)): \(version + 1). \(titles[version])"
+  }
+
+  /// An agent that follows another saves nothing of its own, so it keeps following when that agent's choice changes.
+  private func save(versions: [[SkillCopy]], resolved: [Tool: Resolution]) {
+    let leading = store.tools.filter { resolved[$0]?.follows.isEmpty != false }
+    let paths = Dictionary(uniqueKeysWithValues: leading.compactMap { tool in
+      choice.own[tool].flatMap { versions.indices.contains($0) ? (tool, versions[$0][0].resolved.path) : nil }
+    })
+    if store.setAgentSources(paths, skipped: choice.skipped.intersection(leading), for: skill, tools: store.tools) {
+      dismiss()
+    } else {
+      saveFailed = true
+    }
+  }
+
+  /// Saved choices, with suggestions for the agents without one.
+  private func initialChoice() -> VersionChoice {
+    let saved = SkillVersions.savedChoice(for: skill, preferences: store.sourcePreferences)
+    return SkillVersions.suggestedChoice(for: skill, tools: store.tools, skills: store.skills, keeping: saved)
   }
 }
 
