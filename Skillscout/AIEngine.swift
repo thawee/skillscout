@@ -131,7 +131,7 @@ actor ShellEnvironment {
     return environment
   }
 
-  private func loginShellPath() -> String? {
+  func loginShellPath() -> String? {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh")
     process.arguments = ["-lic", "echo \"__PATH__$PATH\""]

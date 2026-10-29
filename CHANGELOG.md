@@ -1,11 +1,11 @@
 # Changelog
 
-## Unreleased
+## 2.1.0
 
 ### Changed
 
-- Skillscout Mod is now **Quartermaster**, with the bundle ID `com.thawee.quartermaster` and version 2.0.0. Skillscout Mod can't update to it on its own; download it once. On first launch it moves the Library from `~/.config/skillscout` to `~/.config/quartermaster`, leaves a link at the old path, points the agents' links and saved paths at the new folder, and copies data from `~/Library/Application Support/Skillscout Mod` and settings from Skillscout Mod.
-- The command is `quartermaster`, with `qm` for short. **Install Command Line Tool…** links both, keeps a `skillscout-mod` link for old scripts, and leaves a name another program installed alone. The release zip is `Quartermaster-<version>.zip`.
+- Skillscout Mod is now **Quartermaster**, with the bundle ID `com.thawee.quartermaster` and version 2.1.0 (2.0.0 was never published). Skillscout Mod can't update to it on its own; download it once. On first launch it moves the Library from `~/.config/skillscout` to `~/.config/quartermaster`, leaves a link at the old path, points the agents' links and saved paths at the new folder, and copies data from `~/Library/Application Support/Skillscout Mod` and settings from Skillscout Mod.
+- The command is `quartermaster`, with `qm` for short. **Install Command Line Tool…** links both, keeps a `skillscout-mod` link for old scripts, and leaves a name another program installed alone. It links into `~/.local/bin` or `/opt/homebrew/bin` when either is on your shell's `PATH` and writable, and asks for a password for `/usr/local/bin` only when neither is. The release zip is `Quartermaster-<version>.zip`.
 - The sidebar fits more: Global's agent rows fold under **Agents** (folded by default, opened when you select an agent), and the status panel is three short lines with per-agent message counts in its tooltip, so Skillsets and Ideas stay in view in a small window.
 - In Global, each **Remove from…** action sits in the card of the copy it removes, under the agents that read it, instead of above the skill's details. The skill detail no longer repeats the toolbar's **Add skills…** and **Add to skillset**.
 - Suggestions, Similar skills, Chat activity and each skillset show their own name in the window title instead of "Skills". Discovery's choices read **Git**, **Folders** and **skills.sh**, so none wraps. An empty Projects list says so in one line under its header. Agent badges are slightly tighter.

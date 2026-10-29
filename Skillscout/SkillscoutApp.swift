@@ -36,7 +36,7 @@ struct SkillscoutApp: App {
         }
       }
       CommandGroup(after: .appSettings) {
-        Button("Install Command Line Tool…") { CommandLineTool.install() }
+        Button("Install Command Line Tool…") { Task { await CommandLineTool.install() } }
       }
       CommandGroup(after: .textEditing) {
         Button("Find…") { store.searchRequests += 1 }

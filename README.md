@@ -293,7 +293,7 @@ After your first run, Quartermaster analyzes again on its own once you've sent 4
 
 ## The command line tool
 
-Quartermaster comes with a `quartermaster` command, and `qm` for short. To install them, open the app menu and choose **Install Command Line Tool…**. It links the command inside the app into `/usr/local/bin` as `quartermaster`, `qm` and `skillscout-mod`, the old name, and asks for your password if that folder needs it. A `qm` or `skillscout-mod` that belongs to another program stays as it is.
+Quartermaster comes with a `quartermaster` command, and `qm` for short. To install them, open the app menu and choose **Install Command Line Tool…**. It links the command inside the app as `quartermaster`, `qm` and `skillscout-mod`, the old name, into the first of `~/.local/bin`, `/opt/homebrew/bin` and `/usr/local/bin` that is on your shell's `PATH` and needs no password. If none does, it uses `/usr/local/bin` and asks for your password. A `qm` or `skillscout-mod` that belongs to another program stays as it is.
 
 The command reads the same skills and chats as the app, and follows its settings, like which agents are on and how many days of chats to read.
 
@@ -506,8 +506,8 @@ swift scripts/render-banner.swift
 To publish a release, set `MARKETING_VERSION` and bump `CURRENT_PROJECT_VERSION` in `project.yml`, write the notes in `docs/releases/vX.Y.Z.md` with the new features above `## Install`, commit, and push the tag:
 
 ```sh
-git tag -a v2.0.0 -m "Quartermaster 2.0.0"
-git push origin v2.0.0
+git tag -a v2.1.0 -m "Quartermaster 2.1.0"
+git push origin v2.1.0
 ```
 
 The Release workflow checks that the tag matches the version, runs the unit tests, builds the universal zip and publishes the GitHub release with it. To publish a tag that was pushed before the workflow existed, run the workflow from the Actions tab with that tag.
